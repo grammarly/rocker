@@ -36,6 +36,8 @@ UPLOAD_CMD = $(GITHUB_RELEASE) upload \
 SRCS = $(shell git ls-files '*.go' | grep -v '^vendor/')
 PKGS := $(foreach pkg, $(sort $(dir $(SRCS))), ./$(pkg))
 
+export GOPATH = $(shell pwd):$(shell pwd)/vendor
+
 all: $(ALL_BINARIES)
 	$(foreach BIN, $(BINARIES), $(shell cp dist/$(VERSION)/$(shell go env GOOS)/amd64/$(BIN) dist/$(BIN)))
 
