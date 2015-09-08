@@ -1,0 +1,10 @@
+language: go
+sudo: required
+services:
+  - docker
+go:
+  - 1.5
+env:
+  - GOARCH=amd64
+script:
+  - make test
