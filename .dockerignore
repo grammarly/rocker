@@ -6,3 +6,4 @@ Rockerfile
 pkg
 vendor/pkg
 Rockerfile.exec
+Rockerfile.build-cross

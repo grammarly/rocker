@@ -56,7 +56,7 @@ release: $(ALL_TARS)
 tar: $(ALL_TARS)
 
 %.tar.gz: %
-	COPYFILE_DISABLE=1 tar -jcvf $@ -C dist/$(VERSION)/$(call os,$<)/$(call arch,$<) $(call bin,$<)
+	COPYFILE_DISABLE=1 tar -zcvf $@ -C dist/$(VERSION)/$(call os,$<)/$(call arch,$<) $(call bin,$<)
 
 $(ALL_BINARIES): build_image
 	docker run --rm -ti -v $(shell pwd)/dist:/src/dist \
