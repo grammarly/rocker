@@ -7,4 +7,5 @@ go:
 env:
   - GOARCH=amd64
 script:
+  - env
   - make test
