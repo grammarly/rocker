@@ -23,7 +23,7 @@ import (
 	"strings"
 )
 
-// Info is the data structure that describes info taken from the current .git repo
+// InfoData is the data structure that describes info taken from the current .git repo
 type InfoData struct {
 	Sha      string
 	Branch   string
