@@ -79,7 +79,7 @@ clean:
 	rm -Rf dist
 
 fmtcheck:
-	$(foreach file,$(SRCS),gofmt $(file) | diff -u $(file) - || exit;)
+	$(foreach file,$(SRCS),goimports $(file) | diff -u $(file) - || exit;)
 
 lint:
 	@ go get -v github.com/golang/lint/golint
