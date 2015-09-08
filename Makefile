@@ -15,7 +15,7 @@ GITHUB_RELEASE := docker run --rm -ti \
 											-e GITHUB_TOKEN=$(GITHUB_TOKEN) \
 											-v /etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-certificates.crt \
 											-v $(shell pwd)/dist:/dist \
-											dockerhub.grammarly.io/tools/github-release
+											dockerhub.grammarly.io/tools/github-release:master
 
 ALL_ARCHS := $(foreach os, $(OSES), $(foreach arch, $(ARCHS), $(os)/$(arch) ))
 ALL_BINARIES := $(foreach arch, $(ALL_ARCHS), $(foreach bin, $(BINARIES), dist/$(VERSION)/$(arch)/$(bin) ))
