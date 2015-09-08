@@ -7,5 +7,4 @@ go:
 env:
   - GOARCH=amd64
 script:
-  - env
-  - make test
+  - echo $DOCKER_HOST && make test
