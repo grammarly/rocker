@@ -83,11 +83,13 @@ fmtcheck:
 
 lint:
 	@ go get -v github.com/golang/lint/golint
-	$(foreach file,$(SRCS),golint $(file) || exit;)
+	@ go get github.com/GeertJohan/fgt
+	$(foreach file,$(SRCS),fgt golint $(file) || exit;)
 
 vet:
 	@-go get -v golang.org/x/tools/cmd/vet
-	$(foreach pkg,$(PKGS),go vet $(pkg);)
+	@ go get github.com/GeertJohan/fgt
+	$(foreach pkg,$(PKGS),fgt go vet $(pkg) || exit;)
 
 gocyclo:
 	@ go get -v github.com/fzipp/gocyclo
