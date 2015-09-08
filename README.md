@@ -1,6 +1,6 @@
 # rocker
 
-Rocker breaks the limits of Dockerfile. It adds some crucial features that are missing while keeping Docker’s original design and idea. Let’s take a look at those features.
+Rocker breaks the limits of Dockerfile. It adds some crucial features that are missing while keeping Docker’s original design and idea. Read the [blog post](http://tech.grammarly.com/blog/posts/Making-Docker-Rock-at-Grammarly.html) about how and why it was invented.
 
 * [Installation](#installation)
 * [Rockerfile](#rockerfile)
