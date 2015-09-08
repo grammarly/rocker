@@ -1,0 +1,31 @@
+FROM dockerhub.grammarly.io/golang-1.4.2-cross:v2
+
+REQUIRE Version
+
+ADD . /src
+WORKDIR /src
+
+RUN \
+  TIME=$(date "+%Y-%m-%d %H:%M GMT") \
+  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOPATH=/src:/src/vendor \
+  go build \
+    -a -installsuffix cgo \
+    -ldflags "-X main.Version '{{ .Version }}' -X main.GitCommit '$commit' -X main.GitBranch '$branch' -X main.BuildTime '$TIME'" \
+    -v -o /bin/rocker src/cmd/rocker/main.go
+
+EXPORT /bin/rocker
+
+#========
+
+FROM alpine:3.2
+
+RUN apk --update add git bash
+
+IMPORT rocker /bin
+
+WORKDIR /context
+
+CMD ["/bin/rocker"]
+
+PUSH dockerhub.grammarly.io/rocker
+PUSH dockerhub.grammarly.io/rocker:{{ .Version }}

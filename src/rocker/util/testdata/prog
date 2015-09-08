@@ -1,0 +1,8 @@
+#!/bin/bash
+for i in {1..5}; do
+  echo "$i stdout"
+  >&2 echo "$i stderr"
+  sleep .05
+done
+
+exit $1

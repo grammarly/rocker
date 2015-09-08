@@ -1,0 +1,100 @@
+{
+	"version": 0,
+	"dependencies": [
+		{
+			"importpath": "github.com/go-yaml/yaml",
+			"repository": "https://github.com/go-yaml/yaml",
+			"revision": "7ad95dd0798a40da1ccdff6dff35fd177b5edf40",
+			"branch": "v2"
+		},
+		{
+			"importpath": "github.com/stretchr/testify",
+			"repository": "https://github.com/stretchr/testify",
+			"revision": "089c7181b8c728499929ff09b62d3fdd8df8adff",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/fsouza/go-dockerclient",
+			"repository": "https://github.com/fsouza/go-dockerclient",
+			"revision": "eeaf15461b1f9d4ed2ffbd1ae1afde4b66527fd4",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/codegangsta/cli",
+			"repository": "https://github.com/codegangsta/cli",
+			"revision": "f9982619ccace7df963bb7f6d1de3a6f014ff709",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/kr/pretty",
+			"repository": "https://github.com/kr/pretty",
+			"revision": "e6ac2fc51e89a3249e82157fa0bb7a18ef9dd5bb",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/term",
+			"repository": "https://github.com/docker/docker",
+			"revision": "f5ebcfe1dcc1974425155ae9d85a750573af9625",
+			"branch": "master",
+			"path": "/pkg/term"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/signal",
+			"repository": "https://github.com/docker/docker",
+			"revision": "f5ebcfe1dcc1974425155ae9d85a750573af9625",
+			"branch": "master",
+			"path": "/pkg/signal"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/jsonmessage",
+			"repository": "https://github.com/docker/docker",
+			"revision": "f5ebcfe1dcc1974425155ae9d85a750573af9625",
+			"branch": "master",
+			"path": "/pkg/jsonmessage"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/timeutils",
+			"repository": "https://github.com/docker/docker",
+			"revision": "f5ebcfe1dcc1974425155ae9d85a750573af9625",
+			"branch": "master",
+			"path": "/pkg/timeutils"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/units",
+			"repository": "https://github.com/docker/docker",
+			"revision": "f5ebcfe1dcc1974425155ae9d85a750573af9625",
+			"branch": "master",
+			"path": "/pkg/units"
+		},
+		{
+			"importpath": "github.com/Sirupsen/logrus",
+			"repository": "https://github.com/Sirupsen/logrus",
+			"revision": "07d998d174c4e2dc90e2f1989a20724220bca1ff",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/kr/text",
+			"repository": "https://github.com/kr/text",
+			"revision": "e373e137fafd8abd480af49182dea0513914adb4",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/fatih/color",
+			"repository": "https://github.com/fatih/color",
+			"revision": "1b35f289c47d5c73c398cea8e006b7bcb6234a96",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/shiena/ansicolor",
+			"repository": "https://github.com/shiena/ansicolor",
+			"revision": "264b0566801533988151a23fc5f75d66d831d6ae",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/wmark/semver",
+			"repository": "https://github.com/wmark/semver",
+			"revision": "461c06b538be53cc0339815001a398e29ace025b",
+			"branch": "master"
+		}
+	]
+}

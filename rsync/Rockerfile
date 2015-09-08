@@ -1,0 +1,38 @@
+# This image is used to provide EXPORT/IMPORT functionality for builds
+# Container being imported or exported is attached with --volumes-from
+# from this container and uses /opt/rsync/bin/rsync-static binary to
+# copy files.
+FROM debian:jessie
+
+RUN apt-get update && \
+    apt-get install -y build-essential librsync-dev wget
+
+ENV RSYNC_VERSION=3.1.1
+
+RUN wget https://download.samba.org/pub/rsync/src/rsync-$RSYNC_VERSION.tar.gz
+
+# We cannot build this image with Rocker's IMPORT/EXPORT functions
+# because next image should have VOLUME /opt/rsync/bin
+# but rocker uses the same volume when does rsync in IMPORT/EXPORT
+# That's why we simply use current directory to for artifact exchange
+
+RUN tar xvf rsync-$RSYNC_VERSION.tar.gz
+
+WORKDIR /rsync-$RSYNC_VERSION
+MOUNT .:/context
+
+RUN ./configure --prefix=/usr --without-included-zlib && \
+    make CFLAGS="-static" EXEEXT="-static" && \
+    strip rsync-static && \
+    cp rsync-static /context/rsync
+
+#=============== RUN IMAGE ===============
+
+FROM scratch
+
+VOLUME ["/opt/rsync/bin"]
+ADD rsync /opt/rsync/bin/
+
+CMD ["/opt/rsync/bin/rsync"]
+
+PUSH grammarly/rsync-static:1

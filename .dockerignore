@@ -1,0 +1,8 @@
+.git
+dist
+.dockerignore
+.rockertmp*
+Rockerfile
+pkg
+vendor/pkg
+Rockerfile.exec

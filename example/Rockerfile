@@ -1,0 +1,11 @@
+FROM google/golang:1.4
+ADD . /src
+WORKDIR /src
+RUN CGO_ENABLED=0 go build -a -installsuffix cgo -v -o ball.o ball.go
+EXPORT ball.o
+
+FROM busybox
+IMPORT ball.o /bin/ball
+CMD ["/bin/ball"]
+
+TAG ball:latest

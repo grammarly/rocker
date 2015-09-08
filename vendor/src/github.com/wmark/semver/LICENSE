@@ -1,0 +1,68 @@
+Copyright © 2014 Mark Kubacki.
+All rights reserved.
+
+"You" or "Your" means an individual or a legal entity exercising rights
+under this license. For legal entities, "You" or "Your" includes any
+entity which controls, is controlled by, or is under common control with,
+You, where "control" means (a) the power, direct or indirect, to cause
+the direction or management of such entity, whether by contract or
+otherwise, or (b) ownership of fifty percent (50%) or more of the
+outstanding shares or beneficial ownership of such entity.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+   * Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer.
+
+   * Redistributions in binary form must reproduce the above
+copyright notice, this list of conditions and the following disclaimer
+in the documentation and/or other materials provided with the
+distribution.
+
+   * Neither the name of the copyright holder nor the names of its
+contributors may be used to endorse or promote products derived from
+this software without specific prior written permission.
+
+   * This license will not be construed as creating an agency,
+partnership, joint venture, or any other form of legal association
+between or among You, the copyright holder, or any contributor, and
+You will not represent to the contrary, whether expressly, by
+implication, appearance, or otherwise.
+
+   * You do not conduct, endorse, promote, assist in or authorize
+offenses against privacy. Nor do you train how to do so, or create,
+alter, install, maintain or operate tools with the effect of, intention
+to or designed for the purpose of decreasing privacy, with the exception
+of a communication you are a sender or receiver thereof, or overtly
+monitoring your own premises, or to the absolute unavoidable minimum if
+being a service provider for the sender or receiver and having a specific
+prior written permission of the sender or receiver.
+     Offenses against privacy are, but not limited to:
+   - mass surveillance, "dragnet" surveillance, warrantless wiretapping,
+     wiretapping for preventive purposes, monitoring or interception
+     of communication
+   - collection of communication metadata, collection of or accessing
+   stored communication, obtaining communications information,
+   - tampering with private communications,
+   - decryption of messages,
+   - aural transfer,
+   - or storing, transmitting or accessing metadata and/or messages
+   obtained by a means decreasing and/or offending privacy as expressed
+   above.
+This even applies to telephonic, wired and electronic communication,
+including stored messages, even if no reasonable expection of privacy
+can be assumed, and even if it is deemed being "lawful" to do so.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
