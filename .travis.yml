@@ -14,4 +14,6 @@ install:
   - go get github.com/fzipp/gocyclo
   - go get github.com/constabulary/gb/...
 script:
-  - sudo make test
+  - ls -la /var/run/docker.sock
+  - whoami
+  - make test
