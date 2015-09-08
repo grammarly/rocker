@@ -5,8 +5,6 @@ services:
 go:
   - 1.5
 env:
-  - GOARCH=amd64
-  - DOCKER_HOST=unix:///var/run/docker.sock
+  - GOARCH=amd64 DOCKER_HOST=unix:///var/run/docker.sock
 script:
-  - echo $DOCKER_HOST
   - sudo make test
