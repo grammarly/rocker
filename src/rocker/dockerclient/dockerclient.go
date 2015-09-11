@@ -30,6 +30,11 @@ import (
 	"github.com/fsouza/go-dockerclient"
 )
 
+var (
+	// DefaultEndpoint is the default address of Docker socket
+	DefaultEndpoint = "unix:///var/run/docker.sock"
+)
+
 // Config represents docker client connection parameters
 type Config struct {
 	Host      string
@@ -45,8 +50,13 @@ func NewConfig() *Config {
 	if certPath == "" {
 		certPath = "~/.docker"
 	}
+	host := os.Getenv("DOCKER_HOST")
+	if host == "" {
+		host = DefaultEndpoint
+	}
+	// why NewConfigFromCli default value is not working
 	return &Config{
-		Host:      os.Getenv("DOCKER_HOST"),
+		Host:      host,
 		Tlsverify: os.Getenv("DOCKER_TLS_VERIFY") == "1" || os.Getenv("DOCKER_TLS_VERIFY") == "yes",
 		Tlscacert: certPath + "/ca.pem",
 		Tlscert:   certPath + "/cert.pem",
@@ -57,8 +67,9 @@ func NewConfig() *Config {
 // NewConfigFromCli returns new config with NewConfig overridden cli options
 func NewConfigFromCli(c *cli.Context) *Config {
 	config := NewConfig()
-	if c.GlobalIsSet("tlsverify") {
-		config.Tlsverify = c.GlobalBool("tlsverify")
+	config.Host = globalCliString(c, "host")
+	config.Tlsverify = c.GlobalIsSet("tlsverify")
+	if config.Tlsverify {
 		config.Tlscacert = globalCliString(c, "tlscacert")
 		config.Tlscert = globalCliString(c, "tlscert")
 		config.Tlskey = globalCliString(c, "tlskey")
@@ -89,7 +100,7 @@ func GlobalCliParams() []cli.Flag {
 	return []cli.Flag{
 		cli.StringFlag{
 			Name:   "host, H",
-			Value:  "unix:///var/run/docker.sock",
+			Value:  DefaultEndpoint,
 			Usage:  "Daemon socket(s) to connect to",
 			EnvVar: "DOCKER_HOST",
 		},
