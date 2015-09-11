@@ -45,6 +45,8 @@ func NewConfig() *Config {
 	if certPath == "" {
 		certPath = "~/.docker"
 	}
+	// TODO: have default value of DOCKER_HOST and investigate
+	// why NewConfigFromCli default value is not working
 	return &Config{
 		Host:      os.Getenv("DOCKER_HOST"),
 		Tlsverify: os.Getenv("DOCKER_TLS_VERIFY") == "1" || os.Getenv("DOCKER_TLS_VERIFY") == "yes",
