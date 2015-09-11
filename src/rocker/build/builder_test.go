@@ -163,7 +163,7 @@ PUSH quay.io/testing_project`
 	builder := &Builder{
 		Rockerfile: tempDir + "/Rockerfile",
 		OutStream:  util.PrefixPipe("[TEST] ", os.Stdout),
-		Vars:       vars,
+		CliVars:    vars,
 		Docker:     client,
 		AddMeta:    true,
 	}
