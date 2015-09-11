@@ -86,7 +86,6 @@ local_binary:
 		-v -o bin/rocker src/cmd/rocker/main.go 
 
 testdeps:
-	# @ go get golang.org/x/tools/cmd/goimports
 	@ go get github.com/GeertJohan/fgt
 	@ go get github.com/constabulary/gb/...
 
