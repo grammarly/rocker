@@ -7,4 +7,5 @@ go:
 env:
   - GOARCH=amd64 DOCKER_HOST=unix:///var/run/docker.sock
 script:
+  - docker -v
   - make test

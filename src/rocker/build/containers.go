@@ -124,22 +124,22 @@ func (builder *Builder) runContainerAttachStdin(containerID string, attachStdin 
 	}
 
 	go func() {
-		fmt.Printf("==== before AttachToContainer %.12s", containerID)
+		fmt.Printf("==== before AttachToContainer %.12s\n", containerID)
 		if err := builder.Docker.AttachToContainer(attachOpts); err != nil {
 			fmt.Fprintf(builder.OutStream, "Got error while attaching to container %s: %s\n", containerID, err)
 		}
-		fmt.Printf("==== after AttachToContainer %.12s", containerID)
+		fmt.Printf("==== after AttachToContainer %.12s\n", containerID)
 	}()
 
-	fmt.Printf("==== before `success <- <-success` for runContainerAttachStdin(%.12s)", containerID)
+	fmt.Printf("==== before `success <- <-success` for runContainerAttachStdin(%.12s)\n", containerID)
 	success <- <-success
-	fmt.Printf("==== after `success <- <-success` for runContainerAttachStdin(%.12s)", containerID)
+	fmt.Printf("==== after `success <- <-success` for runContainerAttachStdin(%.12s)\n", containerID)
 
 	if err := builder.Docker.StartContainer(containerID, &docker.HostConfig{}); err != nil {
 		return err
 	}
 
-	fmt.Printf("==== after StartContainer(%.12s)", containerID)
+	fmt.Printf("==== after StartContainer(%.12s)\n", containerID)
 
 	if attachStdin {
 		if err := builder.monitorTtySize(containerID); err != nil {
@@ -153,9 +153,9 @@ func (builder *Builder) runContainerAttachStdin(containerID string, attachStdin 
 	errch := make(chan error)
 
 	go func() {
-		fmt.Printf("==== before WaitContainer(%.12s)", containerID)
+		fmt.Printf("==== before WaitContainer(%.12s)\n", containerID)
 		statusCode, err := builder.Docker.WaitContainer(containerID)
-		fmt.Printf("==== after WaitContainer(%.12s)", containerID)
+		fmt.Printf("==== after WaitContainer(%.12s)\n", containerID)
 		if err != nil {
 			errch <- err
 		} else if statusCode != 0 {
@@ -165,7 +165,7 @@ func (builder *Builder) runContainerAttachStdin(containerID string, attachStdin 
 		return
 	}()
 
-	fmt.Printf("==== select errch or sigch for %.12s", containerID)
+	fmt.Printf("==== select errch or sigch for %.12s\n", containerID)
 	select {
 	case err := <-errch:
 		if err != nil {
