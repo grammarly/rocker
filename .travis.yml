@@ -3,17 +3,8 @@ sudo: required
 services:
   - docker
 go:
-  - 1.5
+  - 1.5.1
 env:
   - GOARCH=amd64 DOCKER_HOST=unix:///var/run/docker.sock
-install:
-  - go get golang.org/x/tools/cmd/goimports
-  - go get golang.org/x/tools/cmd/vet
-  - go get github.com/golang/lint/golint
-  - go get github.com/GeertJohan/fgt
-  - go get github.com/fzipp/gocyclo
-  - go get github.com/constabulary/gb/...
 script:
-  - ls -la /var/run/docker.sock
-  - whoami
   - make test
