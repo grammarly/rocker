@@ -1,11 +1,26 @@
 language: go
-sudo: required
-services:
-  - docker
+
+sudo: true
+
+env:
+  global:
+    - DOCKER_VERSION=1.8.1  # Install Docker version 1.8.1
+    - DOCKER_VERSION=get.docker.com  # Install Docker using get.docker.com (may break)
+    - BRANCH=stable         # Use 'stable' branch
+    - QUIET=0               # Less verbose logging
+    - UML_FIG=0             # Don't install fig
+    - UML_DOCKERCOMPOSE=0   # Don't install docker-compose
+
+install:
+  # Install https://github.com/moul/travis-docker toolchain
+  - curl -sLo - http://j.mp/install-travis-docker | sh -xe
+
 go:
   - 1.5.1
+
 env:
   - GOARCH=amd64 DOCKER_HOST=unix:///var/run/docker.sock
+
 script:
-  - docker -v
-  - make test
+  - ./travis-run docker -v
+  - ./travis-run make test

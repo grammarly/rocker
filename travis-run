@@ -1,0 +1,52 @@
+#!/bin/sh
+
+# stats
+exit_stats() {
+    set +e
+    set -x
+    df -h
+    ls -la /dev/shm
+    ls -la /run/shm
+    ls -la /run/lock
+    mount
+}
+trap exit_stats EXIT SIGINT SIGTERM
+
+set -e
+WORKDIR="$(pwd)"
+cd "$(dirname "$0")"
+UMLDIR="$(pwd)"
+echo "$@" > "${UMLDIR}/.command"
+export -p > "${UMLDIR}/.envp"
+rm -f "${UMLDIR}/.exit_code"
+SLIRPBIN="/usr/bin/slirp-fullbolt"
+
+QUIET=${QUIET:-0}
+
+if [ "${QUIET}" -eq 1 ]; then
+    # Create a silent slirp-fullbolt binary
+    cat <<EOF > "${UMLDIR}/slirp-fullbolt-silent"
+#!/bin/sh
+${SLIRPBIN} 2>/dev/null
+EOF
+    SLIRPBIN="${UMLDIR}/slirp-fullbolt-silent"
+    chmod +x "${SLIRPBIN}"
+fi
+
+(
+    test "${QUIET}" -eq 0 && set -x
+    sudo "${UMLDIR}/linux" \
+  quiet \
+  mem=2G \
+  rootfstype=hostfs rw \
+  eth0=slirp,,"${SLIRPBIN}" \
+  "init=${UMLDIR}/linux-init" \
+  "WORKDIR=${WORKDIR}" \
+  "UMLDIR=${UMLDIR}" \
+  "QUIET=${QUIET}" \
+  "DOCKER_STORAGE_DRIVER=${DOCKER_STORAGE_DRIVER:-devicemapper}" \
+  "DOCKER_BACKEND_FS=${DOCKER_BACKEND_FS:-host}"
+)
+
+exit_code=$(cat "${UMLDIR}/.exit_code")
+eval exit ${exit_code}
