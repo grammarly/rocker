@@ -5,8 +5,9 @@ machine:
 dependencies:
   override:
     - docker info
+    - docker -v
 
 test:
   override:
-    - docker run --rm -ti -v /var/run/docker.sock:/var/run/docker.sock -v `pwd`:/src -w /src golang:1.5.1-wheezy make test
+    - docker run --rm -ti -v /run/docker.sock:/var/run/docker.sock -v `pwd`:/src -w /src golang:1.5.1-wheezy make test
 
