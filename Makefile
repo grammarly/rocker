@@ -7,7 +7,7 @@ BINARIES := rocker
 LAST_TAG = $(shell git describe --abbrev=0 --tags 2>/dev/null)
 GITCOMMIT = $(shell git rev-parse HEAD 2>/dev/null)
 GITBRANCH = $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
-BUILDTIME = $(shell date "+%Y-%m-%d %H:%M GMT")
+BUILDTIME := $(shell TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
 
 GITHUB_USER := grammarly
 GITHUB_REPO := rocker
@@ -35,6 +35,8 @@ UPLOAD_CMD = $(GITHUB_RELEASE) upload \
 
 SRCS = $(shell git ls-files '*.go' | grep -v '^vendor/')
 PKGS := $(foreach pkg, $(sort $(dir $(SRCS))), ./$(pkg))
+
+GOPATH ?= $(shell pwd):$(shell pwd)/vendor
 
 all: $(ALL_BINARIES)
 	$(foreach BIN, $(BINARIES), $(shell cp dist/$(VERSION)/$(shell go env GOOS)/amd64/$(BIN) dist/$(BIN)))
@@ -78,25 +80,31 @@ install:
 clean:
 	rm -Rf dist
 
+local_binary:
+	go build \
+		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
+		-v -o bin/rocker src/cmd/rocker/main.go 
+
+testdeps:
+	@ go get github.com/GeertJohan/fgt
+	@ go get github.com/constabulary/gb/...
+
 fmtcheck:
 	$(foreach file,$(SRCS),gofmt $(file) | diff -u $(file) - || exit;)
 
 lint:
-	@ go get -v github.com/golang/lint/golint
-	@ go get github.com/GeertJohan/fgt
+	@ go get github.com/golang/lint/golint
 	$(foreach file,$(SRCS),fgt golint $(file) || exit;)
 
 vet:
-	@-go get -v golang.org/x/tools/cmd/vet
-	@ go get github.com/GeertJohan/fgt
+	@ go get golang.org/x/tools/cmd/vet
 	$(foreach pkg,$(PKGS),fgt go vet $(pkg) || exit;)
 
 gocyclo:
-	@ go get -v github.com/fzipp/gocyclo
+	@ go get github.com/fzipp/gocyclo
 	gocyclo -over 25 ./src
 
-test: fmtcheck vet lint
-	@ go get -v github.com/constabulary/gb/...
+test: testdeps fmtcheck vet lint
 	gb test rocker/...
 
 .PHONY: clean build_image test fmtcheck lint vet gocyclo
