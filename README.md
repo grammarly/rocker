@@ -24,7 +24,7 @@ Go to the [releases](https://github.com/grammarly/rocker/releases) section and d
 
 Something like this:
 ```bash
-curl -SL https://github.com/grammarly/rocker/releases/download/0.2.0/rocker-0.2.0_darwin_amd64.tar.gz | tar -xzC /usr/local/bin && chmod +x /usr/local/bin/rocker
+curl -SL https://github.com/grammarly/rocker/releases/download/0.2.1/rocker-0.2.1_darwin_amd64.tar.gz | tar -xzC /usr/local/bin && chmod +x /usr/local/bin/rocker
 ```
 
 Getting help, usage:
