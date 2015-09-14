@@ -320,10 +320,9 @@ func (builder *Builder) imageGetCached(imageID string, config *docker.Config) (*
 	}
 }
 
-func (builder *Builder) getContextMountSrc(src string) (sourcePath string, err error) {
-	// TODO: refactor to use util.ResolvePath()
-	sourcePath = src
-	if !filepath.IsAbs(src) {
+func (builder *Builder) getContextMountSrc(sourcePath string) (string, error) {
+	// TODO: refactor to use util.ResolvePath() ?
+	if !filepath.IsAbs(sourcePath) {
 		sourcePath = filepath.Join(builder.ContextDir, sourcePath)
 	}
 	sourcePath = filepath.Clean(sourcePath)
