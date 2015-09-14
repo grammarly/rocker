@@ -29,9 +29,9 @@ import (
 	"strings"
 	"time"
 
+	"rocker/dockerclient"
 	"rocker/imagename"
 	"rocker/parser"
-	"rocker/util"
 
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/fsouza/go-dockerclient"
@@ -328,28 +328,7 @@ func (builder *Builder) getContextMountSrc(src string) (sourcePath string, err e
 	}
 	sourcePath = filepath.Clean(sourcePath)
 
-	// In case we are running inside of a docker container
-	// we have to provide our fs path right from host machine
-	isMatrix, err := util.IsInMatrix()
-	if err != nil {
-		return "", err
-	}
-	if isMatrix {
-		myDockerID, err := util.MyDockerID()
-		if err != nil {
-			return "", err
-		}
-		// TODO: test with other drivers (btrfs, devicemapper, overlayfs etc.)
-		// TODO: if rocker is executed within a container, then some mounts are not working
-		container, err := builder.Docker.InspectContainer(myDockerID)
-		if err != nil {
-			return "", err
-		}
-		// Figure out directory based ot ResolvConfPath
-		sourcePath = path.Join(path.Dir(container.ResolvConfPath), "../../", container.Driver, "mnt", myDockerID, sourcePath)
-	}
-
-	return sourcePath, nil
+	return dockerclient.ResolveHostPath(sourcePath, builder.Docker)
 }
 
 func (builder *Builder) ensureImage(imageName string, purpose string) error {
