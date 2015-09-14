@@ -53,6 +53,7 @@ type Builder struct {
 	Rockerfile        string
 	RockerfileContent string
 	ContextDir        string
+	Id                string
 	OutStream         io.Writer
 	InStream          io.ReadCloser
 	Docker            *docker.Client
@@ -360,16 +361,24 @@ func (builder *Builder) getTmpPrefix() string {
 	return ".rockertmp"
 }
 
+// getIdentifier returns the sequence that is unique to the current Rockerfile
+func (builder *Builder) getIdentifier() string {
+	if builder.Id != "" {
+		return builder.Id
+	}
+	return builder.ContextDir + ":" + builder.Rockerfile
+}
+
 // mountsContainerName returns the name of volume container that will be used for a particular MOUNT
 func (builder *Builder) mountsContainerName(destinations []string) string {
 	// TODO: should mounts be reused between different FROMs ?
-	mountID := builder.ContextDir + ":" + builder.Rockerfile + ":" + strings.Join(destinations, ":")
+	mountID := builder.getIdentifier() + ":" + strings.Join(destinations, ":")
 	return fmt.Sprintf("rocker_mount_%.6x", md5.Sum([]byte(mountID)))
 }
 
 // exportsContainerName return the name of volume container that will be used for EXPORTs
 func (builder *Builder) exportsContainerName() string {
-	mountID := builder.ContextDir + ":" + builder.Rockerfile
+	mountID := builder.getIdentifier()
 	return fmt.Sprintf("rocker_exports_%.6x", md5.Sum([]byte(mountID)))
 }
 

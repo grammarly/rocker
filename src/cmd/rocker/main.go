@@ -110,6 +110,10 @@ func main() {
 			Name:  "print",
 			Usage: "just print the Rockerfile after template processing and stop",
 		},
+		cli.StringFlag{
+			Name:  "id",
+			Usage: "override the default id generation strategy for current build",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -229,6 +233,7 @@ func buildCommand(c *cli.Context) {
 		OutStream:    os.Stdout,
 		Docker:       dockerClient,
 		AddMeta:      c.Bool("meta"),
+		Id:           c.String("id"),
 	}
 
 	if _, err := builder.Build(); err != nil {
