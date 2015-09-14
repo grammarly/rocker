@@ -68,8 +68,8 @@ func NewConfig() *Config {
 func NewConfigFromCli(c *cli.Context) *Config {
 	config := NewConfig()
 	config.Host = globalCliString(c, "host")
-	config.Tlsverify = c.GlobalIsSet("tlsverify")
-	if config.Tlsverify {
+	if c.GlobalIsSet("tlsverify") {
+		config.Tlsverify = c.GlobalBool("tlsverify")
 		config.Tlscacert = globalCliString(c, "tlscacert")
 		config.Tlscert = globalCliString(c, "tlscert")
 		config.Tlskey = globalCliString(c, "tlskey")
