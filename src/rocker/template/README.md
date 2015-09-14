@@ -25,7 +25,6 @@ Please install pre-push git hook that will run tests before every push:
 
 ```bash
 cd rocker-template
-./install_githook.sh
 ```
 
 To run tests manually:
