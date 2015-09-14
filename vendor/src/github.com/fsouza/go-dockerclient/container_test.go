@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -1121,10 +1122,7 @@ func TestAttachToContainerRawTerminalFalse(t *testing.T) {
 		Stream:       true,
 		RawTerminal:  false,
 	}
-	err := client.AttachToContainer(opts)
-	if err != nil {
-		t.Fatal(err)
-	}
+	client.AttachToContainer(opts)
 	expected := map[string][]string{
 		"stdin":  {"1"},
 		"stdout": {"1"},
@@ -1362,7 +1360,7 @@ func TestExportContainer(t *testing.T) {
 
 func TestExportContainerViaUnixSocket(t *testing.T) {
 	if runtime.GOOS != "darwin" {
-		t.Skip("skipping test on %q", runtime.GOOS)
+		t.Skip(fmt.Sprintf("skipping test on %s", runtime.GOOS))
 	}
 	content := "exported container tar content"
 	var buf []byte
@@ -1373,6 +1371,7 @@ func TestExportContainerViaUnixSocket(t *testing.T) {
 	u, _ := parseEndpoint(endpoint, false)
 	client := Client{
 		HTTPClient:             http.DefaultClient,
+		Dialer:                 &net.Dialer{},
 		endpoint:               endpoint,
 		endpointURL:            u,
 		SkipServerVersionCheck: true,
@@ -1428,17 +1427,60 @@ func TestExportContainerNoId(t *testing.T) {
 	}
 }
 
+func TestUploadToContainer(t *testing.T) {
+	content := "File content"
+	in := stdinMock{bytes.NewBufferString(content)}
+	fakeRT := &FakeRoundTripper{status: http.StatusOK}
+	client := newTestClient(fakeRT)
+	opts := UploadToContainerOptions{
+		Path:        "abc",
+		InputStream: in,
+	}
+	err := client.UploadToContainer("a123456", opts)
+	if err != nil {
+		t.Errorf("UploadToContainer: caught error %#v while uploading archive to container, expected nil", err)
+	}
+
+	req := fakeRT.requests[0]
+
+	if req.Method != "PUT" {
+		t.Errorf("UploadToContainer{Path:abc}: Wrong HTTP method.  Want PUT. Got %s", req.Method)
+	}
+
+	if pathParam := req.URL.Query().Get("path"); pathParam != "abc" {
+		t.Errorf("ListImages({Path:abc}): Wrong parameter. Want path=abc.  Got path=%s", pathParam)
+	}
+
+}
+
+func TestDownloadFromContainer(t *testing.T) {
+	filecontent := "File content"
+	client := newTestClient(&FakeRoundTripper{message: filecontent, status: http.StatusOK})
+
+	var out bytes.Buffer
+	opts := DownloadFromContainerOptions{
+		OutputStream: &out,
+	}
+	err := client.DownloadFromContainer("a123456", opts)
+	if err != nil {
+		t.Errorf("DownloadFromContainer: caught error %#v while downloading from container, expected nil", err.Error())
+	}
+	if out.String() != filecontent {
+		t.Errorf("DownloadFromContainer: wrong stdout. Want %#v. Got %#v.", filecontent, out.String())
+	}
+}
+
 func TestCopyFromContainer(t *testing.T) {
 	content := "File content"
 	out := stdoutMock{bytes.NewBufferString(content)}
 	client := newTestClient(&FakeRoundTripper{status: http.StatusOK})
 	opts := CopyFromContainerOptions{
 		Container:    "a123456",
-		OutputStream: out,
+		OutputStream: &out,
 	}
 	err := client.CopyFromContainer(opts)
 	if err != nil {
-		t.Errorf("CopyFromContainer: caugh error %#v while copying from container, expected nil", err.Error())
+		t.Errorf("CopyFromContainer: caught error %#v while copying from container, expected nil", err.Error())
 	}
 	if out.String() != content {
 		t.Errorf("CopyFromContainer: wrong stdout. Want %#v. Got %#v.", content, out.String())
@@ -1582,6 +1624,37 @@ func TestTopContainerWithPsArgs(t *testing.T) {
 	expectedURI := "/containers/abef348/top?ps_args=aux"
 	if !strings.HasSuffix(fakeRT.requests[0].URL.String(), expectedURI) {
 		t.Errorf("TopContainer: Expected URI to have %q. Got %q.", expectedURI, fakeRT.requests[0].URL.String())
+	}
+}
+
+func TestStatsTimeout(t *testing.T) {
+	l, err := net.Listen("unix", "/tmp/docker_test.sock")
+	if err != nil {
+		t.Fatal(err)
+	}
+	received := false
+	defer l.Close()
+	go func() {
+		l.Accept()
+		received = true
+		time.Sleep(time.Second)
+	}()
+	client, _ := NewClient("unix:///tmp/docker_test.sock")
+	client.SkipServerVersionCheck = true
+	errC := make(chan error, 1)
+	statsC := make(chan *Stats)
+	done := make(chan bool)
+	go func() {
+		errC <- client.Stats(StatsOptions{"c", statsC, true, done, time.Millisecond * 100})
+		close(errC)
+	}()
+	err = <-errC
+	e, ok := err.(net.Error)
+	if !ok || !e.Timeout() {
+		t.Error("Failed to receive timeout exception")
+	}
+	if !received {
+		t.Fatal("Failed to receive message")
 	}
 }
 
@@ -1840,7 +1913,7 @@ func TestStats(t *testing.T) {
 	statsC := make(chan *Stats)
 	done := make(chan bool)
 	go func() {
-		errC <- client.Stats(StatsOptions{id, statsC, true, done})
+		errC <- client.Stats(StatsOptions{id, statsC, true, done, 0})
 		close(errC)
 	}()
 	var resultStats []*Stats
@@ -1877,7 +1950,7 @@ func TestStatsContainerNotFound(t *testing.T) {
 	client := newTestClient(&FakeRoundTripper{message: "no such container", status: http.StatusNotFound})
 	statsC := make(chan *Stats)
 	done := make(chan bool)
-	err := client.Stats(StatsOptions{"abef348", statsC, true, done})
+	err := client.Stats(StatsOptions{"abef348", statsC, true, done, 0})
 	expected := &NoSuchContainer{ID: "abef348"}
 	if !reflect.DeepEqual(err, expected) {
 		t.Errorf("Stats: Wrong error returned. Want %#v. Got %#v.", expected, err)

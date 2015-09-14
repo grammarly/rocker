@@ -14,12 +14,6 @@
 			"branch": "master"
 		},
 		{
-			"importpath": "github.com/fsouza/go-dockerclient",
-			"repository": "https://github.com/fsouza/go-dockerclient",
-			"revision": "eeaf15461b1f9d4ed2ffbd1ae1afde4b66527fd4",
-			"branch": "master"
-		},
-		{
 			"importpath": "github.com/codegangsta/cli",
 			"repository": "https://github.com/codegangsta/cli",
 			"revision": "f9982619ccace7df963bb7f6d1de3a6f014ff709",
@@ -94,6 +88,12 @@
 			"importpath": "github.com/wmark/semver",
 			"repository": "https://github.com/wmark/semver",
 			"revision": "461c06b538be53cc0339815001a398e29ace025b",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/fsouza/go-dockerclient",
+			"repository": "https://github.com/fsouza/go-dockerclient",
+			"revision": "c9ad0ce23f68428421adfc6ced9e6123f54788a5",
 			"branch": "master"
 		}
 	]
