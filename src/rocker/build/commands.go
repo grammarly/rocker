@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strings"
 
+	"rocker/dockerclient"
 	"rocker/imagename"
 	"rocker/parser"
 	"rocker/util"
@@ -70,12 +71,20 @@ func (builder *Builder) cmdMount(args []string, attributes map[string]bool, flag
 		if mount.src == "" {
 			newVolumeMounts = append(newVolumeMounts, &mount)
 		} else {
-			newSrc, err := builder.getContextMountSrc(mount.src)
-			if err != nil {
-				return err
+			// Process relative paths in volumes
+			if strings.HasPrefix(mount.src, "~") {
+				mount.src = strings.Replace(mount.src, "~", os.Getenv("HOME"), 1)
+			}
+			if !path.IsAbs(mount.src) {
+				mount.src = path.Join(builder.ContextDir, mount.src)
 			}
 			mount.origSrc = mount.src
-			mount.src = newSrc
+
+			var err error
+
+			if mount.src, err = dockerclient.ResolveHostPath(mount.src, builder.Docker); err != nil {
+				return err
+			}
 		}
 
 		newMounts = append(newMounts, &mount)

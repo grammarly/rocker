@@ -24,12 +24,10 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
 
-	"rocker/dockerclient"
 	"rocker/imagename"
 	"rocker/parser"
 
@@ -318,16 +316,6 @@ func (builder *Builder) imageGetCached(imageID string, config *docker.Config) (*
 			return nil, fmt.Errorf("Timeout while fetching cached images")
 		}
 	}
-}
-
-func (builder *Builder) getContextMountSrc(sourcePath string) (string, error) {
-	// TODO: refactor to use util.ResolvePath() ?
-	if !filepath.IsAbs(sourcePath) {
-		sourcePath = filepath.Join(builder.ContextDir, sourcePath)
-	}
-	sourcePath = filepath.Clean(sourcePath)
-
-	return dockerclient.ResolveHostPath(sourcePath, builder.Docker)
 }
 
 func (builder *Builder) ensureImage(imageName string, purpose string) error {
