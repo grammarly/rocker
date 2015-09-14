@@ -4,7 +4,6 @@ machine:
 
 dependencies:
   override:
-    - docker info
     - docker -v
 
 test:
