@@ -53,7 +53,7 @@ type Builder struct {
 	Rockerfile        string
 	RockerfileContent string
 	ContextDir        string
-	Id                string
+	ID                string
 	OutStream         io.Writer
 	InStream          io.ReadCloser
 	Docker            *docker.Client
@@ -363,8 +363,8 @@ func (builder *Builder) getTmpPrefix() string {
 
 // getIdentifier returns the sequence that is unique to the current Rockerfile
 func (builder *Builder) getIdentifier() string {
-	if builder.Id != "" {
-		return builder.Id
+	if builder.ID != "" {
+		return builder.ID
 	}
 	return builder.ContextDir + ":" + builder.Rockerfile
 }

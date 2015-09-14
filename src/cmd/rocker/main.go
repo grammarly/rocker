@@ -233,7 +233,7 @@ func buildCommand(c *cli.Context) {
 		OutStream:    os.Stdout,
 		Docker:       dockerClient,
 		AddMeta:      c.Bool("meta"),
-		Id:           c.String("id"),
+		ID:           c.String("id"),
 	}
 
 	if _, err := builder.Build(); err != nil {
