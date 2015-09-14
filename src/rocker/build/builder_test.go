@@ -25,7 +25,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path"
 	"testing"
 	"time"
 
@@ -263,17 +262,11 @@ CMD cat /out`,
 
 func TestBuilderMountFromHost(t *testing.T) {
 
-	tempDir, err := ioutil.TempDir("testdata", "rocker_TestBuilderMountFromHost_")
+	tempDir, err := ioutil.TempDir("/tmp", "rocker_TestBuilderMountFromHost_")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(tempDir)
-
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	tempDir = path.Join(wd, tempDir)
 
 	err = test.MakeFiles(tempDir, map[string]string{
 		"/Rockerfile": `FROM busybox:buildroot-2013.08.1
