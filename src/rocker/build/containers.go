@@ -18,6 +18,7 @@ package build
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 
@@ -116,16 +117,33 @@ func (builder *Builder) runContainerAttachStdin(containerID string, attachStdin 
 		}
 		defer term.RestoreTerminal(builder.fdIn, oldState)
 
-		attachOpts.InputStream = builder.InStream
+		attachOpts.InputStream = readerVoidCloser{builder.InStream}
 		attachOpts.OutputStream = builder.OutStream
 		attachOpts.ErrorStream = builder.OutStream
 		attachOpts.Stdin = true
 		attachOpts.RawTerminal = true
 	}
 
+	finished := make(chan struct{}, 1)
+
 	go func() {
 		if err := builder.Docker.AttachToContainer(attachOpts); err != nil {
-			fmt.Fprintf(builder.OutStream, "Got error while attaching to container %s: %s\n", containerID, err)
+			select {
+			case <-finished:
+				// Ignore any attach errors when we have finished already.
+				// It may happen if we attach stdin, then container exit, but then there is other input from stdin continues.
+				// This is the case when multiple ATTACH command are used in a single Rockerfile.
+				// The problem though is that we cannot close stdin, to have it available for the subsequent ATTACH;
+				// therefore, hijack goroutine from the previous ATTACH will hang until the input received and then
+				// it will fire an error.
+				// It's ok for `rocker` since it is not a daemon, but rather a one-off command.
+				//
+				// Also, there is still a problem that `rocker` loses second character from the Stdin in a second ATTACH.
+				// But let's consider it a corner case.
+			default:
+				// Print the error. We cannot return it because the main routine is handing on WaitContaienr
+				fmt.Fprintf(builder.OutStream, "Got error while attaching to container %s: %s\n", containerID, err)
+			}
 		}
 	}()
 
@@ -159,6 +177,8 @@ func (builder *Builder) runContainerAttachStdin(containerID string, attachStdin 
 
 	select {
 	case err := <-errch:
+		// indicate 'finished' so the `attach` goroutine will not give any errors
+		finished <- struct{}{}
 		if err != nil {
 			return err
 		}
@@ -247,4 +267,26 @@ func (builder *Builder) ensureContainer(containerName string, config *docker.Con
 	}
 
 	return container, err
+}
+
+// readerVoidCloser is a hack of the improved go-dockerclient's hijacking behavior
+// It simply wraps io.Reader (os.Stdin in our case) and discards any Close() call.
+//
+// It's important because we don't want to close os.Stdin for two reasons:
+// 1. We need to restore the terminal back from the raw mode after ATTACH
+// 2. There can be other ATTACH instructions for which we need an open stdin
+//
+// See additional notes in the runContainerAttachStdin() function
+type readerVoidCloser struct {
+	reader io.Reader
+}
+
+// Read reads from current reader
+func (r readerVoidCloser) Read(p []byte) (int, error) {
+	return r.reader.Read(p)
+}
+
+// Close is a viod function, does nothing
+func (w readerVoidCloser) Close() error {
+	return nil
 }
