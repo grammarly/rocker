@@ -21,11 +21,14 @@ FROM alpine:3.2
 
 RUN apk --update add git bash
 
-IMPORT rocker /bin
+RUN mkdir -p /opt/rocker/bin
+IMPORT rocker /opt/rocker/bin
+
+VOLUME ["/opt/rocker/bin"]
 
 WORKDIR /context
 
-CMD ["/bin/rocker"]
+CMD ["/opt/rocker/bin/rocker"]
 
-PUSH dockerhub.grammarly.io/rocker
-PUSH dockerhub.grammarly.io/rocker:{{ .Version }}
+# PUSH dockerhub.grammarly.io/rocker
+PUSH --semver dockerhub.grammarly.io/rocker:{{ .Version }}
