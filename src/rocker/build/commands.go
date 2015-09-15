@@ -362,8 +362,6 @@ func (builder *Builder) cmdTag(args []string, attributes map[string]bool, flags 
 		}
 	}
 
-	builder.recentTags = append(builder.recentTags, image)
-
 	return nil
 }
 
