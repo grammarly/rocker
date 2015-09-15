@@ -133,6 +133,54 @@ PUSH quay.io/testing_project`,
 	assert.Equal(t, "true", "true", "failed")
 }
 
+func TestBuilderBuildSemverTag(t *testing.T) {
+
+	tempDir, err := ioutil.TempDir("/tmp", "rocker_TestBuilderBuildSemverTag_")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	err = test.MakeFiles(tempDir, map[string]string{
+		"/Rockerfile": `FROM scratch
+TAG --semver testing:1.2.3`,
+	})
+
+	// we will need docker client to cleanup and do some cross-checks
+	client, err := dockerclient.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	builder := &Builder{
+		Rockerfile: tempDir + "/Rockerfile",
+		OutStream:  util.PrefixPipe("[TEST] ", os.Stdout),
+		Docker:     client,
+		// Vars:       VarsFromStrings([]string{"branch=master", "commit=314ad"}),
+	}
+
+	imageID, err := builder.Build()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Got imageID: %s", imageID)
+
+	defer func() {
+		if err := client.RemoveImageExtended(imageID, docker.RemoveImageOptions{Force: true}); err != nil {
+			t.Log(err)
+		}
+	}()
+
+	result, err := runContainer(t, client, &docker.Config{
+		Image: imageID,
+		Cmd:   []string{"ls", "/"},
+	}, nil)
+
+	t.Logf("Got result: %s", result)
+
+	assert.Equal(t, "true", "true", "failed")
+}
+
 func TestBuilderBuildTagLabels(t *testing.T) {
 
 	tempDir, err := ioutil.TempDir("/tmp", "rocker_TestBuilderBuildTagLabels_")
@@ -262,7 +310,13 @@ CMD cat /out`,
 
 func TestBuilderMountFromHost(t *testing.T) {
 
-	tempDir, err := ioutil.TempDir("/tmp", "rocker_TestBuilderMountFromHost_")
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Use current working directroy as a temp dir to make MOUNT work in boot2docker
+	tempDir, err := ioutil.TempDir(wd, "rocker_TestBuilderMountFromHost_")
 	if err != nil {
 		t.Fatal(err)
 	}
