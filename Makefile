@@ -107,4 +107,7 @@ gocyclo:
 test: testdeps fmtcheck vet lint
 	gb test rocker/...
 
+version:
+	@echo $(VERSION)
+
 .PHONY: clean build_image test fmtcheck lint vet gocyclo
