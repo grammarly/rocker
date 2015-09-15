@@ -30,5 +30,4 @@ WORKDIR /context
 
 CMD ["/opt/rocker/bin/rocker"]
 
-# PUSH dockerhub.grammarly.io/rocker
 PUSH --semver dockerhub.grammarly.io/rocker:{{ .Version }}
