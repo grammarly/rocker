@@ -343,14 +343,28 @@ func (builder *Builder) cmdTag(args []string, attributes map[string]bool, flags 
 		}
 	}
 
-	fmt.Fprintf(builder.OutStream, "[Rocker]  Tag %.12s -> %s\n", builder.imageID, image)
+	// Do the asked tag
+	if err := doTag(image.GetTag()); err != nil {
+		return err
+	}
+
+	// Optionally make a semver aliases
+	if _, ok := flags["semver"]; ok && image.HasTag() {
+		ver, err := NewSemver(image.GetTag())
+		if err != nil {
+			return fmt.Errorf("--semver flag expects tag to be in semver format, error: %s", err)
+		}
+		if err := doTag(fmt.Sprintf("%d.%d", ver.Major, ver.Minor)); err != nil {
+			return err
+		}
+		if err := doTag(fmt.Sprintf("%d", ver.Major)); err != nil {
+			return err
+		}
+	}
+
 	builder.recentTags = append(builder.recentTags, image)
 
-	return builder.Docker.TagImage(builder.imageID, docker.TagImageOptions{
-		Repo:  image.NameWithRegistry(),
-		Tag:   image.GetTag(),
-		Force: true, // TODO: what it does?
-	})
+	return nil
 }
 
 // cmdPush implements PUSH command
