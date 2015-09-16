@@ -97,7 +97,8 @@ func ResolveHostPath(mountPath string, client *docker.Client) (string, error) {
 		}
 		// The easiest way to check whether the `mountPath` is within the `mount.Destination`
 		if !strings.HasPrefix(rel, "..") {
-			return mountPath, nil
+			// Resolve the mounted directory to the real host path
+			return strings.Replace(mountPath, mount.Destination, mount.Source, 1), nil
 		}
 	}
 
