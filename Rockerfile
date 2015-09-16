@@ -28,6 +28,8 @@ VOLUME ["/opt/rocker/bin"]
 
 WORKDIR /context
 
+ENV PATH=/opt/rocker/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
 CMD ["/opt/rocker/bin/rocker"]
 
 PUSH --semver dockerhub.grammarly.io/rocker:{{ .Version }}
