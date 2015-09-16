@@ -5,9 +5,17 @@ REQUIRE Version
 ADD . /src
 WORKDIR /src
 
+
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+
+{{ if .test }}
+MOUNT /var/run/docker.sock:/var/run/docker.sock
+RUN make test
+{{ end }}
+
 RUN \
   TIME=$(date "+%Y-%m-%d %H:%M GMT") \
-  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GOPATH=/src:/src/vendor \
+  GOPATH=/src:/src/vendor \
   go build \
     -a -installsuffix cgo \
     -ldflags "-X main.Version '{{ .Version }}' -X main.GitCommit '$commit' -X main.GitBranch '$branch' -X main.BuildTime '$TIME'" \
