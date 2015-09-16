@@ -143,7 +143,7 @@ func TestBuilderBuildSemverTag(t *testing.T) {
 
 	err = test.MakeFiles(tempDir, map[string]string{
 		"/Rockerfile": `FROM scratch
-TAG --semver testing:1.2.3`,
+TAG --semver testing:1.2.3-build123`,
 	})
 
 	// we will need docker client to cleanup and do some cross-checks

@@ -354,10 +354,16 @@ func (builder *Builder) cmdTag(args []string, attributes map[string]bool, flags 
 		if err != nil {
 			return fmt.Errorf("--semver flag expects tag to be in semver format, error: %s", err)
 		}
-		if err := doTag(fmt.Sprintf("%d.%d", ver.Major, ver.Minor)); err != nil {
+		// If the version is like 1.2.3-build512 we also want to alias 1.2.3
+		if ver.HasSuffix() {
+			if err := doTag(fmt.Sprintf("%d.%d.%d", ver.Major, ver.Minor, ver.Patch)); err != nil {
+				return err
+			}
+		}
+		if err := doTag(fmt.Sprintf("%d.%d.x", ver.Major, ver.Minor)); err != nil {
 			return err
 		}
-		if err := doTag(fmt.Sprintf("%d", ver.Major)); err != nil {
+		if err := doTag(fmt.Sprintf("%d.x", ver.Major)); err != nil {
 			return err
 		}
 	}

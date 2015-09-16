@@ -25,13 +25,14 @@ import (
 	"strconv"
 )
 
-var semverRegexp = regexp.MustCompile(`^\bv?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[\da-z\-]+(?:\.[\da-z\-]+)*)?(?:\+[\da-z\-]+(?:\.[\da-z\-]+)*)?\b$`)
+var semverRegexp = regexp.MustCompile(`^\bv?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([\da-z\-]+(?:\.[\da-z\-]+)*))?\b$`)
 
 // Semver represents a light version of 'semver' data structure
 type Semver struct {
-	Major int
-	Minor int
-	Patch int
+	Major  int
+	Minor  int
+	Patch  int
+	Suffix string
 }
 
 // NewSemver parses a semver string into the Semver struct
@@ -52,6 +53,12 @@ func NewSemver(str string) (semver *Semver, err error) {
 	if semver.Patch, err = strconv.Atoi(matches[0][3]); err != nil {
 		return nil, err
 	}
+	semver.Suffix = matches[0][4]
 
 	return semver, nil
+}
+
+// HasSuffix returns true if the suffix (such as `-build123`) is present for the version
+func (semver *Semver) HasSuffix() bool {
+	return semver.Suffix != ""
 }
