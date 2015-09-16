@@ -1,4 +1,4 @@
-VERSION := 0.2.1
+VERSION ?= $(shell cat VERSION)
 
 OSES := linux darwin
 ARCHS := amd64
@@ -110,4 +110,4 @@ test: testdeps fmtcheck vet lint
 version:
 	@echo $(VERSION)
 
-.PHONY: clean build_image test fmtcheck lint vet gocyclo
+.PHONY: clean build_image test fmtcheck lint vet gocyclo version
