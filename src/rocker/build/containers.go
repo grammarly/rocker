@@ -287,6 +287,6 @@ func (r readerVoidCloser) Read(p []byte) (int, error) {
 }
 
 // Close is a viod function, does nothing
-func (w readerVoidCloser) Close() error {
+func (r readerVoidCloser) Close() error {
 	return nil
 }
