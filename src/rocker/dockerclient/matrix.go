@@ -102,8 +102,27 @@ func ResolveHostPath(mountPath string, client *docker.Client) (string, error) {
 		}
 	}
 
-	// Figure out directory based ot ResolvConfPath
-	mountPath = path.Join(path.Dir(container.ResolvConfPath), "../../", container.Driver, "mnt", myDockerID, mountPath)
+	// https://jpetazzo.github.io/assets/2015-03-03-not-so-deep-dive-into-docker-storage-drivers.html
+	// aufs: /var/lib/docker/aufs/mnt/$CONTAINER_ID/
+	// devicemapper: /var/lib/docker/devicemapper/mnt/$CONTAINER_ID/
+	// btrfs: /var/lib/docker/btrfs/subvolumes/$CONTAINER_OR_IMAGE_ID/
+	// overlayfs: /var/lib/docker/overlay/$ID_OF_CONTAINER_OR_IMAGE/merged
+
+	// Resolve docker root by using container's resolv.conf file path
+	dockerRoot := path.Join(path.Dir(container.ResolvConfPath), "../../")
+
+	// Resolve the container mountpoint depending on the driver used
+	if container.Driver == "aufs" {
+		mountPath = path.Join(dockerRoot, "aufs/mnt", myDockerID, mountPath)
+	} else if container.Driver == "devicemapper" {
+		mountPath = path.Join(dockerRoot, "devicemapper/mnt", myDockerID, mountPath)
+	} else if container.Driver == "overlayfs" {
+		mountPath = path.Join(dockerRoot, "overlay", myDockerID, "merged", mountPath)
+	} else {
+		// NOTE: add support for other fs drivers is not a big deal,
+		// but need to have a test environment for that.
+		return "", fmt.Errorf("%s driver is not supported by rocker when using MOUNT from within a container", container.Driver)
+	}
 
 	return mountPath, nil
 }
