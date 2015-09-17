@@ -29,6 +29,7 @@ import (
 	"rocker/dockerclient"
 	"rocker/imagename"
 	"rocker/parser"
+	"rocker/template"
 	"rocker/util"
 
 	"github.com/fsouza/go-dockerclient"
@@ -279,7 +280,7 @@ func (builder *Builder) cmdTag(args []string, attributes map[string]bool, flags 
 			ImageName:  image,
 			Rockerfile: builder.RockerfileContent,
 			Vars:       builder.CliVars,
-			Properties: Vars{},
+			Properties: template.Vars{},
 		}
 
 		if hostname, _ := os.Hostname(); hostname != "" {

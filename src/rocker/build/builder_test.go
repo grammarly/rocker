@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"rocker/dockerclient"
+	"rocker/template"
 	"rocker/test"
 	"rocker/util"
 
@@ -205,7 +206,7 @@ PUSH quay.io/testing_project`
 		t.Fatal(err)
 	}
 
-	vars := VarsFromStrings([]string{"asd=qwe"})
+	vars := template.VarsFromStrings([]string{"asd=qwe"})
 
 	builder := &Builder{
 		Rockerfile: tempDir + "/Rockerfile",
@@ -382,7 +383,7 @@ RUN echo "version:$version" > /version`,
 	builder := &Builder{
 		Rockerfile: tempDir + "/Rockerfile",
 		OutStream:  util.PrefixPipe("[TEST] ", os.Stdout),
-		Vars:       VarsFromStrings([]string{"version=125"}),
+		Vars:       template.VarsFromStrings([]string{"version=125"}),
 		// Push:       true,
 		Docker: client,
 	}
@@ -704,7 +705,7 @@ CMD cat /testing`,
 			Rockerfile: tempDir + "/Rockerfile",
 			OutStream:  util.PrefixPipe("[TEST] ", os.Stdout),
 			Docker:     client,
-			Vars:       VarsFromStrings(vars),
+			Vars:       template.VarsFromStrings(vars),
 		}
 
 		imageID, err := builder.Build()
@@ -759,7 +760,7 @@ CMD cat /testing`,
 			Rockerfile: tempDir + "/Rockerfile",
 			OutStream:  util.PrefixPipe("[TEST] ", os.Stdout),
 			Docker:     client,
-			Vars:       VarsFromStrings(vars),
+			Vars:       template.VarsFromStrings(vars),
 		}
 
 		imageID, err := builder.Build()

@@ -28,7 +28,7 @@ import (
 
 // ProcessConfigTemplate renders config through the template processor.
 // vars and additional functions are acceptable.
-func ProcessConfigTemplate(name string, reader io.Reader, vars map[string]interface{}, funcs map[string]interface{}) (*bytes.Buffer, error) {
+func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[string]interface{}) (*bytes.Buffer, error) {
 	var buf bytes.Buffer
 	// read template
 	data, err := ioutil.ReadAll(reader)

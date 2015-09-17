@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package build
+package template
 
 import (
 	"encoding/json"

@@ -29,6 +29,7 @@ import (
 	"rocker/dockerclient"
 	"rocker/git"
 	"rocker/imagename"
+	"rocker/template"
 
 	"github.com/codegangsta/cli"
 	"github.com/fsouza/go-dockerclient"
@@ -187,8 +188,8 @@ func buildCommand(c *cli.Context) {
 		}
 	}
 
-	cliVars := build.VarsFromStrings(c.StringSlice("var"))
-	vars := build.Vars{}.Merge(cliVars)
+	cliVars := template.VarsFromStrings(c.StringSlice("var"))
+	vars := template.Vars{}.Merge(cliVars)
 
 	// obtain git info about current directory
 	gitInfo, err := git.Info(filepath.Dir(configFilename))
@@ -200,7 +201,7 @@ func buildCommand(c *cli.Context) {
 	}
 
 	// experinemt: populate environment to variables to vars as well
-	vars["Env"] = build.VarsFromStrings(os.Environ())
+	vars["Env"] = template.VarsFromStrings(os.Environ())
 
 	// some additional useful vars
 	vars["commit"] = stringOr(os.Getenv("GIT_COMMIT"), gitInfo.Sha)

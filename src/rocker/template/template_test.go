@@ -24,7 +24,7 @@ import (
 )
 
 var (
-	configTemplateVars = map[string]interface{}{"mykey": "myval", "n": "5"}
+	configTemplateVars = Vars{"mykey": "myval", "n": "5"}
 )
 
 func TestProcessConfigTemplate_Basic(t *testing.T) {

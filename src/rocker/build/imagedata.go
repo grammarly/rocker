@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"log"
 	"rocker/imagename"
+	"rocker/template"
 	"time"
 
 	"github.com/fatih/color"
@@ -32,8 +33,8 @@ import (
 type RockerImageData struct {
 	ImageName  *imagename.ImageName
 	Rockerfile string
-	Vars       Vars
-	Properties Vars
+	Vars       template.Vars
+	Properties template.Vars
 	Created    time.Time
 }
 

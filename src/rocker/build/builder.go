@@ -64,8 +64,8 @@ type Builder struct {
 	NoReuse           bool
 	Verbose           bool
 	Attach            bool
-	Vars              Vars
-	CliVars           Vars
+	Vars              template.Vars
+	CliVars           template.Vars
 	AddMeta           bool
 	Print             bool
 
