@@ -1,6 +1,6 @@
 # rocker/template
 
-Template renderer with additional helpers based on Go's `text/template` used by [rocker](https://github.com/grammarly/rocker) and [rocker-compose](https://github.com/grammarly/rocker-compose).
+Template renderer with additional helpers based on Go's [text/template](http://golang.org/pkg/text/template/) used by [rocker](https://github.com/grammarly/rocker) and [rocker-compose](https://github.com/grammarly/rocker-compose).
 
 # Helpers
 
