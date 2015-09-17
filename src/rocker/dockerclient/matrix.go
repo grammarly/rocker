@@ -103,7 +103,6 @@ func ResolveHostPath(mountPath string, client *docker.Client) (string, error) {
 	}
 
 	// Figure out directory based ot ResolvConfPath
-	// TODO: test with other drivers (btrfs, devicemapper, overlayfs etc.)
 	mountPath = path.Join(path.Dir(container.ResolvConfPath), "../../", container.Driver, "mnt", myDockerID, mountPath)
 
 	return mountPath, nil
