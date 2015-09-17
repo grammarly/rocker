@@ -20,14 +20,26 @@ Rocker breaks the limits of Dockerfile. It adds some crucial features that are m
 
 # Installation
 
+### For OSX users
+
+```
+brew tap grammarly/tap
+brew install grammarly/tap/rocker
+```
+
+Ensure that it is built with `go 1.5.x` . If not, make `brew update` before installing `rocker`.
+
+### Manual installation
+
 Go to the [releases](https://github.com/grammarly/rocker/releases) section and download the latest binary for your platform. Then unpack the tar archive and copy the binary somewhere to your path, such as `/usr/local/bin`, and give it executable permissions.
 
 Something like this:
 ```bash
-curl -SL https://github.com/grammarly/rocker/releases/download/0.2.1/rocker-0.2.1_darwin_amd64.tar.gz | tar -xzC /usr/local/bin && chmod +x /usr/local/bin/rocker
+curl -SL https://github.com/grammarly/rocker/releases/download/0.2.2/rocker-0.2.2_darwin_amd64.tar.gz | tar -xzC /usr/local/bin && chmod +x /usr/local/bin/rocker
 ```
 
-Getting help, usage:
+### Getting help, usage:
+
 ```bash
 rocker --help
 rocker build --help
