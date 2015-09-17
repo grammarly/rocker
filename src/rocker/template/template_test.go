@@ -91,6 +91,17 @@ func TestProcessConfigTemplate_Dump(t *testing.T) {
 	assert.Equal(t, `map[string]string{"foo":"bar"}`, processTemplate(t, "{{ dump .data }}"))
 }
 
+func TestProcessConfigTemplate_AssertSuccess(t *testing.T) {
+	assert.Equal(t, "output", processTemplate(t, "{{ assert true }}output"))
+}
+
+func TestProcessConfigTemplate_AssertFail(t *testing.T) {
+	tpl := "{{ assert .Version }}lololo"
+	_, err := ProcessConfigTemplate("test", strings.NewReader(tpl), configTemplateVars, map[string]interface{}{})
+	errStr := "Error executing template test, error: template: test:1:3: executing \"test\" at <assert .Version>: error calling assert: Assertion failed"
+	assert.Equal(t, errStr, err.Error())
+}
+
 func processTemplate(t *testing.T, tpl string) string {
 	result, err := ProcessConfigTemplate("test", strings.NewReader(tpl), configTemplateVars, map[string]interface{}{})
 	if err != nil {

@@ -22,6 +22,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"text/template"
@@ -49,6 +50,7 @@ func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[s
 		"seq":     seq,
 		"replace": replace,
 		"dump":    dump,
+		"assert":  assertFn,
 	}
 	for k, f := range funcs {
 		funcMap[k] = f
@@ -145,6 +147,14 @@ func dump(v interface{}) string {
 	return fmt.Sprintf("% #v", pretty.Formatter(v))
 }
 
+func assertFn(v interface{}) (string, error) {
+	t, _ := isTrue(reflect.ValueOf(v))
+	if t {
+		return "", nil
+	}
+	return "", fmt.Errorf("Assertion failed")
+}
+
 func interfaceToInt(v interface{}) (int, error) {
 	switch v.(type) {
 	case int:
@@ -158,4 +168,37 @@ func interfaceToInt(v interface{}) (int, error) {
 	default:
 		return 0, fmt.Errorf("Cannot receive %#v, int or string is expected", v)
 	}
+}
+
+// isTrue reports whether the value is 'true', in the sense of not the zero of its type,
+// and whether the value has a meaningful truth value.
+//
+// NOTE: Borrowed from Go sources: http://golang.org/src/text/template/exec.go
+// Copyright (c) 2012 The Go Authors. All rights reserved.
+func isTrue(val reflect.Value) (truth, ok bool) {
+	if !val.IsValid() {
+		// Something like var x interface{}, never set. It's a form of nil.
+		return false, true
+	}
+	switch val.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		truth = val.Len() > 0
+	case reflect.Bool:
+		truth = val.Bool()
+	case reflect.Complex64, reflect.Complex128:
+		truth = val.Complex() != 0
+	case reflect.Chan, reflect.Func, reflect.Ptr, reflect.Interface:
+		truth = !val.IsNil()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		truth = val.Int() != 0
+	case reflect.Float32, reflect.Float64:
+		truth = val.Float() != 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		truth = val.Uint() != 0
+	case reflect.Struct:
+		truth = true // Struct values are always true.
+	default:
+		return
+	}
+	return truth, true
 }

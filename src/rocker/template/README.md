@@ -50,6 +50,21 @@ template.Vars{
 }
 ```
 
+### {{ assert *expression* }}
+Raises an error if given expression is false. *Positive* value is an existing non-nil value, non-empty slice, non-empty string, and non-zero number.
+
+For example `assert` is useful to check that passed variables are present.
+
+```
+{{ assert .Version }}
+```
+
+If the `Version` variable is not given, then template processing will fail with the following error:
+
+```
+Error executing template TEMPLATE_NAME, error: template: TEMPLATE_NAME:1:3: executing \"TEMPLATE_NAME\" at <assert .Version>: error calling assert: Assertion failed
+```
+
 # Variables
 `rocker/template` automatically populates [os.Environ](https://golang.org/pkg/os/#Environ) to the template along with the variables that are passed from the outside. All environment variables are available under `.Env`.
 
