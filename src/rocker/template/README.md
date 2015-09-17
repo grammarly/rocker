@@ -50,6 +50,14 @@ template.Vars{
 }
 ```
 
+# Variables
+`rocker/template` automatically populates [os.Environ](https://golang.org/pkg/os/#Environ) to the template along with the variables that are passed from the outside. All environment variables are available under `.Env`.
+
+Example:
+```
+HOME={{ .Env.HOME }}
+```
+
 # Development
 
 Please install pre-push git hook that will run tests before every push:
