@@ -26,7 +26,13 @@ import (
 )
 
 var (
-	configTemplateVars = Vars{"mykey": "myval", "n": "5"}
+	configTemplateVars = Vars{
+		"mykey": "myval",
+		"n":     "5",
+		"data": map[string]string{
+			"foo": "bar",
+		},
+	}
 )
 
 func TestProcessConfigTemplate_Basic(t *testing.T) {
@@ -79,6 +85,10 @@ func TestProcessConfigTemplate_Env(t *testing.T) {
 	env := os.Environ()
 	kv := strings.SplitN(env[0], "=", 2)
 	assert.Equal(t, kv[1], processTemplate(t, fmt.Sprintf("{{ .Env.%s }}", kv[0])))
+}
+
+func TestProcessConfigTemplate_Dump(t *testing.T) {
+	assert.Equal(t, `map[string]string{"foo":"bar"}`, processTemplate(t, "{{ dump .data }}"))
 }
 
 func processTemplate(t *testing.T, tpl string) string {

@@ -32,6 +32,24 @@ This template will yield:
 www.grammarly.com
 ```
 
+### {{ dump *anything* }}
+Pretty-prints any variable. Useful for debugging.
+
+Example:
+```
+{{ dump .Env }}
+```
+
+This template will yield:
+```
+template.Vars{
+    "USER":                       "johnsnow",
+    "DOCKER_MACHINE_NAME":        "dev",
+    "PATH":                       "/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin",
+    ...
+}
+```
+
 # Development
 
 Please install pre-push git hook that will run tests before every push:

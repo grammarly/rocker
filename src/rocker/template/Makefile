@@ -4,7 +4,10 @@ PKGS := $(foreach pkg, $(sort $(dir $(SRCS))), $(pkg))
 
 TESTARGS ?=
 
-testdeps:
+deps:
+	@ go get github.com/kr/pretty
+
+testdeps: deps
 	@ go get github.com/GeertJohan/fgt
 	@ go get github.com/stretchr/testify/assert
 

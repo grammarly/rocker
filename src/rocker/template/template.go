@@ -25,6 +25,8 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/kr/pretty"
 )
 
 // ProcessConfigTemplate renders config through the template processor.
@@ -46,6 +48,7 @@ func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[s
 	funcMap := map[string]interface{}{
 		"seq":     seq,
 		"replace": replace,
+		"dump":    dump,
 	}
 	for k, f := range funcs {
 		funcMap[k] = f
@@ -64,8 +67,8 @@ func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[s
 }
 
 // strings replace helper
-func replace(str, repl, symbol string) string {
-	return strings.Replace(str, repl, symbol, -1)
+func replace(s, old, new string) string {
+	return strings.Replace(s, old, new, -1)
 }
 
 // seq produces a sequence slice of a given length. See README.md for more info.
@@ -136,6 +139,10 @@ func doSeq(n int, args ...int) ([]int, error) {
 		i++
 	}
 	return res, nil
+}
+
+func dump(v interface{}) string {
+	return fmt.Sprintf("% #v", pretty.Formatter(v))
 }
 
 func interfaceToInt(v interface{}) (int, error) {
