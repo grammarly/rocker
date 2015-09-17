@@ -87,6 +87,7 @@ type Builder struct {
 	fdOut              uintptr
 	metaAdded          bool
 	recentTags         []*imagename.ImageName
+	imagesCache        []docker.APIImages
 }
 
 type builderMount struct {

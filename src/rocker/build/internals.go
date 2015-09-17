@@ -255,14 +255,16 @@ func (builder *Builder) probeCache() (bool, error) {
 }
 
 func (builder *Builder) imageGetCached(imageID string, config *docker.Config) (*docker.Image, error) {
-	// Retrieve all images
-	images, err := builder.Docker.ListImages(docker.ListImagesOptions{All: true})
-	if err != nil {
-		return nil, err
+	// Retrieve all images and cache, because it might be a heavy operation
+	if builder.imagesCache == nil {
+		var err error
+		if builder.imagesCache, err = builder.Docker.ListImages(docker.ListImagesOptions{All: true}); err != nil {
+			return nil, err
+		}
 	}
 
 	var siblings []string
-	for _, img := range images {
+	for _, img := range builder.imagesCache {
 		if img.ParentID != imageID {
 			continue
 		}
