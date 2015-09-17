@@ -18,6 +18,24 @@ package dockerclient
 
 import "testing"
 
+func TestDockerIsInMatrix(t *testing.T) {
+	result, err := IsInMatrix()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("is matrix: %v", result)
+}
+
+func TestDockerMyDockerId(t *testing.T) {
+	id, err := MyDockerID()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("my docker id: %q", id)
+}
+
 func TestResolveHostPath(t *testing.T) {
 	// we will need docker client to cleanup and do some cross-checks
 	client, err := New()

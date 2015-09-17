@@ -42,6 +42,9 @@ func IsInMatrix() (bool, error) {
 
 // MyDockerID returns id of the current container the process is running within, if any
 func MyDockerID() (string, error) {
+	if _, err := os.Stat("/proc/self/cgroup"); os.IsNotExist(err) {
+		return "", nil
+	}
 	output, exitStatus, err := util.ExecPipe(&util.Cmd{
 		Args: []string{"/bin/bash", "-c", `cat /proc/self/cgroup | grep "docker" | sed s/\\//\\n/g | tail -1`},
 	})
