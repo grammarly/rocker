@@ -10,6 +10,10 @@ ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 
 {{ if .test }}
 MOUNT /var/run/docker.sock:/var/run/docker.sock
+{{ if .TestArgs }}
+ENV TESTARGS="{{ .TestArgs }}"
+{{ end }}
+ATTACH ["bash"]
 RUN make test
 {{ end }}
 

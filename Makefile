@@ -38,6 +38,8 @@ PKGS := $(foreach pkg, $(sort $(dir $(SRCS))), $(pkg))
 
 GOPATH ?= $(shell pwd):$(shell pwd)/vendor
 
+TESTARGS ?=
+
 all: $(ALL_BINARIES)
 	$(foreach BIN, $(BINARIES), $(shell cp dist/$(VERSION)/$(shell go env GOOS)/amd64/$(BIN) dist/$(BIN)))
 
@@ -105,7 +107,7 @@ gocyclo:
 	gocyclo -over 25 ./src
 
 test: testdeps fmtcheck vet lint
-	gb test rocker/...
+	gb test rocker/... $(TESTARGS)
 
 version:
 	@echo $(VERSION)
