@@ -3,7 +3,7 @@ bin
 *.a
 dev
 
-.iml
+*.iml
 .idea
 
 *.sublime-workspace
