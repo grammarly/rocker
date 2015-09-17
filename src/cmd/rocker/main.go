@@ -200,9 +200,6 @@ func buildCommand(c *cli.Context) {
 		}
 	}
 
-	// experinemt: populate environment to variables to vars as well
-	vars["Env"] = template.VarsFromStrings(os.Environ())
-
 	// some additional useful vars
 	vars["commit"] = stringOr(os.Getenv("GIT_COMMIT"), gitInfo.Sha)
 	vars["branch"] = stringOr(os.Getenv("GIT_BRANCH"), gitInfo.Branch)

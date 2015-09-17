@@ -17,6 +17,8 @@
 package template
 
 import (
+	"fmt"
+	"os"
 	"strings"
 	"testing"
 
@@ -71,6 +73,12 @@ func TestProcessConfigTemplate_Replace(t *testing.T) {
 	assert.Equal(t, "url-com-", processTemplate(t, `{{ replace "url.com." "." "-" }}`))
 	assert.Equal(t, "url", processTemplate(t, `{{ replace "url" "*" "l" }}`))
 	assert.Equal(t, "krl", processTemplate(t, `{{ replace "url" "u" "k" }}`))
+}
+
+func TestProcessConfigTemplate_Env(t *testing.T) {
+	env := os.Environ()
+	kv := strings.SplitN(env[0], "=", 2)
+	assert.Equal(t, kv[1], processTemplate(t, fmt.Sprintf("{{ .Env.%s }}", kv[0])))
 }
 
 func processTemplate(t *testing.T, tpl string) string {

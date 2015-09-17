@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 	"text/template"
@@ -29,12 +30,19 @@ import (
 // ProcessConfigTemplate renders config through the template processor.
 // vars and additional functions are acceptable.
 func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[string]interface{}) (*bytes.Buffer, error) {
+
 	var buf bytes.Buffer
 	// read template
 	data, err := ioutil.ReadAll(reader)
 	if err != nil {
 		return nil, fmt.Errorf("Error reading template %s, error: %s", name, err)
 	}
+
+	// merge OS environment variables with the given Vars map
+	// todo: maybe, we need to make it configurable
+	vars["Env"] = VarsFromStrings(os.Environ())
+
+	// Populate functions
 	funcMap := map[string]interface{}{
 		"seq":     seq,
 		"replace": replace,
@@ -42,13 +50,16 @@ func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[s
 	for k, f := range funcs {
 		funcMap[k] = f
 	}
+
 	tmpl, err := template.New(name).Funcs(funcMap).Parse(string(data))
 	if err != nil {
 		return nil, fmt.Errorf("Error parsing template %s, error: %s", name, err)
 	}
+
 	if err := tmpl.Execute(&buf, vars); err != nil {
 		return nil, fmt.Errorf("Error executing template %s, error: %s", name, err)
 	}
+
 	return &buf, nil
 }
 
