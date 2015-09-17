@@ -4,7 +4,7 @@ Template renderer with additional helpers based on Go's `text/template` used by 
 
 # Helpers
 
-###### {{ seq *To* }} or {{ seq *From* *To* }} or {{ seq *From* *To* *Step* }}
+### {{ seq *To* }} or {{ seq *From* *To* }} or {{ seq *From* *To* *Step* }}
 Sequence generator. Returns an array of integers of a given sequence. Useful when you need to duplicate some configuration, for example scale containers of the same type. Mostly used in combination with `range`:
 ```
 {{ range $i := seq 1 5 2 }}
@@ -17,6 +17,19 @@ This template will yield:
 container-1
 container-3
 container-5
+```
+
+### {{ replace *s* *old* *new* }}
+Does a string replacement. Works simply like Go's [strings.Replace](http://golang.org/pkg/strings/#Replace).
+
+Example:
+```
+{{ replace "www.google.com" "google" "grammarly" }}
+```
+
+This template will yield:
+```
+www.grammarly.com
 ```
 
 # Development
