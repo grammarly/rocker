@@ -116,7 +116,7 @@ func ResolveHostPath(mountPath string, client *docker.Client) (string, error) {
 		mountPath = path.Join(dockerRoot, "aufs/mnt", myDockerID, mountPath)
 	} else if container.Driver == "devicemapper" {
 		mountPath = path.Join(dockerRoot, "devicemapper/mnt", myDockerID, mountPath)
-	} else if container.Driver == "overlayfs" {
+	} else if container.Driver == "overlay" {
 		mountPath = path.Join(dockerRoot, "overlay", myDockerID, "merged", mountPath)
 	} else {
 		// NOTE: add support for other fs drivers is not a big deal,
