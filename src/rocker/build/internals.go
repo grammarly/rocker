@@ -114,6 +114,8 @@ func (builder *Builder) runDockerfile() (err error) {
 		})
 	}
 
+	pull := builder.Pull
+
 	// missing from, use latest image sha
 	if builder.dockerfile.Children[0].Value != "from" {
 		if builder.imageID == "" {
@@ -125,6 +127,7 @@ func (builder *Builder) runDockerfile() (err error) {
 				Value: builder.imageID,
 			},
 		}
+		pull = false
 		builder.dockerfile.Children = append([]*parser.Node{fromNode}, builder.dockerfile.Children...)
 	}
 
@@ -157,6 +160,7 @@ func (builder *Builder) runDockerfile() (err error) {
 		ContextDir:    builder.ContextDir,
 		NoCache:       !builder.UtilizeCache,
 		Auth:          *builder.Auth,
+		Pull:          pull,
 		RawJSONStream: true,
 	}
 

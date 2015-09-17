@@ -100,6 +100,10 @@ func main() {
 			Usage: "pushes all the images marked with push to docker hub",
 		},
 		cli.BoolFlag{
+			Name:  "pull",
+			Usage: "always attempt to pull a newer version of the FROM images",
+		},
+		cli.BoolFlag{
 			Name:  "attach",
 			Usage: "attach to a container in place of ATTACH command",
 		},
@@ -231,6 +235,7 @@ func buildCommand(c *cli.Context) {
 		OutStream:    os.Stdout,
 		Docker:       dockerClient,
 		AddMeta:      c.Bool("meta"),
+		Pull:         c.Bool("pull"),
 		ID:           c.String("id"),
 	}
 

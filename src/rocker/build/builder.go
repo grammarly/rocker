@@ -68,6 +68,7 @@ type Builder struct {
 	CliVars           template.Vars
 	AddMeta           bool
 	Print             bool
+	Pull              bool
 
 	rootNode           *parser.Node
 	i                  int
