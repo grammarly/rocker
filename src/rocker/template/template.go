@@ -32,9 +32,9 @@ import (
 	"github.com/kr/pretty"
 )
 
-// ProcessConfigTemplate renders config through the template processor.
+// Process renders config through the template processor.
 // vars and additional functions are acceptable.
-func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[string]interface{}) (*bytes.Buffer, error) {
+func Process(name string, reader io.Reader, vars Vars, funcs map[string]interface{}) (*bytes.Buffer, error) {
 
 	var buf bytes.Buffer
 	// read template
