@@ -124,6 +124,9 @@ func ParseKvPairs(pairs []string) (vars Vars) {
 }
 
 func loadFileContent(f string) (string, error) {
+	if f == "~" || strings.HasPrefix(f, "~/") {
+		f = strings.Replace(f, "~", os.Getenv("HOME"), 1)
+	}
 	if !filepath.IsAbs(f) {
 		wd, err := os.Getwd()
 		if err != nil {
