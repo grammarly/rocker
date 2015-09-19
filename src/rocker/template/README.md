@@ -42,7 +42,7 @@ RUN echo {{ "hello\nworld" | shell }}
 
 This template will yield:
 ```Dockerfile
-RUN $'hello\nworld'
+RUN echo $'hello\nworld'
 ```
 
 ### {{ dump *anything* }}
