@@ -44,7 +44,7 @@ func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[s
 
 	// merge OS environment variables with the given Vars map
 	// todo: maybe, we need to make it configurable
-	vars["Env"] = VarsFromStrings(os.Environ())
+	vars["Env"] = ParseKvPairs(os.Environ())
 
 	// Populate functions
 	funcMap := map[string]interface{}{
