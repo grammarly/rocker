@@ -51,6 +51,7 @@ func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[s
 		"replace": replace,
 		"dump":    dump,
 		"assert":  assertFn,
+		"shell":   EscapeShellarg,
 	}
 	for k, f := range funcs {
 		funcMap[k] = f

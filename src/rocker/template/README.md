@@ -32,6 +32,19 @@ This template will yield:
 www.grammarly.com
 ```
 
+### {{ shell *string* }} or {{ *string* | shell }}
+Escapes given string so it can be substituted to a shell command.
+
+Example:
+```Dockerfile
+RUN echo {{ "hello\nworld" | shell }}
+```
+
+This template will yield:
+```Dockerfile
+RUN $'hello\nworld'
+```
+
 ### {{ dump *anything* }}
 Pretty-prints any variable. Useful for debugging.
 
