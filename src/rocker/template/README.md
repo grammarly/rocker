@@ -32,6 +32,21 @@ This template will yield:
 www.grammarly.com
 ```
 
+### {{ yaml *anything* }} or {{ *anything* | yaml }}
+Marshals given input to YAML.
+
+Example:
+```
+{{ .Env | yaml }}
+```
+
+This template will yield:
+```
+USER: johnsnow
+DOCKER_MACHINE_NAME: dev
+PATH: /usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
+```
+
 ### {{ dump *anything* }}
 Pretty-prints any variable. Useful for debugging.
 

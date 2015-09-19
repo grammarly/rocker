@@ -27,6 +27,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/go-yaml/yaml"
 	"github.com/kr/pretty"
 )
 
@@ -51,6 +52,7 @@ func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[s
 		"replace": replace,
 		"dump":    dump,
 		"assert":  assertFn,
+		"yaml":    yamlFn,
 	}
 	for k, f := range funcs {
 		funcMap[k] = f
@@ -153,6 +155,14 @@ func assertFn(v interface{}) (string, error) {
 		return "", nil
 	}
 	return "", fmt.Errorf("Assertion failed")
+}
+
+func yamlFn(v interface{}) (string, error) {
+	data, err := yaml.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func interfaceToInt(v interface{}) (int, error) {
