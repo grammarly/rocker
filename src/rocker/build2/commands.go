@@ -31,7 +31,11 @@ type ConfigCommand struct {
 }
 
 type Command interface {
-	Execute(b *Build) error
+	// Execute does the command execution and returns modified state.
+	// Note that here we use State not by reference because we want
+	// it to be immutable. In future, it may encoded/decoded from json
+	// and passed to the external command implementations.
+	Execute(b *Build) (State, error)
 }
 
 func NewCommand(cfg ConfigCommand) (Command, error) {
@@ -55,11 +59,11 @@ type CommandFrom struct {
 	cfg ConfigCommand
 }
 
-func (c *CommandFrom) Execute(b *Build) (err error) {
+func (c *CommandFrom) Execute(b *Build) (state State, err error) {
 	// TODO: for "scratch" image we may use /images/create
 
 	if len(c.cfg.args) != 1 {
-		return fmt.Errorf("FROM requires one argument")
+		return state, fmt.Errorf("FROM requires one argument")
 	}
 
 	var (
@@ -70,68 +74,69 @@ func (c *CommandFrom) Execute(b *Build) (err error) {
 	// If Pull is true, then img will remain nil and it will be pulled below
 	if !b.cfg.Pull {
 		if img, err = b.client.InspectImage(name); err != nil {
-			return err
+			return state, err
 		}
 	}
 
 	if img == nil {
 		if err = b.client.PullImage(name); err != nil {
-			return err
+			return state, err
 		}
 		if img, err = b.client.InspectImage(name); err != nil {
-			return err
+			return state, err
 		}
 		if img == nil {
-			return fmt.Errorf("FROM: Failed to inspect image after pull: %s", name)
+			return state, fmt.Errorf("FROM: Failed to inspect image after pull: %s", name)
 		}
 	}
 
-	b.imageID = img.ID
-	b.container = img.Config
+	state = b.state
+	state.imageID = img.ID
+	state.container = *img.Config
 
-	return nil
+	return state, nil
 }
 
 type CommandReset struct{}
 
-func (c *CommandReset) Execute(b *Build) error {
-	return nil
+func (c *CommandReset) Execute(b *Build) (State, error) {
+	return b.state, nil
 }
 
 type CommandCommit struct{}
 
-func (c *CommandCommit) Execute(b *Build) error {
-	return nil
+func (c *CommandCommit) Execute(b *Build) (State, error) {
+	return b.state, nil
 }
 
 type CommandRun struct {
 	cfg ConfigCommand
 }
 
-func (c *CommandRun) Execute(b *Build) error {
-	return nil
+func (c *CommandRun) Execute(b *Build) (State, error) {
+	return b.state, nil
 }
 
 type CommandEnv struct {
 	cfg ConfigCommand
 }
 
-func (c *CommandEnv) Execute(b *Build) error {
-	return nil
+func (c *CommandEnv) Execute(b *Build) (State, error) {
+	return b.state, nil
 }
 
 type CommandTag struct {
 	cfg ConfigCommand
 }
 
-func (c *CommandTag) Execute(b *Build) error {
-	return nil
+func (c *CommandTag) Execute(b *Build) (State, error) {
+	return b.state, nil
 }
 
 type CommandCopy struct {
 	cfg ConfigCommand
 }
 
-func (c *CommandCopy) Execute(b *Build) error {
-	return nil
+func (c *CommandCopy) Execute(b *Build) (State, error) {
+	return b.state, nil
 }

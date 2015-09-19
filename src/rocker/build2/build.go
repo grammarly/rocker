@@ -37,13 +37,16 @@ type BuildConfig struct {
 	Pull       bool
 }
 
+type State struct {
+	container docker.Config
+	imageID   string
+}
+
 type Build struct {
 	rockerfile *Rockerfile
 	cfg        BuildConfig
-	container  *docker.Config
 	client     Client
-
-	imageID string
+	state      State
 }
 
 func New(client Client, rockerfile *Rockerfile, cfg BuildConfig) (b *Build, err error) {
@@ -51,15 +54,16 @@ func New(client Client, rockerfile *Rockerfile, cfg BuildConfig) (b *Build, err 
 		rockerfile: rockerfile,
 		cfg:        cfg,
 		client:     client,
+		state:      State{},
 	}
 
 	return b, nil
 }
 
-func (b *Build) Run(plan Plan) error {
+func (b *Build) Run(plan Plan) (err error) {
 	for k, c := range plan {
 		fmt.Printf("Step %d: %q\n", k, c)
-		if err := c.Execute(b); err != nil {
+		if b.state, err = c.Execute(b); err != nil {
 			return err
 		}
 	}

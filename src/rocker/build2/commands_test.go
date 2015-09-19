@@ -38,14 +38,14 @@ func TestCommandFrom_Existing(t *testing.T) {
 
 	c.On("InspectImage", "existing").Return(img, nil).Once()
 
-	err := cmd.Execute(b)
+	state, err := cmd.Execute(b)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, "123", b.imageID)
-	assert.Equal(t, "localhost", b.container.Hostname)
+	assert.Equal(t, "123", state.imageID)
+	assert.Equal(t, "localhost", state.container.Hostname)
 }
 
 func TestCommandFrom_PullExisting(t *testing.T) {
@@ -64,14 +64,14 @@ func TestCommandFrom_PullExisting(t *testing.T) {
 	c.On("PullImage", "existing").Return(nil).Once()
 	c.On("InspectImage", "existing").Return(img, nil).Once()
 
-	err := cmd.Execute(b)
+	state, err := cmd.Execute(b)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, "123", b.imageID)
-	assert.Equal(t, "localhost", b.container.Hostname)
+	assert.Equal(t, "123", state.imageID)
+	assert.Equal(t, "localhost", state.container.Hostname)
 }
 
 func TestCommandFrom_NotExisting(t *testing.T) {
@@ -82,17 +82,22 @@ func TestCommandFrom_NotExisting(t *testing.T) {
 
 	var nilImg *docker.Image
 
+	img := &docker.Image{
+		ID:     "123",
+		Config: &docker.Config{},
+	}
+
 	c.On("InspectImage", "not-existing").Return(nilImg, nil).Once()
 	c.On("PullImage", "not-existing").Return(nil).Once()
-	c.On("InspectImage", "not-existing").Return(&docker.Image{ID: "123"}, nil).Once()
+	c.On("InspectImage", "not-existing").Return(img, nil).Once()
 
-	err := cmd.Execute(b)
+	state, err := cmd.Execute(b)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, "123", b.imageID)
+	assert.Equal(t, "123", state.imageID)
 }
 
 func TestCommandFrom_AfterPullNotExisting(t *testing.T) {
@@ -106,7 +111,7 @@ func TestCommandFrom_AfterPullNotExisting(t *testing.T) {
 	c.On("InspectImage", "not-existing").Return(nilImg, nil).Twice()
 	c.On("PullImage", "not-existing").Return(nil).Once()
 
-	err := cmd.Execute(b)
+	_, err := cmd.Execute(b)
 	c.AssertExpectations(t)
 	assert.Equal(t, "FROM: Failed to inspect image after pull: not-existing", err.Error())
 }
