@@ -32,6 +32,19 @@ This template will yield:
 www.grammarly.com
 ```
 
+### {{ json *anything* }} or {{ *anything* | json }}
+Marshals given input to JSON.
+
+Example:
+```
+ENV={{ .Env | json }}
+```
+
+This template will yield:
+```
+ENV={"USER":"johnsnow","DOCKER_MACHINE_NAME":"dev","PATH":"/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin",...}
+```
+
 ### {{ dump *anything* }}
 Pretty-prints any variable. Useful for debugging.
 
