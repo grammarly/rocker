@@ -34,6 +34,7 @@ type BuildConfig struct {
 	Auth       *docker.AuthConfiguration
 	Vars       template.Vars
 	ContextDir string
+	Pull       bool
 }
 
 type Build struct {

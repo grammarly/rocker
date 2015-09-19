@@ -67,8 +67,11 @@ func (c *CommandFrom) Execute(b *Build) (err error) {
 		name = c.cfg.args[0]
 	)
 
-	if img, err = b.client.InspectImage(name); err != nil {
-		return err
+	// If Pull is true, then img will remain nil and it will be pulled below
+	if !b.cfg.Pull {
+		if img, err = b.client.InspectImage(name); err != nil {
+			return err
+		}
 	}
 
 	if img == nil {
@@ -84,6 +87,7 @@ func (c *CommandFrom) Execute(b *Build) (err error) {
 	}
 
 	b.imageID = img.ID
+	b.container = img.Config
 
 	return nil
 }

@@ -29,7 +29,14 @@ func TestCommandFrom_Existing(t *testing.T) {
 		args: []string{"existing"},
 	}}
 
-	c.On("InspectImage", "existing").Return(&docker.Image{ID: "123"}, nil)
+	img := &docker.Image{
+		ID: "123",
+		Config: &docker.Config{
+			Hostname: "localhost",
+		},
+	}
+
+	c.On("InspectImage", "existing").Return(img, nil).Once()
 
 	err := cmd.Execute(b)
 	if err != nil {
@@ -38,6 +45,33 @@ func TestCommandFrom_Existing(t *testing.T) {
 
 	c.AssertExpectations(t)
 	assert.Equal(t, "123", b.imageID)
+	assert.Equal(t, "localhost", b.container.Hostname)
+}
+
+func TestCommandFrom_PullExisting(t *testing.T) {
+	b, c := makeBuild(t, "", BuildConfig{Pull: true})
+	cmd := &CommandFrom{ConfigCommand{
+		args: []string{"existing"},
+	}}
+
+	img := &docker.Image{
+		ID: "123",
+		Config: &docker.Config{
+			Hostname: "localhost",
+		},
+	}
+
+	c.On("PullImage", "existing").Return(nil).Once()
+	c.On("InspectImage", "existing").Return(img, nil).Once()
+
+	err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.AssertExpectations(t)
+	assert.Equal(t, "123", b.imageID)
+	assert.Equal(t, "localhost", b.container.Hostname)
 }
 
 func TestCommandFrom_NotExisting(t *testing.T) {
@@ -46,9 +80,9 @@ func TestCommandFrom_NotExisting(t *testing.T) {
 		args: []string{"not-existing"},
 	}}
 
-	var img *docker.Image
+	var nilImg *docker.Image
 
-	c.On("InspectImage", "not-existing").Return(img, nil).Once()
+	c.On("InspectImage", "not-existing").Return(nilImg, nil).Once()
 	c.On("PullImage", "not-existing").Return(nil).Once()
 	c.On("InspectImage", "not-existing").Return(&docker.Image{ID: "123"}, nil).Once()
 
