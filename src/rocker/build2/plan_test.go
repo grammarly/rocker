@@ -256,10 +256,28 @@ TAG my-build
 	}
 }
 
+func TestPlan_Scratch(t *testing.T) {
+	p := makePlan(t, `
+FROM scratch
+COPY rootfs /
+`)
+
+	expected := []Command{
+		&CommandFrom{},
+		&CommandCopy{},
+		&CommandCommit{},
+	}
+
+	assert.Len(t, p, len(expected))
+	for i, c := range expected {
+		assert.IsType(t, c, p[i])
+	}
+}
+
 // internal helpers
 
 func makePlan(t *testing.T, rockerfileContent string) Plan {
-	b := makeBuild(t, rockerfileContent, BuildConfig{})
+	b, _ := makeBuild(t, rockerfileContent, BuildConfig{})
 
 	p, err := NewPlan(b)
 	if err != nil {

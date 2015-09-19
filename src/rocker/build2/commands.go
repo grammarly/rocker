@@ -16,7 +16,11 @@
 
 package build2
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/fsouza/go-dockerclient"
+)
 
 type ConfigCommand struct {
 	name     string
@@ -41,6 +45,8 @@ func NewCommand(cfg ConfigCommand) (Command, error) {
 		return &CommandEnv{cfg}, nil
 	case "tag":
 		return &CommandTag{cfg}, nil
+	case "copy":
+		return &CommandCopy{cfg}, nil
 	}
 	return nil, fmt.Errorf("Unknown command: %s", cfg.name)
 }
@@ -49,7 +55,36 @@ type CommandFrom struct {
 	cfg ConfigCommand
 }
 
-func (c *CommandFrom) Execute(b *Build) error {
+func (c *CommandFrom) Execute(b *Build) (err error) {
+	// TODO: for "scratch" image we may use /images/create
+
+	if len(c.cfg.args) != 1 {
+		return fmt.Errorf("FROM requires one argument")
+	}
+
+	var (
+		img  *docker.Image
+		name = c.cfg.args[0]
+	)
+
+	if img, err = b.client.InspectImage(name); err != nil {
+		return err
+	}
+
+	if img == nil {
+		if err = b.client.PullImage(name); err != nil {
+			return err
+		}
+		if img, err = b.client.InspectImage(name); err != nil {
+			return err
+		}
+		if img == nil {
+			return fmt.Errorf("FROM: Failed to inspect image after pull: %s", name)
+		}
+	}
+
+	b.imageID = img.ID
+
 	return nil
 }
 
@@ -86,5 +121,13 @@ type CommandTag struct {
 }
 
 func (c *CommandTag) Execute(b *Build) error {
+	return nil
+}
+
+type CommandCopy struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandCopy) Execute(b *Build) error {
 	return nil
 }

@@ -16,17 +16,31 @@
 
 package build2
 
-import "github.com/fsouza/go-dockerclient"
+import (
+	"fmt"
+
+	"github.com/fsouza/go-dockerclient"
+)
 
 type Client interface {
+	InspectImage(name string) (*docker.Image, error)
+	PullImage(name string) error
 }
 
 type DockerClient struct {
-	Client *docker.Client
+	client *docker.Client
 }
 
 func NewDockerClient(dockerClient *docker.Client) *DockerClient {
 	return &DockerClient{
-		Client: dockerClient,
+		client: dockerClient,
 	}
+}
+
+func (c *DockerClient) InspectImage(name string) (*docker.Image, error) {
+	return c.client.InspectImage(name)
+}
+
+func (c *DockerClient) PullImage(name string) error {
+	return fmt.Errorf("PullImage not implemented yet")
 }

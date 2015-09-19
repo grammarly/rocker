@@ -22,17 +22,19 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 func TestNewBuild(t *testing.T) {
-	b := makeBuild(t, "FROM ubuntu", BuildConfig{})
+	b, _ := makeBuild(t, "FROM ubuntu", BuildConfig{})
 	assert.IsType(t, &Rockerfile{}, b.rockerfile)
 }
 
 // internal helpers
 
-func makeBuild(t *testing.T, rockerfileContent string, cfg BuildConfig) *Build {
+func makeBuild(t *testing.T, rockerfileContent string, cfg BuildConfig) (*Build, *MockClient) {
 	pc, _, _, _ := runtime.Caller(1)
 	fn := runtime.FuncForPC(pc)
 
@@ -41,11 +43,26 @@ func makeBuild(t *testing.T, rockerfileContent string, cfg BuildConfig) *Build {
 		t.Fatal(err)
 	}
 
-	b, err := New(&MockClient{}, r, BuildConfig{})
+	c := &MockClient{}
+
+	b, err := New(c, r, BuildConfig{})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return b
+
+	return b, c
 }
 
-type MockClient struct{}
+type MockClient struct {
+	mock.Mock
+}
+
+func (m *MockClient) InspectImage(name string) (*docker.Image, error) {
+	args := m.Called(name)
+	return args.Get(0).(*docker.Image), args.Error(1)
+}
+
+func (m *MockClient) PullImage(name string) error {
+	args := m.Called(name)
+	return args.Error(0)
+}

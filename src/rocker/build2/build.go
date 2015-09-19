@@ -24,6 +24,10 @@ import (
 	"github.com/fsouza/go-dockerclient"
 )
 
+var (
+	NoBaseImageSpecifier = "scratch"
+)
+
 type BuildConfig struct {
 	OutStream  io.Writer
 	InStream   io.ReadCloser
@@ -37,6 +41,8 @@ type Build struct {
 	cfg        BuildConfig
 	container  *docker.Config
 	client     Client
+
+	imageID string
 }
 
 func New(client Client, rockerfile *Rockerfile, cfg BuildConfig) (b *Build, err error) {
