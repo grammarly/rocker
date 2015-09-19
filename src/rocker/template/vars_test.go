@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -215,4 +216,14 @@ func TestVarsFileContent(t *testing.T) {
 	}
 
 	assert.Equal(t, "@testdata/content.txt", result3["FOO"])
+
+	// Test HOME
+	os.Setenv("HOME", path.Join(wd, "testdata"))
+
+	result4, err := VarsFromStrings([]string{"FOO=@~/content.txt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "hello\n", result4["FOO"])
 }
