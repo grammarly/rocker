@@ -73,6 +73,26 @@ Example:
 HOME={{ .Env.HOME }}
 ```
 
+# Load file content to a variable
+This template engine also supports loading files content to a variables. `rocker` and `rocker-compose` support this through a command line parameters:
+
+```bash
+rocker build -var key=@key.pem
+rocker-compose run -var key=@key.pem
+```
+
+If the file path is relative, it will be resolved according to the current working directory.
+
+**Usage options:**
+
+```
+key=@relative/file/path.txt
+key=@../another/relative/file/path.txt
+key=@/absolute/file/path.txt
+key=@~/.bash_history
+key=\@keep_value_as_is
+```
+
 # Development
 
 Please install pre-push git hook that will run tests before every push:
