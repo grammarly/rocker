@@ -95,6 +95,12 @@
 			"repository": "https://github.com/fsouza/go-dockerclient",
 			"revision": "c9ad0ce23f68428421adfc6ced9e6123f54788a5",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/stretchr/objx",
+			"repository": "https://github.com/stretchr/objx",
+			"revision": "cbeaeb16a013161a98496fad62933b1d21786672",
+			"branch": "master"
 		}
 	]
 }
