@@ -2,6 +2,9 @@
 
 Rocker breaks the limits of Dockerfile. It adds some crucial features that are missing while keeping Docker’s original design and idea. Read the [blog post](http://tech.grammarly.com/blog/posts/Making-Docker-Rock-at-Grammarly.html) about how and why it was invented.
 
+# *NOTE on v1 branch*
+In this branch we are developing the new experimental implementation of Rocker that will be completely client-side driven, with no fallback on `docker build`. This means faster builds and more power. No build context uploads anymore. Also, the builder code is completely rewritten and made much more testable and extensible in the future. Caching might be also rethought. Cross-server builds determinism is our dream. 
+
 * [Installation](#installation)
 * [Rockerfile](#rockerfile)
   * [MOUNT](#mount)
