@@ -110,6 +110,12 @@ func TestProcessConfigTemplate_Shellarg(t *testing.T) {
 	assert.Equal(t, "echo 'hello world'", processTemplate(t, "echo {{ \"hello world\" | shell }}"))
 }
 
+func TestProcessConfigTemplate_Yaml(t *testing.T) {
+	assert.Equal(t, "key: foo: bar\n", processTemplate(t, "key: {{ .data | yaml }}"))
+	assert.Equal(t, "key: myval\n", processTemplate(t, "key: {{ .mykey | yaml }}"))
+	assert.Equal(t, "key: |-\n  hello\n  world\n", processTemplate(t, "key: {{ \"hello\\nworld\" | yaml }}"))
+}
+
 func processTemplate(t *testing.T, tpl string) string {
 	result, err := ProcessConfigTemplate("test", strings.NewReader(tpl), configTemplateVars, map[string]interface{}{})
 	if err != nil {
