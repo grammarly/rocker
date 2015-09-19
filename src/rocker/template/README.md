@@ -45,6 +45,19 @@ This template will yield:
 ENV={"USER":"johnsnow","DOCKER_MACHINE_NAME":"dev","PATH":"/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin",...}
 ```
 
+### {{ shell *string* }} or {{ *string* | shell }}
+Escapes given string so it can be substituted to a shell command.
+
+Example:
+```Dockerfile
+RUN echo {{ "hello\nworld" | shell }}
+```
+
+This template will yield:
+```Dockerfile
+RUN $'hello\nworld'
+```
+
 ### {{ dump *anything* }}
 Pretty-prints any variable. Useful for debugging.
 

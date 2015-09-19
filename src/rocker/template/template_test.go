@@ -106,6 +106,10 @@ func TestProcessConfigTemplate_Json(t *testing.T) {
 	assert.Equal(t, "key: {\"foo\":\"bar\"}", processTemplate(t, "key: {{ .data | json }}"))
 }
 
+func TestProcessConfigTemplate_Shellarg(t *testing.T) {
+	assert.Equal(t, "echo 'hello world'", processTemplate(t, "echo {{ \"hello world\" | shell }}"))
+}
+
 func processTemplate(t *testing.T, tpl string) string {
 	result, err := ProcessConfigTemplate("test", strings.NewReader(tpl), configTemplateVars, map[string]interface{}{})
 	if err != nil {
