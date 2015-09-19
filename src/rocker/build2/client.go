@@ -25,7 +25,7 @@ type DockerClient struct {
 	Client *docker.Client
 }
 
-func New(dockerClient *docker.Client) *DockerClient {
+func NewDockerClient(dockerClient *docker.Client) *DockerClient {
 	return &DockerClient{
 		Client: dockerClient,
 	}

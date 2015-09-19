@@ -19,14 +19,12 @@ package build2
 import (
 	"fmt"
 	"io"
-	"os"
 	"rocker/template"
 
 	"github.com/fsouza/go-dockerclient"
 )
 
 type BuildConfig struct {
-	Rockerfile string
 	OutStream  io.Writer
 	InStream   io.ReadCloser
 	Auth       *docker.AuthConfiguration
@@ -35,30 +33,28 @@ type BuildConfig struct {
 }
 
 type Build struct {
-	cfg               *BuildConfig
-	client            *Client
-	rockerfileContent string
+	rockerfile *Rockerfile
+	cfg        BuildConfig
+	container  *docker.Config
+	client     Client
 }
 
-func New(client *Client, cfg *BuildConfig) (*Build, error) {
-	b := &Build{
-		cfg:    cfg,
-		client: &client,
+func New(client Client, rockerfile *Rockerfile, cfg BuildConfig) (b *Build, err error) {
+	b = &Build{
+		rockerfile: rockerfile,
+		cfg:        cfg,
+		client:     client,
 	}
-
-	fd, err := os.Open(b.cfg.Rockerfile)
-	if err != nil {
-		return fmt.Errorf("Failed to open file %s, error: %s", b.cfg.Rockerfile, err)
-	}
-	defer fd.Close()
-
-	data, err := template.ProcessConfigTemplate(b.cfg.Rockerfile, fd, b.cfg.Vars, map[string]interface{}{})
-	if err != nil {
-		return err
-	}
-	b.rockerfileContent = data.String()
-
-	// TODO: print
 
 	return b, nil
+}
+
+func (b *Build) Run(plan Plan) error {
+	for k, c := range plan {
+		fmt.Printf("Step %d: %q\n", k, c)
+		if err := c.Execute(b); err != nil {
+			return err
+		}
+	}
+	return nil
 }

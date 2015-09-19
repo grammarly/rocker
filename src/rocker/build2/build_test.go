@@ -16,5 +16,36 @@
 
 package build2
 
-type MockClient struct {
+import (
+	"rocker/template"
+	"runtime"
+	"strings"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestNewBuild(t *testing.T) {
+	b := makeBuild(t, "FROM ubuntu", BuildConfig{})
+	assert.IsType(t, &Rockerfile{}, b.rockerfile)
 }
+
+// internal helpers
+
+func makeBuild(t *testing.T, rockerfileContent string, cfg BuildConfig) *Build {
+	pc, _, _, _ := runtime.Caller(1)
+	fn := runtime.FuncForPC(pc)
+
+	r, err := NewRockerfile(fn.Name(), strings.NewReader(rockerfileContent), template.Vars{}, template.Funs{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	b, err := New(&MockClient{}, r, BuildConfig{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}
+
+type MockClient struct{}

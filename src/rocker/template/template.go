@@ -32,9 +32,11 @@ import (
 	"github.com/kr/pretty"
 )
 
+type Funs map[string]interface{}
+
 // Process renders config through the template processor.
 // vars and additional functions are acceptable.
-func Process(name string, reader io.Reader, vars Vars, funcs map[string]interface{}) (*bytes.Buffer, error) {
+func Process(name string, reader io.Reader, vars Vars, funs Funs) (*bytes.Buffer, error) {
 
 	var buf bytes.Buffer
 	// read template
@@ -89,7 +91,7 @@ func Process(name string, reader io.Reader, vars Vars, funcs map[string]interfac
 		"trimSpace":    strings.TrimSpace,
 		"trimSuffix":   strings.TrimSuffix,
 	}
-	for k, f := range funcs {
+	for k, f := range funs {
 		funcMap[k] = f
 	}
 
