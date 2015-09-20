@@ -103,7 +103,7 @@ func (c *CommandFrom) Execute(b *Build) (state State, err error) {
 
 	state = b.state
 	state.imageID = img.ID
-	state.container = *img.Config
+	state.config = *img.Config
 
 	return state, nil
 }
@@ -141,14 +141,14 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 			return s, fmt.Errorf("Nothing to commit, this might be a bug.")
 		}
 
-		origCmd := s.container.Cmd
-		s.container.Cmd = []string{"/bin/sh", "-c", "#(nop) " + message}
+		origCmd := s.config.Cmd
+		s.config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + message}
 
 		if s.containerID, err = b.client.CreateContainer(s); err != nil {
 			return s, err
 		}
 
-		s.container.Cmd = origCmd
+		s.config.Cmd = origCmd
 	}
 
 	if s.imageID, err = b.client.CommitContainer(s, message); err != nil {
@@ -189,8 +189,8 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	// TODO: test with ENTRYPOINT
 
 	// We run this command in the container using CMD
-	origCmd := s.container.Cmd
-	s.container.Cmd = cmd
+	origCmd := s.config.Cmd
+	s.config.Cmd = cmd
 
 	if s.containerID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
@@ -201,7 +201,7 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	}
 
 	// Restore command after commit
-	s.container.Cmd = origCmd
+	s.config.Cmd = origCmd
 
 	return s, nil
 }
@@ -238,16 +238,16 @@ func (c *CommandEnv) Execute(b *Build) (s State, err error) {
 		commitStr += " " + newVar
 
 		gotOne := false
-		for i, envVar := range s.container.Env {
+		for i, envVar := range s.config.Env {
 			envParts := strings.SplitN(envVar, "=", 2)
 			if envParts[0] == args[j] {
-				s.container.Env[i] = newVar
+				s.config.Env[i] = newVar
 				gotOne = true
 				break
 			}
 		}
 		if !gotOne {
-			s.container.Env = append(s.container.Env, newVar)
+			s.config.Env = append(s.config.Env, newVar)
 		}
 	}
 
@@ -274,7 +274,7 @@ func (c *CommandCmd) Execute(b *Build) (s State, err error) {
 		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
 	}
 
-	s.container.Cmd = cmd
+	s.config.Cmd = cmd
 
 	s.commitMsg = append(s.commitMsg, fmt.Sprintf("CMD %q", cmd))
 

@@ -29,7 +29,7 @@ var (
 	NoBaseImageSpecifier = "scratch"
 )
 
-type BuildConfig struct {
+type Config struct {
 	OutStream  io.Writer
 	InStream   io.ReadCloser
 	ContextDir string
@@ -37,7 +37,7 @@ type BuildConfig struct {
 }
 
 type State struct {
-	container   docker.Config
+	config      docker.Config
 	imageID     string
 	containerID string
 	commitMsg   []string
@@ -46,12 +46,12 @@ type State struct {
 
 type Build struct {
 	rockerfile *Rockerfile
-	cfg        BuildConfig
+	cfg        Config
 	client     Client
 	state      State
 }
 
-func New(client Client, rockerfile *Rockerfile, cfg BuildConfig) *Build {
+func New(client Client, rockerfile *Rockerfile, cfg Config) *Build {
 	return &Build{
 		rockerfile: rockerfile,
 		cfg:        cfg,

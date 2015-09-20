@@ -277,7 +277,7 @@ COPY rootfs /
 // internal helpers
 
 func makePlan(t *testing.T, rockerfileContent string) Plan {
-	b, _ := makeBuild(t, rockerfileContent, BuildConfig{})
+	b, _ := makeBuild(t, rockerfileContent, Config{})
 
 	p, err := NewPlan(b)
 	if err != nil {

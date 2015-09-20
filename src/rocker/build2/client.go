@@ -105,17 +105,17 @@ func (c *DockerClient) PullImage(name string) error {
 	return nil
 }
 
-func (c *DockerClient) CreateContainer(state State) (string, error) {
+func (c *DockerClient) CreateContainer(s State) (string, error) {
 	// TODO: mount volumes
 	// volumesFrom := builder.getMountContainerIds()
 	// binds := builder.getBinds()
 
-	state.container.Image = state.imageID
+	s.config.Image = s.imageID
 
 	// TODO: assign human readable name?
 
 	opts := docker.CreateContainerOptions{
-		Config:     &state.container,
+		Config:     &s.config,
 		HostConfig: &docker.HostConfig{
 		// Binds:       binds,
 		// VolumesFrom: volumesFrom,
@@ -129,7 +129,7 @@ func (c *DockerClient) CreateContainer(state State) (string, error) {
 		return "", err
 	}
 
-	log.Infof("      | Created container %.12s (image %.12s)", container.ID, state.imageID)
+	log.Infof("      | Created container %.12s (image %.12s)", container.ID, s.imageID)
 
 	return container.ID, nil
 }
@@ -259,11 +259,11 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 	return nil
 }
 
-func (c *DockerClient) CommitContainer(state State, message string) (string, error) {
+func (c *DockerClient) CommitContainer(s State, message string) (string, error) {
 	commitOpts := docker.CommitContainerOptions{
-		Container: state.containerID,
+		Container: s.containerID,
 		Message:   message,
-		Run:       &state.container,
+		Run:       &s.config,
 	}
 
 	log.Debugf("Commit container: %# v", pretty.Formatter(commitOpts))

@@ -28,7 +28,7 @@ import (
 // =========== Testing FROM ===========
 
 func TestCommandFrom_Existing(t *testing.T) {
-	b, c := makeBuild(t, "", BuildConfig{})
+	b, c := makeBuild(t, "", Config{})
 	cmd := &CommandFrom{ConfigCommand{
 		args: []string{"existing"},
 	}}
@@ -49,11 +49,11 @@ func TestCommandFrom_Existing(t *testing.T) {
 
 	c.AssertExpectations(t)
 	assert.Equal(t, "123", state.imageID)
-	assert.Equal(t, "localhost", state.container.Hostname)
+	assert.Equal(t, "localhost", state.config.Hostname)
 }
 
 func TestCommandFrom_PullExisting(t *testing.T) {
-	b, c := makeBuild(t, "", BuildConfig{Pull: true})
+	b, c := makeBuild(t, "", Config{Pull: true})
 	cmd := &CommandFrom{ConfigCommand{
 		args: []string{"existing"},
 	}}
@@ -75,11 +75,11 @@ func TestCommandFrom_PullExisting(t *testing.T) {
 
 	c.AssertExpectations(t)
 	assert.Equal(t, "123", state.imageID)
-	assert.Equal(t, "localhost", state.container.Hostname)
+	assert.Equal(t, "localhost", state.config.Hostname)
 }
 
 func TestCommandFrom_NotExisting(t *testing.T) {
-	b, c := makeBuild(t, "", BuildConfig{})
+	b, c := makeBuild(t, "", Config{})
 	cmd := &CommandFrom{ConfigCommand{
 		args: []string{"not-existing"},
 	}}
@@ -105,7 +105,7 @@ func TestCommandFrom_NotExisting(t *testing.T) {
 }
 
 func TestCommandFrom_AfterPullNotExisting(t *testing.T) {
-	b, c := makeBuild(t, "", BuildConfig{})
+	b, c := makeBuild(t, "", Config{})
 	cmd := &CommandFrom{ConfigCommand{
 		args: []string{"not-existing"},
 	}}
@@ -123,18 +123,18 @@ func TestCommandFrom_AfterPullNotExisting(t *testing.T) {
 // =========== Testing RUN ===========
 
 func TestCommandRun_Simple(t *testing.T) {
-	b, c := makeBuild(t, "", BuildConfig{})
+	b, c := makeBuild(t, "", Config{})
 	cmd := &CommandRun{ConfigCommand{
 		args: []string{"whoami"},
 	}}
 
 	origCmd := []string{"/bin/program"}
-	b.state.container.Cmd = origCmd
+	b.state.config.Cmd = origCmd
 	b.state.imageID = "123"
 
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
 		arg := args.Get(0).(State)
-		assert.Equal(t, []string{"/bin/sh", "-c", "whoami"}, arg.container.Cmd)
+		assert.Equal(t, []string{"/bin/sh", "-c", "whoami"}, arg.config.Cmd)
 	}).Once()
 
 	c.On("RunContainer", "456", false).Return(nil).Once()
@@ -145,8 +145,8 @@ func TestCommandRun_Simple(t *testing.T) {
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, origCmd, b.state.container.Cmd)
-	assert.Equal(t, origCmd, state.container.Cmd)
+	assert.Equal(t, origCmd, b.state.config.Cmd)
+	assert.Equal(t, origCmd, state.config.Cmd)
 	assert.Equal(t, "123", state.imageID)
 	assert.Equal(t, "456", state.containerID)
 }
@@ -154,7 +154,7 @@ func TestCommandRun_Simple(t *testing.T) {
 // =========== Testing COMMIT ===========
 
 func TestCommandCommit_Simple(t *testing.T) {
-	b, c := makeBuild(t, "", BuildConfig{})
+	b, c := makeBuild(t, "", Config{})
 	cmd := &CommandCommit{}
 
 	origCommitMsg := []string{"a", "b"}
@@ -172,13 +172,13 @@ func TestCommandCommit_Simple(t *testing.T) {
 	c.AssertExpectations(t)
 	assert.Equal(t, origCommitMsg, b.state.commitMsg)
 	assert.Equal(t, []string{}, state.commitMsg)
-	assert.Equal(t, []string(nil), state.container.Cmd)
+	assert.Equal(t, []string(nil), state.config.Cmd)
 	assert.Equal(t, "789", state.imageID)
 	assert.Equal(t, "", state.containerID)
 }
 
 func TestCommandCommit_NoContainer(t *testing.T) {
-	b, c := makeBuild(t, "", BuildConfig{})
+	b, c := makeBuild(t, "", Config{})
 	cmd := &CommandCommit{}
 
 	origCommitMsg := []string{"a", "b"}
@@ -186,7 +186,7 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
 		arg := args.Get(0).(State)
-		assert.Equal(t, []string{"/bin/sh", "-c", "#(nop) a; b"}, arg.container.Cmd)
+		assert.Equal(t, []string{"/bin/sh", "-c", "#(nop) a; b"}, arg.config.Cmd)
 	}).Once()
 
 	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return("789", nil).Once()
@@ -205,7 +205,7 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 }
 
 func TestCommandCommit_NoCommitMsgs(t *testing.T) {
-	b, _ := makeBuild(t, "", BuildConfig{})
+	b, _ := makeBuild(t, "", Config{})
 	cmd := &CommandCommit{}
 
 	_, err := cmd.Execute(b)
@@ -215,7 +215,7 @@ func TestCommandCommit_NoCommitMsgs(t *testing.T) {
 // =========== Testing ENV ===========
 
 func TestCommandEnv_Simple(t *testing.T) {
-	b, _ := makeBuild(t, "", BuildConfig{})
+	b, _ := makeBuild(t, "", Config{})
 	cmd := &CommandEnv{ConfigCommand{
 		args: []string{"type", "web", "env", "prod"},
 	}}
@@ -226,16 +226,16 @@ func TestCommandEnv_Simple(t *testing.T) {
 	}
 
 	assert.Equal(t, []string{"ENV type=web env=prod"}, state.commitMsg)
-	assert.Equal(t, []string{"type=web", "env=prod"}, state.container.Env)
+	assert.Equal(t, []string{"type=web", "env=prod"}, state.config.Env)
 }
 
 func TestCommandEnv_Advanced(t *testing.T) {
-	b, _ := makeBuild(t, "", BuildConfig{})
+	b, _ := makeBuild(t, "", Config{})
 	cmd := &CommandEnv{ConfigCommand{
 		args: []string{"type", "web", "env", "prod"},
 	}}
 
-	b.state.container.Env = []string{"env=dev", "version=1.2.3"}
+	b.state.config.Env = []string{"env=dev", "version=1.2.3"}
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -243,13 +243,13 @@ func TestCommandEnv_Advanced(t *testing.T) {
 	}
 
 	assert.Equal(t, []string{"ENV type=web env=prod"}, state.commitMsg)
-	assert.Equal(t, []string{"env=prod", "version=1.2.3", "type=web"}, state.container.Env)
+	assert.Equal(t, []string{"env=prod", "version=1.2.3", "type=web"}, state.config.Env)
 }
 
 // =========== Testing CMD ===========
 
 func TestCommandCmd_Simple(t *testing.T) {
-	b, _ := makeBuild(t, "", BuildConfig{})
+	b, _ := makeBuild(t, "", Config{})
 	cmd := &CommandCmd{ConfigCommand{
 		args: []string{"apt-get", "install"},
 	}}
@@ -259,11 +259,11 @@ func TestCommandCmd_Simple(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, []string{"/bin/sh", "-c", "apt-get install"}, state.container.Cmd)
+	assert.Equal(t, []string{"/bin/sh", "-c", "apt-get install"}, state.config.Cmd)
 }
 
 func TestCommandCmd_Json(t *testing.T) {
-	b, _ := makeBuild(t, "", BuildConfig{})
+	b, _ := makeBuild(t, "", Config{})
 	cmd := &CommandCmd{ConfigCommand{
 		args:  []string{"apt-get", "install"},
 		attrs: map[string]bool{"json": true},
@@ -274,5 +274,5 @@ func TestCommandCmd_Json(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, []string{"apt-get", "install"}, state.container.Cmd)
+	assert.Equal(t, []string{"apt-get", "install"}, state.config.Cmd)
 }

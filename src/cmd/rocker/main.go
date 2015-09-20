@@ -256,7 +256,7 @@ func buildCommand(c *cli.Context) {
 
 	client := build2.NewDockerClient(dockerClient, auth)
 
-	builder := build2.New(client, rockerfile, build2.BuildConfig{
+	builder := build2.New(client, rockerfile, build2.Config{
 		InStream:   os.Stdin,
 		OutStream:  os.Stdout,
 		ContextDir: contextDir,

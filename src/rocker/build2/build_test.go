@@ -28,13 +28,13 @@ import (
 )
 
 func TestNewBuild(t *testing.T) {
-	b, _ := makeBuild(t, "FROM ubuntu", BuildConfig{})
+	b, _ := makeBuild(t, "FROM ubuntu", Config{})
 	assert.IsType(t, &Rockerfile{}, b.rockerfile)
 }
 
 // internal helpers
 
-func makeBuild(t *testing.T, rockerfileContent string, cfg BuildConfig) (*Build, *MockClient) {
+func makeBuild(t *testing.T, rockerfileContent string, cfg Config) (*Build, *MockClient) {
 	pc, _, _, _ := runtime.Caller(1)
 	fn := runtime.FuncForPC(pc)
 
