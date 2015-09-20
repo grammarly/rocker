@@ -17,10 +17,12 @@
 package build2
 
 import (
-	"fmt"
 	"io"
 
 	"github.com/fsouza/go-dockerclient"
+	"github.com/kr/pretty"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 var (
@@ -57,11 +59,15 @@ func New(client Client, rockerfile *Rockerfile, cfg BuildConfig) *Build {
 
 func (b *Build) Run(plan Plan) (err error) {
 	for k, c := range plan {
-		// fmt.Printf("Step %d: %# v\n", k+1, pretty.Formatter(c))
-		fmt.Printf("Step %d: %s\n", k+1, c)
+
+		log.Debugf("Step %d: %# v", k+1, pretty.Formatter(c))
+		log.Infof("Step %d: %s", k+1, c)
+
 		if b.state, err = c.Execute(b); err != nil {
 			return err
 		}
+
+		log.Debugf("State after step %d: %# v", k+1, pretty.Formatter(b.state))
 	}
 	return nil
 }

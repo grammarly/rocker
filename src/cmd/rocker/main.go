@@ -19,7 +19,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path"
 	"path/filepath"
@@ -33,7 +32,8 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/kr/pretty"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 var (
@@ -49,6 +49,11 @@ var (
 	// BuildTime that is passed on compile time through -ldflags
 	BuildTime = "none"
 )
+
+func init() {
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.InfoLevel)
+}
 
 func main() {
 	app := cli.NewApp()
@@ -67,8 +72,10 @@ func main() {
 
 	app.Flags = append([]cli.Flag{
 		cli.BoolFlag{
-			Name:  "verbose",
-			Usage: "enables verbose output",
+			Name: "verbose, vv",
+		},
+		cli.BoolFlag{
+			Name: "json",
 		},
 	}, dockerclient.GlobalCliParams()...)
 
@@ -170,6 +177,8 @@ func buildCommand(c *cli.Context) {
 		err        error
 	)
 
+	initLogs(c)
+
 	cliVars, err := template.VarsFromStrings(c.StringSlice("var"))
 	if err != nil {
 		log.Fatal(err)
@@ -237,7 +246,7 @@ func buildCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
-	auth := &docker.AuthConfiguration{}
+	auth := docker.AuthConfiguration{}
 	authParam := c.String("auth")
 	if strings.Contains(authParam, ":") {
 		userPass := strings.Split(authParam, ":")
@@ -245,11 +254,7 @@ func buildCommand(c *cli.Context) {
 		auth.Password = userPass[1]
 	}
 
-	client := build2.NewDockerClient(dockerClient, build2.DockerClientConfig{
-		InStream:  os.Stdin,
-		OutStream: os.Stdout,
-		Auth:      auth,
-	})
+	client := build2.NewDockerClient(dockerClient, auth)
 
 	builder := build2.New(client, rockerfile, build2.BuildConfig{
 		InStream:   os.Stdin,
@@ -266,8 +271,6 @@ func buildCommand(c *cli.Context) {
 	if err := builder.Run(plan); err != nil {
 		log.Fatal(err)
 	}
-
-	pretty.Println(builder.GetState())
 
 	// builder := build.Builder{
 	// 	Rockerfile:   configFilename,
@@ -388,6 +391,16 @@ func cleanCommand(c *cli.Context) {
 	verbose := c.Bool("verbose")
 	fmt.Println("verbose")
 	fmt.Println(verbose)
+}
+
+func initLogs(ctx *cli.Context) {
+	if ctx.GlobalBool("verbose") {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	if ctx.GlobalBool("json") {
+		log.SetFormatter(&log.JSONFormatter{})
+	}
 }
 
 func stringOr(args ...string) string {

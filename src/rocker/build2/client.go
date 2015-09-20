@@ -24,6 +24,8 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/term"
 	"github.com/fsouza/go-dockerclient"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 type Client interface {
@@ -31,22 +33,15 @@ type Client interface {
 	PullImage(name string) error
 }
 
-type DockerClientConfig struct {
-	Client    *docker.Client
-	OutStream io.Writer
-	InStream  io.ReadCloser
-	Auth      *docker.AuthConfiguration
-}
-
 type DockerClient struct {
 	client *docker.Client
-	cfg    DockerClientConfig
+	auth   docker.AuthConfiguration
 }
 
-func NewDockerClient(dockerClient *docker.Client, cfg DockerClientConfig) *DockerClient {
+func NewDockerClient(dockerClient *docker.Client, auth docker.AuthConfiguration) *DockerClient {
 	return &DockerClient{
 		client: dockerClient,
-		cfg:    cfg,
+		auth:   auth,
 	}
 }
 
@@ -62,11 +57,17 @@ func (c *DockerClient) InspectImage(name string) (*docker.Image, error) {
 func (c *DockerClient) PullImage(name string) error {
 
 	var (
-		fdOut, isTerminalOut   = term.GetFdInfo(c.cfg.OutStream)
 		image                  = imagename.NewFromString(name)
 		pipeReader, pipeWriter = io.Pipe()
+		def                    = log.StandardLogger()
+		fdOut, isTerminalOut   = term.GetFdInfo(def.Out)
+		out                    = def.Out
 		errch                  = make(chan error)
 	)
+
+	if !isTerminalOut {
+		out = def.Writer()
+	}
 
 	pullOpts := docker.PullImageOptions{
 		Repository:    image.NameWithRegistry(),
@@ -77,17 +78,16 @@ func (c *DockerClient) PullImage(name string) error {
 	}
 
 	go func() {
-		err := c.client.PullImage(pullOpts, *c.cfg.Auth)
+		err := c.client.PullImage(pullOpts, c.auth)
 
 		if err := pipeWriter.Close(); err != nil {
-			// TODO: logrus error
-			fmt.Printf("pipeWriter.Close() err: %s\n", err)
+			log.Errorf("pipeWriter.Close() err: %s\n", err)
 		}
 
 		errch <- err
 	}()
 
-	if err := jsonmessage.DisplayJSONMessagesStream(pipeReader, c.cfg.OutStream, fdOut, isTerminalOut); err != nil {
+	if err := jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut); err != nil {
 		return fmt.Errorf("Failed to process json stream for image: %s, error: %s", image, err)
 	}
 
