@@ -37,8 +37,10 @@ type BuildConfig struct {
 }
 
 type State struct {
-	container docker.Config
-	imageID   string
+	container   docker.Config
+	imageID     string
+	containerID string
+	postCommit  func(s State) (s1 State, err error)
 }
 
 type Build struct {

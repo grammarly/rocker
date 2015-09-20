@@ -19,9 +19,13 @@ package build2
 import (
 	"testing"
 
+	"github.com/stretchr/testify/mock"
+
 	"github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 )
+
+// =========== Testing FROM ===========
 
 func TestCommandFrom_Existing(t *testing.T) {
 	b, c := makeBuild(t, "", BuildConfig{})
@@ -114,4 +118,45 @@ func TestCommandFrom_AfterPullNotExisting(t *testing.T) {
 	_, err := cmd.Execute(b)
 	c.AssertExpectations(t)
 	assert.Equal(t, "FROM: Failed to inspect image after pull: not-existing", err.Error())
+}
+
+// =========== Testing RUN ===========
+
+func TestCommandRun_Simple(t *testing.T) {
+	b, c := makeBuild(t, "", BuildConfig{})
+	cmd := &CommandRun{ConfigCommand{
+		args: []string{"whoami"},
+	}}
+
+	origCmd := []string{"/bin/program"}
+	b.state.container.Cmd = origCmd
+	b.state.imageID = "123"
+
+	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
+		arg := args.Get(0).(State)
+		assert.Equal(t, []string{"/bin/sh", "-c", "whoami"}, arg.container.Cmd)
+	}).Once()
+
+	c.On("RunContainer", "456", false).Return(nil).Once()
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.AssertExpectations(t)
+	assert.Equal(t, origCmd, b.state.container.Cmd)
+	assert.Equal(t, "123", state.imageID)
+	assert.Equal(t, "456", state.containerID)
+	assert.Equal(t, []string{"/bin/sh", "-c", "whoami"}, state.container.Cmd)
+
+	// testing cleanup
+	assert.NotNil(t, state.postCommit, "expected state.postCommit function to be set")
+
+	state2, err := state.postCommit(state)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, origCmd, state2.container.Cmd)
 }

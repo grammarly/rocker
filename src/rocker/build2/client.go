@@ -31,6 +31,8 @@ import (
 type Client interface {
 	InspectImage(name string) (*docker.Image, error)
 	PullImage(name string) error
+	CreateContainer(state State) (id string, err error)
+	RunContainer(containerID string, attach bool) error
 }
 
 type DockerClient struct {
@@ -81,7 +83,7 @@ func (c *DockerClient) PullImage(name string) error {
 		err := c.client.PullImage(pullOpts, c.auth)
 
 		if err := pipeWriter.Close(); err != nil {
-			log.Errorf("pipeWriter.Close() err: %s\n", err)
+			log.Errorf("pipeWriter.Close() err: %s", err)
 		}
 
 		errch <- err
@@ -96,4 +98,34 @@ func (c *DockerClient) PullImage(name string) error {
 	}
 
 	return nil
+}
+
+func (c *DockerClient) CreateContainer(state State) (string, error) {
+	// volumesFrom := builder.getMountContainerIds()
+	// binds := builder.getBinds()
+
+	state.container.Image = state.imageID
+
+	// TODO: assign human readable name?
+
+	opts := docker.CreateContainerOptions{
+		Config:     &state.container,
+		HostConfig: &docker.HostConfig{
+		// Binds:       binds,
+		// VolumesFrom: volumesFrom,
+		},
+	}
+
+	container, err := c.client.CreateContainer(opts)
+	if err != nil {
+		return "", err
+	}
+
+	log.Infof("  ---> Created container %.12s (image id = %.12s)", container.ID, state.imageID)
+
+	return container.ID, nil
+}
+
+func (c *DockerClient) RunContainer(containerID string, attach bool) error {
+	return fmt.Errorf("RunContainer not implemented yet")
 }

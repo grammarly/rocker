@@ -138,8 +138,40 @@ func (c *CommandRun) String() string {
 	return c.cfg.original
 }
 
-func (c *CommandRun) Execute(b *Build) (State, error) {
-	return b.state, nil
+func (c *CommandRun) Execute(b *Build) (s State, err error) {
+	s = b.state
+
+	if s.imageID == "" {
+		return s, fmt.Errorf("Please provide a source image with `FROM` prior to run")
+	}
+
+	cmd := handleJSONArgs(c.cfg.args, c.cfg.attrs)
+
+	if !c.cfg.attrs["json"] {
+		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
+	}
+
+	// TODO: test with ENTRYPOINT
+
+	// We run this command in the container using CMD
+	origCmd := s.container.Cmd
+	s.container.Cmd = cmd
+
+	// Restore command after commit
+	s.postCommit = func(s State) (State, error) {
+		s.container.Cmd = origCmd
+		return s, nil
+	}
+
+	if s.containerID, err = b.client.CreateContainer(s); err != nil {
+		return s, err
+	}
+
+	if err = b.client.RunContainer(s.containerID, false); err != nil {
+		return s, err
+	}
+
+	return s, nil
 }
 
 // CommandEnv implements ENV

@@ -103,6 +103,19 @@ func (r *Rockerfile) Commands() []ConfigCommand {
 	return commands
 }
 
+func handleJSONArgs(args []string, attributes map[string]bool) []string {
+	if len(args) == 0 {
+		return []string{}
+	}
+
+	if attributes != nil && attributes["json"] {
+		return args
+	}
+
+	// literal string command, not an exec array
+	return []string{strings.Join(args, " ")}
+}
+
 func parseFlags(flags []string) map[string]string {
 	result := make(map[string]string)
 	for _, flag := range flags {
