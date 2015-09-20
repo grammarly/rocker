@@ -44,11 +44,7 @@ func makeBuild(t *testing.T, rockerfileContent string, cfg BuildConfig) (*Build,
 	}
 
 	c := &MockClient{}
-
-	b, err := New(c, r, cfg)
-	if err != nil {
-		t.Fatal(err)
-	}
+	b := New(c, r, cfg)
 
 	return b, c
 }
