@@ -19,7 +19,6 @@ package build2
 import (
 	"fmt"
 	"io"
-	"rocker/template"
 
 	"github.com/fsouza/go-dockerclient"
 )
@@ -31,8 +30,6 @@ var (
 type BuildConfig struct {
 	OutStream  io.Writer
 	InStream   io.ReadCloser
-	Auth       *docker.AuthConfiguration
-	Vars       template.Vars
 	ContextDir string
 	Pull       bool
 }
@@ -49,23 +46,26 @@ type Build struct {
 	state      State
 }
 
-func New(client Client, rockerfile *Rockerfile, cfg BuildConfig) (b *Build, err error) {
-	b = &Build{
+func New(client Client, rockerfile *Rockerfile, cfg BuildConfig) *Build {
+	return &Build{
 		rockerfile: rockerfile,
 		cfg:        cfg,
 		client:     client,
 		state:      State{},
 	}
-
-	return b, nil
 }
 
 func (b *Build) Run(plan Plan) (err error) {
 	for k, c := range plan {
-		fmt.Printf("Step %d: %q\n", k, c)
+		// fmt.Printf("Step %d: %# v\n", k+1, pretty.Formatter(c))
+		fmt.Printf("Step %d: %s\n", k+1, c)
 		if b.state, err = c.Execute(b); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (b *Build) GetState() State {
+	return b.state
 }

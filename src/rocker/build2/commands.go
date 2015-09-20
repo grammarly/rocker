@@ -36,6 +36,9 @@ type Command interface {
 	// it to be immutable. In future, it may encoded/decoded from json
 	// and passed to the external command implementations.
 	Execute(b *Build) (State, error)
+
+	// String returns the human readable string representation of the command
+	String() string
 }
 
 func NewCommand(cfg ConfigCommand) (Command, error) {
@@ -55,8 +58,13 @@ func NewCommand(cfg ConfigCommand) (Command, error) {
 	return nil, fmt.Errorf("Unknown command: %s", cfg.name)
 }
 
+// CommandFrom implements FROM
 type CommandFrom struct {
 	cfg ConfigCommand
+}
+
+func (c *CommandFrom) String() string {
+	return c.cfg.original
 }
 
 func (c *CommandFrom) Execute(b *Build) (state State, err error) {
@@ -97,44 +105,76 @@ func (c *CommandFrom) Execute(b *Build) (state State, err error) {
 	return state, nil
 }
 
+// CommandReset cleans the builder state before the next FROM
 type CommandReset struct{}
 
-func (c *CommandReset) Execute(b *Build) (State, error) {
-	return b.state, nil
+func (c *CommandReset) String() string {
+	return "Cleaning up state before the next FROM"
 }
 
+func (c *CommandReset) Execute(b *Build) (State, error) {
+	state := b.state
+	state.imageID = ""
+	return state, nil
+}
+
+// CommandCommit commits collected changes
 type CommandCommit struct{}
+
+func (c *CommandCommit) String() string {
+	return "Committing changes"
+}
 
 func (c *CommandCommit) Execute(b *Build) (State, error) {
 	return b.state, nil
 }
 
+// CommandRun implements RUN
 type CommandRun struct {
 	cfg ConfigCommand
+}
+
+func (c *CommandRun) String() string {
+	return c.cfg.original
 }
 
 func (c *CommandRun) Execute(b *Build) (State, error) {
 	return b.state, nil
 }
 
+// CommandEnv implements ENV
 type CommandEnv struct {
 	cfg ConfigCommand
+}
+
+func (c *CommandEnv) String() string {
+	return c.cfg.original
 }
 
 func (c *CommandEnv) Execute(b *Build) (State, error) {
 	return b.state, nil
 }
 
+// CommandTag implements TAG
 type CommandTag struct {
 	cfg ConfigCommand
+}
+
+func (c *CommandTag) String() string {
+	return c.cfg.original
 }
 
 func (c *CommandTag) Execute(b *Build) (State, error) {
 	return b.state, nil
 }
 
+// CommandCopy implements COPY
 type CommandCopy struct {
 	cfg ConfigCommand
+}
+
+func (c *CommandCopy) String() string {
+	return c.cfg.original
 }
 
 func (c *CommandCopy) Execute(b *Build) (State, error) {

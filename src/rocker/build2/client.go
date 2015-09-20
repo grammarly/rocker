@@ -18,7 +18,11 @@ package build2
 
 import (
 	"fmt"
+	"io"
+	"rocker/imagename"
 
+	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/docker/docker/pkg/term"
 	"github.com/fsouza/go-dockerclient"
 )
 
@@ -27,20 +31,69 @@ type Client interface {
 	PullImage(name string) error
 }
 
-type DockerClient struct {
-	client *docker.Client
+type DockerClientConfig struct {
+	Client    *docker.Client
+	OutStream io.Writer
+	InStream  io.ReadCloser
+	Auth      *docker.AuthConfiguration
 }
 
-func NewDockerClient(dockerClient *docker.Client) *DockerClient {
+type DockerClient struct {
+	client *docker.Client
+	cfg    DockerClientConfig
+}
+
+func NewDockerClient(dockerClient *docker.Client, cfg DockerClientConfig) *DockerClient {
 	return &DockerClient{
 		client: dockerClient,
+		cfg:    cfg,
 	}
 }
 
 func (c *DockerClient) InspectImage(name string) (*docker.Image, error) {
-	return c.client.InspectImage(name)
+	img, err := c.client.InspectImage(name)
+	// We simply return nil in case image not found
+	if err == docker.ErrNoSuchImage {
+		return nil, nil
+	}
+	return img, err
 }
 
 func (c *DockerClient) PullImage(name string) error {
-	return fmt.Errorf("PullImage not implemented yet")
+
+	var (
+		fdOut, isTerminalOut   = term.GetFdInfo(c.cfg.OutStream)
+		image                  = imagename.NewFromString(name)
+		pipeReader, pipeWriter = io.Pipe()
+		errch                  = make(chan error)
+	)
+
+	pullOpts := docker.PullImageOptions{
+		Repository:    image.NameWithRegistry(),
+		Registry:      image.Registry,
+		Tag:           image.GetTag(),
+		OutputStream:  pipeWriter,
+		RawJSONStream: true,
+	}
+
+	go func() {
+		err := c.client.PullImage(pullOpts, *c.cfg.Auth)
+
+		if err := pipeWriter.Close(); err != nil {
+			// TODO: logrus error
+			fmt.Printf("pipeWriter.Close() err: %s\n", err)
+		}
+
+		errch <- err
+	}()
+
+	if err := jsonmessage.DisplayJSONMessagesStream(pipeReader, c.cfg.OutStream, fdOut, isTerminalOut); err != nil {
+		return fmt.Errorf("Failed to process json stream for image: %s, error: %s", image, err)
+	}
+
+	if err := <-errch; err != nil {
+		return fmt.Errorf("Failed to pull image: %s, error: %s", image, err)
+	}
+
+	return nil
 }

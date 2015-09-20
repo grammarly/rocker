@@ -54,7 +54,7 @@ func NewPlan(b *Build) (plan Plan, err error) {
 			}
 		}
 
-		// Commit before commands that require our state
+		// Commit before commands that require state
 		if strings.Contains(alwaysCommitBefore, cfg.name) && !committed {
 			commit()
 		}
@@ -70,7 +70,7 @@ func NewPlan(b *Build) (plan Plan, err error) {
 			committed = false
 
 			// If we reached the end of Rockerfile, do the final commit
-			// As you noticed, the final commit will not happen in the last
+			// As you noticed, the final commit will not happen if the last
 			// command was TAG, PUSH or FROM
 			if i == len(commands)-1 {
 				commit()
