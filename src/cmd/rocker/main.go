@@ -26,13 +26,14 @@ import (
 	"strings"
 
 	"rocker/build"
+	"rocker/build2"
 	"rocker/dockerclient"
-	"rocker/git"
 	"rocker/imagename"
 	"rocker/template"
 
 	"github.com/codegangsta/cli"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/kr/pretty"
 )
 
 var (
@@ -163,38 +164,11 @@ func main() {
 }
 
 func buildCommand(c *cli.Context) {
-	configFilename := c.String("file")
 
-	wd, err := os.Getwd()
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if !filepath.IsAbs(configFilename) {
-		configFilename = filepath.Clean(path.Join(wd, configFilename))
-	}
-
-	// we do not want to outpu anything if "print" was asked
-	// TODO: find a more clean way to suppress output
-	if !c.Bool("print") {
-		fmt.Printf("[Rocker] Building...\n")
-	}
-
-	dockerClient, err := dockerclient.NewFromCli(c)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Initialize context dir
-	args := c.Args()
-	contextDir := filepath.Dir(configFilename)
-	if len(args) > 0 {
-		if filepath.IsAbs(args[0]) {
-			contextDir = args[0]
-		} else {
-			contextDir = filepath.Clean(path.Join(wd, args[0]))
-		}
-	}
+	var (
+		rockerfile *build2.Rockerfile
+		err        error
+	)
 
 	cliVars, err := template.VarsFromStrings(c.StringSlice("var"))
 	if err != nil {
@@ -204,20 +178,64 @@ func buildCommand(c *cli.Context) {
 	vars := template.Vars{}.Merge(cliVars)
 
 	// obtain git info about current directory
-	gitInfo, err := git.Info(filepath.Dir(configFilename))
+	// gitInfo, err := git.Info(filepath.Dir(configFilename))
+	// if err != nil {
+	// 	// Ignore if given directory is not a git repo
+	// 	if _, ok := err.(*git.ErrNotGitRepo); !ok {
+	// 		log.Fatal(err)
+	// 	}
+	// }
+
+	// // some additional useful vars
+	// vars["commit"] = stringOr(os.Getenv("GIT_COMMIT"), gitInfo.Sha)
+	// vars["branch"] = stringOr(os.Getenv("GIT_BRANCH"), gitInfo.Branch)
+	// vars["git_url"] = stringOr(os.Getenv("GIT_URL"), gitInfo.URL)
+	// vars["commit_message"] = gitInfo.Message
+	// vars["commit_author"] = gitInfo.Author
+
+	wd, err := os.Getwd()
 	if err != nil {
-		// Ignore if given directory is not a git repo
-		if _, ok := err.(*git.ErrNotGitRepo); !ok {
+		log.Fatal(err)
+	}
+
+	configFilename := c.String("file")
+	contextDir := wd
+
+	if configFilename == "-" {
+
+		rockerfile, err = build2.NewRockerfile(path.Base(wd), os.Stdin, vars, template.Funs{})
+		if err != nil {
 			log.Fatal(err)
+		}
+
+	} else {
+
+		if !filepath.IsAbs(configFilename) {
+			configFilename = path.Join(wd, configFilename)
+		}
+
+		rockerfile, err = build2.NewRockerfileFromFile(configFilename, vars, template.Funs{})
+
+		// Initialize context dir
+		contextDir = filepath.Dir(configFilename)
+		args := c.Args()
+		if len(args) > 0 {
+			contextDir = args[0]
+			if !filepath.IsAbs(contextDir) {
+				contextDir = path.Join(wd, args[0])
+			}
 		}
 	}
 
-	// some additional useful vars
-	vars["commit"] = stringOr(os.Getenv("GIT_COMMIT"), gitInfo.Sha)
-	vars["branch"] = stringOr(os.Getenv("GIT_BRANCH"), gitInfo.Branch)
-	vars["git_url"] = stringOr(os.Getenv("GIT_URL"), gitInfo.URL)
-	vars["commit_message"] = gitInfo.Message
-	vars["commit_author"] = gitInfo.Author
+	if c.Bool("print") {
+		fmt.Print(rockerfile.Content)
+		os.Exit(0)
+	}
+
+	dockerClient, err := dockerclient.NewFromCli(c)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	auth := &docker.AuthConfiguration{}
 	authParam := c.String("auth")
@@ -227,30 +245,53 @@ func buildCommand(c *cli.Context) {
 		auth.Password = userPass[1]
 	}
 
-	builder := build.Builder{
-		Rockerfile:    configFilename,
-		ContextDir:    contextDir,
-		UtilizeCache:  !c.Bool("no-cache"),
-		Push:          c.Bool("push"),
-		NoReuse:       c.Bool("no-reuse"),
-		Verbose:       c.Bool("verbose"),
-		Attach:        c.Bool("attach"),
-		Print:         c.Bool("print"),
-		Auth:          auth,
-		Vars:          vars,
-		CliVars:       cliVars,
-		InStream:      os.Stdin,
-		OutStream:     os.Stdout,
-		Docker:        dockerClient,
-		AddMeta:       c.Bool("meta"),
-		Pull:          c.Bool("pull"),
-		ID:            c.String("id"),
-		ArtifactsPath: c.String("artifacts-path"),
-	}
+	client := build2.NewDockerClient(dockerClient, build2.DockerClientConfig{
+		InStream:  os.Stdin,
+		OutStream: os.Stdout,
+		Auth:      auth,
+	})
 
-	if _, err := builder.Build(); err != nil {
+	builder := build2.New(client, rockerfile, build2.BuildConfig{
+		InStream:   os.Stdin,
+		OutStream:  os.Stdout,
+		ContextDir: contextDir,
+		Pull:       c.Bool("pull"),
+	})
+
+	plan, err := build2.NewPlan(builder)
+	if err != nil {
 		log.Fatal(err)
 	}
+
+	if err := builder.Run(plan); err != nil {
+		log.Fatal(err)
+	}
+
+	pretty.Println(builder.GetState())
+
+	// builder := build.Builder{
+	// 	Rockerfile:   configFilename,
+	// 	ContextDir:   contextDir,
+	// 	UtilizeCache: !c.Bool("no-cache"),
+	// 	Push:         c.Bool("push"),
+	// 	NoReuse:      c.Bool("no-reuse"),
+	// 	Verbose:      c.Bool("verbose"),
+	// 	Attach:       c.Bool("attach"),
+	// 	Print:        c.Bool("print"),
+	// 	Auth:         auth,
+	// 	Vars:         vars,
+	// 	CliVars:      cliVars,
+	// 	InStream:     os.Stdin,
+	// 	OutStream:    os.Stdout,
+	// 	Docker:       dockerClient,
+	// 	AddMeta:      c.Bool("meta"),
+	// 	Pull:         c.Bool("pull"),
+	// 	ID:           c.String("id"),
+	// }
+
+	// if _, err := builder.Build(); err != nil {
+	// 	log.Fatal(err)
+	// }
 }
 
 func showCommand(c *cli.Context) {
