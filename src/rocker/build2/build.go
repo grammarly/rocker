@@ -40,6 +40,7 @@ type State struct {
 	container   docker.Config
 	imageID     string
 	containerID string
+	commitMsg   []string
 	postCommit  func(s State) (s1 State, err error)
 }
 
@@ -76,4 +77,8 @@ func (b *Build) Run(plan Plan) (err error) {
 
 func (b *Build) GetState() State {
 	return b.state
+}
+
+func (b *Build) GetImageID() string {
+	return b.state.imageID
 }

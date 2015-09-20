@@ -272,6 +272,8 @@ func buildCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
+	log.Infof("Successfully built %.12s", builder.GetImageID())
+
 	// builder := build.Builder{
 	// 	Rockerfile:   configFilename,
 	// 	ContextDir:   contextDir,

@@ -146,17 +146,32 @@ func TestCommandRun_Simple(t *testing.T) {
 
 	c.AssertExpectations(t)
 	assert.Equal(t, origCmd, b.state.container.Cmd)
+	assert.Equal(t, origCmd, state.container.Cmd)
 	assert.Equal(t, "123", state.imageID)
 	assert.Equal(t, "456", state.containerID)
-	assert.Equal(t, []string{"/bin/sh", "-c", "whoami"}, state.container.Cmd)
+}
 
-	// testing cleanup
-	assert.NotNil(t, state.postCommit, "expected state.postCommit function to be set")
+// =========== Testing COMMIT ===========
 
-	state2, err := state.postCommit(state)
+func TestCommandCommit_Simple(t *testing.T) {
+	b, c := makeBuild(t, "", BuildConfig{})
+	cmd := &CommandCommit{}
+
+	origCommitMsg := []string{"a", "b"}
+	b.state.containerID = "456"
+	b.state.commitMsg = []string{"a", "b"}
+
+	c.On("CommitContainer", mock.AnythingOfType("State"), "a;b").Return("789", nil).Once()
+	c.On("RemoveContainer", "456").Return(nil).Once()
+
+	state, err := cmd.Execute(b)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, origCmd, state2.container.Cmd)
+	c.AssertExpectations(t)
+	assert.Equal(t, origCommitMsg, b.state.commitMsg)
+	assert.Equal(t, []string{}, state.commitMsg)
+	assert.Equal(t, "789", state.imageID)
+	assert.Equal(t, "", state.containerID)
 }

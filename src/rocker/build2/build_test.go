@@ -72,3 +72,13 @@ func (m *MockClient) RunContainer(containerID string, attach bool) error {
 	args := m.Called(containerID, attach)
 	return args.Error(0)
 }
+
+func (m *MockClient) CommitContainer(state State, message string) (string, error) {
+	args := m.Called(state, message)
+	return args.String(0), args.Error(1)
+}
+
+func (m *MockClient) RemoveContainer(containerID string) error {
+	args := m.Called(containerID)
+	return args.Error(0)
+}

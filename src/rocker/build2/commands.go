@@ -18,6 +18,7 @@ package build2
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/fsouza/go-dockerclient"
 )
@@ -122,11 +123,32 @@ func (c *CommandReset) Execute(b *Build) (State, error) {
 type CommandCommit struct{}
 
 func (c *CommandCommit) String() string {
-	return "Committing changes"
+	return "Commit layers"
 }
 
-func (c *CommandCommit) Execute(b *Build) (State, error) {
-	return b.state, nil
+func (c *CommandCommit) Execute(b *Build) (s State, err error) {
+	s = b.state
+
+	if s.containerID == "" {
+		return s, fmt.Errorf("TODO: committing on empty container not implemented yet")
+	}
+
+	message := strings.Join(s.commitMsg, ";")
+
+	if s.imageID, err = b.client.CommitContainer(s, message); err != nil {
+		return s, err
+	}
+
+	// Reset collected commit messages after the commit
+	s.commitMsg = []string{}
+
+	if err = b.client.RemoveContainer(s.containerID); err != nil {
+		return s, err
+	}
+
+	s.containerID = ""
+
+	return s, nil
 }
 
 // CommandRun implements RUN
@@ -157,12 +179,6 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	origCmd := s.container.Cmd
 	s.container.Cmd = cmd
 
-	// Restore command after commit
-	s.postCommit = func(s State) (State, error) {
-		s.container.Cmd = origCmd
-		return s, nil
-	}
-
 	if s.containerID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
 	}
@@ -170,6 +186,9 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	if err = b.client.RunContainer(s.containerID, false); err != nil {
 		return s, err
 	}
+
+	// Restore command after commit
+	s.container.Cmd = origCmd
 
 	return s, nil
 }
