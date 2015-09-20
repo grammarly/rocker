@@ -26,6 +26,7 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/term"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/kr/pretty"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -120,6 +121,8 @@ func (c *DockerClient) CreateContainer(state State) (string, error) {
 		// VolumesFrom: volumesFrom,
 		},
 	}
+
+	log.Debugf("Create container: %# v", pretty.Formatter(opts))
 
 	container, err := c.client.CreateContainer(opts)
 	if err != nil {
@@ -262,6 +265,8 @@ func (c *DockerClient) CommitContainer(state State, message string) (string, err
 		Message:   message,
 		Run:       &state.container,
 	}
+
+	log.Debugf("Commit container: %# v", pretty.Formatter(commitOpts))
 
 	image, err := c.client.CommitContainer(commitOpts)
 	if err != nil {

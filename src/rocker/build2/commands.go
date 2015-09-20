@@ -55,6 +55,8 @@ func NewCommand(cfg ConfigCommand) (Command, error) {
 		return &CommandTag{cfg}, nil
 	case "copy":
 		return &CommandCopy{cfg}, nil
+	case "cmd":
+		return &CommandCmd{cfg}, nil
 	}
 	return nil, fmt.Errorf("Unknown command: %s", cfg.name)
 }
@@ -129,18 +131,29 @@ func (c *CommandCommit) String() string {
 func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	s = b.state
 
-	if s.containerID == "" {
-		return s, fmt.Errorf("TODO: committing on empty container not implemented yet")
-	}
+	message := strings.Join(s.commitMsg, "; ")
 
-	message := strings.Join(s.commitMsg, ";")
+	// Reset collected commit messages after the commit
+	s.commitMsg = []string{}
+
+	if s.containerID == "" {
+		if message == "" {
+			return s, fmt.Errorf("Nothing to commit, this might be a bug.")
+		}
+
+		origCmd := s.container.Cmd
+		s.container.Cmd = []string{"/bin/sh", "-c", "#(nop) " + message}
+
+		if s.containerID, err = b.client.CreateContainer(s); err != nil {
+			return s, err
+		}
+
+		s.container.Cmd = origCmd
+	}
 
 	if s.imageID, err = b.client.CommitContainer(s, message); err != nil {
 		return s, err
 	}
-
-	// Reset collected commit messages after the commit
-	s.commitMsg = []string{}
 
 	if err = b.client.RemoveContainer(s.containerID); err != nil {
 		return s, err
@@ -202,8 +215,75 @@ func (c *CommandEnv) String() string {
 	return c.cfg.original
 }
 
-func (c *CommandEnv) Execute(b *Build) (State, error) {
-	return b.state, nil
+func (c *CommandEnv) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+	args := c.cfg.args
+
+	if len(args) == 0 {
+		return s, fmt.Errorf("ENV requires at least one argument")
+	}
+
+	if len(args)%2 != 0 {
+		// should never get here, but just in case
+		return s, fmt.Errorf("Bad input to ENV, too many args")
+	}
+
+	commitStr := "ENV"
+
+	for j := 0; j < len(args); j += 2 {
+		// name  ==> args[j]
+		// value ==> args[j+1]
+		newVar := strings.Join(args[j:j+2], "=")
+		commitStr += " " + newVar
+
+		gotOne := false
+		for i, envVar := range s.container.Env {
+			envParts := strings.SplitN(envVar, "=", 2)
+			if envParts[0] == args[j] {
+				s.container.Env[i] = newVar
+				gotOne = true
+				break
+			}
+		}
+		if !gotOne {
+			s.container.Env = append(s.container.Env, newVar)
+		}
+	}
+
+	s.commitMsg = append(s.commitMsg, commitStr)
+
+	return s, nil
+}
+
+// CommandCmd implements CMD
+type CommandCmd struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandCmd) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandCmd) Execute(b *Build) (s State, err error) {
+	s = b.state
+
+	cmd := handleJSONArgs(c.cfg.args, c.cfg.attrs)
+
+	if !c.cfg.attrs["json"] {
+		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
+	}
+
+	s.container.Cmd = cmd
+
+	s.commitMsg = append(s.commitMsg, fmt.Sprintf("CMD %q", cmd))
+
+	// TODO: unsetting CMD?
+	// if len(args) != 0 {
+	// 	b.cmdSet = true
+	// }
+
+	return s, nil
 }
 
 // CommandTag implements TAG

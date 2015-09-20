@@ -159,9 +159,37 @@ func TestCommandCommit_Simple(t *testing.T) {
 
 	origCommitMsg := []string{"a", "b"}
 	b.state.containerID = "456"
-	b.state.commitMsg = []string{"a", "b"}
+	b.state.commitMsg = origCommitMsg
 
-	c.On("CommitContainer", mock.AnythingOfType("State"), "a;b").Return("789", nil).Once()
+	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return("789", nil).Once()
+	c.On("RemoveContainer", "456").Return(nil).Once()
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.AssertExpectations(t)
+	assert.Equal(t, origCommitMsg, b.state.commitMsg)
+	assert.Equal(t, []string{}, state.commitMsg)
+	assert.Equal(t, []string(nil), state.container.Cmd)
+	assert.Equal(t, "789", state.imageID)
+	assert.Equal(t, "", state.containerID)
+}
+
+func TestCommandCommit_NoContainer(t *testing.T) {
+	b, c := makeBuild(t, "", BuildConfig{})
+	cmd := &CommandCommit{}
+
+	origCommitMsg := []string{"a", "b"}
+	b.state.commitMsg = origCommitMsg
+
+	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
+		arg := args.Get(0).(State)
+		assert.Equal(t, []string{"/bin/sh", "-c", "#(nop) a; b"}, arg.container.Cmd)
+	}).Once()
+
+	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return("789", nil).Once()
 	c.On("RemoveContainer", "456").Return(nil).Once()
 
 	state, err := cmd.Execute(b)
@@ -174,4 +202,77 @@ func TestCommandCommit_Simple(t *testing.T) {
 	assert.Equal(t, []string{}, state.commitMsg)
 	assert.Equal(t, "789", state.imageID)
 	assert.Equal(t, "", state.containerID)
+}
+
+func TestCommandCommit_NoCommitMsgs(t *testing.T) {
+	b, _ := makeBuild(t, "", BuildConfig{})
+	cmd := &CommandCommit{}
+
+	_, err := cmd.Execute(b)
+	assert.Contains(t, err.Error(), "Nothing to commit")
+}
+
+// =========== Testing ENV ===========
+
+func TestCommandEnv_Simple(t *testing.T) {
+	b, _ := makeBuild(t, "", BuildConfig{})
+	cmd := &CommandEnv{ConfigCommand{
+		args: []string{"type", "web", "env", "prod"},
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, []string{"ENV type=web env=prod"}, state.commitMsg)
+	assert.Equal(t, []string{"type=web", "env=prod"}, state.container.Env)
+}
+
+func TestCommandEnv_Advanced(t *testing.T) {
+	b, _ := makeBuild(t, "", BuildConfig{})
+	cmd := &CommandEnv{ConfigCommand{
+		args: []string{"type", "web", "env", "prod"},
+	}}
+
+	b.state.container.Env = []string{"env=dev", "version=1.2.3"}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, []string{"ENV type=web env=prod"}, state.commitMsg)
+	assert.Equal(t, []string{"env=prod", "version=1.2.3", "type=web"}, state.container.Env)
+}
+
+// =========== Testing CMD ===========
+
+func TestCommandCmd_Simple(t *testing.T) {
+	b, _ := makeBuild(t, "", BuildConfig{})
+	cmd := &CommandCmd{ConfigCommand{
+		args: []string{"apt-get", "install"},
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, []string{"/bin/sh", "-c", "apt-get install"}, state.container.Cmd)
+}
+
+func TestCommandCmd_Json(t *testing.T) {
+	b, _ := makeBuild(t, "", BuildConfig{})
+	cmd := &CommandCmd{ConfigCommand{
+		args:  []string{"apt-get", "install"},
+		attrs: map[string]bool{"json": true},
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, []string{"apt-get", "install"}, state.container.Cmd)
 }
