@@ -19,6 +19,7 @@ package build2
 import (
 	"testing"
 
+	"github.com/kr/pretty"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/fsouza/go-dockerclient"
@@ -275,4 +276,33 @@ func TestCommandCmd_Json(t *testing.T) {
 	}
 
 	assert.Equal(t, []string{"apt-get", "install"}, state.config.Cmd)
+}
+
+// =========== Testing COPY ===========
+
+func TestCommandCopy_Simple(t *testing.T) {
+	// TODO: do we need to check the dest is always a directory?
+	b, c := makeBuild(t, "", Config{})
+	cmd := &CommandCopy{ConfigCommand{
+		args: []string{"testdata/file.txt", "/file.txt"},
+	}}
+
+	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
+		arg := args.Get(0).(State)
+		// TODO: a better check
+		assert.True(t, len(arg.config.Cmd) > 0)
+	}).Once()
+
+	c.On("UploadToContainer", "456", mock.AnythingOfType("*io.PipeReader"), "/file.txt").Return(nil).Once()
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// assert.Equal(t, []string{"/bin/sh", "-c", "apt-get install"}, state.config.Cmd)
+	pretty.Println(state)
+
+	c.AssertExpectations(t)
+	assert.Equal(t, "456", state.containerID)
 }

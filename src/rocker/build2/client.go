@@ -38,6 +38,7 @@ type Client interface {
 	RunContainer(containerID string, attach bool) error
 	CommitContainer(state State, message string) (imageID string, err error)
 	RemoveContainer(containerID string) error
+	UploadToContainer(containerID string, stream io.Reader, path string) error
 }
 
 type DockerClient struct {
@@ -288,4 +289,16 @@ func (c *DockerClient) RemoveContainer(containerID string) error {
 	}
 
 	return c.client.RemoveContainer(opts)
+}
+
+func (c *DockerClient) UploadToContainer(containerID string, stream io.Reader, path string) error {
+	log.Infof("      | Uploading files to container %.12s", containerID)
+
+	opts := docker.UploadToContainerOptions{
+		InputStream:          stream,
+		Path:                 path,
+		NoOverwriteDirNonDir: false,
+	}
+
+	return c.client.UploadToContainer(containerID, opts)
 }

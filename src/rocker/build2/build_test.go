@@ -17,6 +17,7 @@
 package build2
 
 import (
+	"io"
 	"rocker/template"
 	"runtime"
 	"strings"
@@ -80,5 +81,10 @@ func (m *MockClient) CommitContainer(state State, message string) (string, error
 
 func (m *MockClient) RemoveContainer(containerID string) error {
 	args := m.Called(containerID)
+	return args.Error(0)
+}
+
+func (m *MockClient) UploadToContainer(containerID string, stream io.Reader, path string) error {
+	args := m.Called(containerID, stream, path)
 	return args.Error(0)
 }

@@ -309,5 +309,8 @@ func (c *CommandCopy) String() string {
 }
 
 func (c *CommandCopy) Execute(b *Build) (State, error) {
-	return b.state, nil
+	if len(c.cfg.args) < 2 {
+		return b.state, fmt.Errorf("COPY requires at least two arguments")
+	}
+	return copyFiles(b, c.cfg.args, "COPY")
 }
