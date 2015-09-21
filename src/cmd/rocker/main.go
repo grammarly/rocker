@@ -192,7 +192,11 @@ func buildCommand(c *cli.Context) {
 		}
 	}
 
-	cliVars := template.VarsFromStrings(c.StringSlice("var"))
+	cliVars, err := template.VarsFromStrings(c.StringSlice("var"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	vars := template.Vars{}.Merge(cliVars)
 
 	// obtain git info about current directory

@@ -18,6 +18,7 @@ package template
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -27,12 +28,13 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/go-yaml/yaml"
 	"github.com/kr/pretty"
 )
 
-// ProcessConfigTemplate renders config through the template processor.
+// Process renders config through the template processor.
 // vars and additional functions are acceptable.
-func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[string]interface{}) (*bytes.Buffer, error) {
+func Process(name string, reader io.Reader, vars Vars, funcs map[string]interface{}) (*bytes.Buffer, error) {
 
 	var buf bytes.Buffer
 	// read template
@@ -43,7 +45,7 @@ func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[s
 
 	// merge OS environment variables with the given Vars map
 	// todo: maybe, we need to make it configurable
-	vars["Env"] = VarsFromStrings(os.Environ())
+	vars["Env"] = ParseKvPairs(os.Environ())
 
 	// Populate functions
 	funcMap := map[string]interface{}{
@@ -51,6 +53,9 @@ func ProcessConfigTemplate(name string, reader io.Reader, vars Vars, funcs map[s
 		"replace": replace,
 		"dump":    dump,
 		"assert":  assertFn,
+		"json":    jsonFn,
+		"shell":   EscapeShellarg,
+		"yaml":    yamlFn,
 	}
 	for k, f := range funcs {
 		funcMap[k] = f
@@ -153,6 +158,22 @@ func assertFn(v interface{}) (string, error) {
 		return "", nil
 	}
 	return "", fmt.Errorf("Assertion failed")
+}
+
+func jsonFn(v interface{}) (string, error) {
+	data, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func yamlFn(v interface{}) (string, error) {
+	data, err := yaml.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func interfaceToInt(v interface{}) (int, error) {

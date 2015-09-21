@@ -32,6 +32,47 @@ This template will yield:
 www.grammarly.com
 ```
 
+### {{ json *anything* }} or {{ *anything* | json }}
+Marshals given input to JSON.
+
+Example:
+```
+ENV={{ .Env | json }}
+```
+
+This template will yield:
+```
+ENV={"USER":"johnsnow","DOCKER_MACHINE_NAME":"dev","PATH":"/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin",...}
+```
+
+### {{ yaml *anything* }} or {{ *anything* | yaml }}
+Marshals given input to YAML.
+
+Example:
+```
+{{ .Env | yaml }}
+```
+
+This template will yield:
+```
+USER: johnsnow
+DOCKER_MACHINE_NAME: dev
+PATH: /usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
+```
+
+### {{ shell *string* }} or {{ *string* | shell }}
+Escapes given string so it can be substituted to a shell command.
+
+Example:
+```Dockerfile
+RUN echo {{ "hello\nworld" | shell }}
+```
+
+This template will yield:
+```Dockerfile
+RUN echo $'hello\nworld'
+```
+
 ### {{ dump *anything* }}
 Pretty-prints any variable. Useful for debugging.
 
@@ -71,6 +112,26 @@ Error executing template TEMPLATE_NAME, error: template: TEMPLATE_NAME:1:3: exec
 Example:
 ```
 HOME={{ .Env.HOME }}
+```
+
+# Load file content to a variable
+This template engine also supports loading files content to a variables. `rocker` and `rocker-compose` support this through a command line parameters:
+
+```bash
+rocker build -var key=@key.pem
+rocker-compose run -var key=@key.pem
+```
+
+If the file path is relative, it will be resolved according to the current working directory.
+
+**Usage options:**
+
+```
+key=@relative/file/path.txt
+key=@../another/relative/file/path.txt
+key=@/absolute/file/path.txt
+key=@~/.bash_history
+key=\@keep_value_as_is
 ```
 
 # Development

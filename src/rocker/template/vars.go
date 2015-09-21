@@ -19,6 +19,10 @@ package template
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -67,30 +71,74 @@ func (vars Vars) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON unserialize Vars from JSON string
-func (vars *Vars) UnmarshalJSON(data []byte) error {
+func (vars *Vars) UnmarshalJSON(data []byte) (err error) {
 	// try unmarshal map to keep backward compatibility
 	maps := map[string]interface{}{}
-	if err := json.Unmarshal(data, &maps); err == nil {
+	if err = json.Unmarshal(data, &maps); err == nil {
 		*vars = (Vars)(maps)
 		return nil
 	}
 	// unmarshal slice of strings
 	strings := []string{}
-	if err := json.Unmarshal(data, &strings); err != nil {
+	if err = json.Unmarshal(data, &strings); err != nil {
 		return err
 	}
-	*vars = VarsFromStrings(strings)
+	if *vars, err = VarsFromStrings(strings); err != nil {
+		return err
+	}
 	return nil
 }
 
-// VarsFromStrings parses Vars from a slice of strings e.g. []string{"KEY=VALUE"}
-func VarsFromStrings(pairs []string) (vars Vars) {
+// VarsFromStrings parses Vars through ParseKvPairs and then loads content from files
+// for vars values with "@" prefix
+func VarsFromStrings(pairs []string) (vars Vars, err error) {
+	vars = ParseKvPairs(pairs)
+	for k, v := range vars {
+		// We care only about strings
+		switch v := v.(type) {
+		case string:
+			// Read variable content from a file if "@" prefix is given
+			if strings.HasPrefix(v, "@") {
+				f := v[1:]
+				if vars[k], err = loadFileContent(f); err != nil {
+					return vars, fmt.Errorf("Failed to read file '%s' for variable %s, error: %s", f, k, err)
+				}
+			}
+			// Unescape "\@"
+			if strings.HasPrefix(v, "\\@") {
+				vars[k] = v[1:]
+			}
+		}
+	}
+	return vars, nil
+}
+
+// ParseKvPairs parses Vars from a slice of strings e.g. []string{"KEY=VALUE"}
+func ParseKvPairs(pairs []string) (vars Vars) {
 	vars = make(Vars)
 	for _, varPair := range pairs {
 		tmp := strings.SplitN(varPair, "=", 2)
 		vars[tmp[0]] = tmp[1]
 	}
 	return vars
+}
+
+func loadFileContent(f string) (string, error) {
+	if f == "~" || strings.HasPrefix(f, "~/") {
+		f = strings.Replace(f, "~", os.Getenv("HOME"), 1)
+	}
+	if !filepath.IsAbs(f) {
+		wd, err := os.Getwd()
+		if err != nil {
+			return "", err
+		}
+		f = path.Join(wd, f)
+	}
+	data, err := ioutil.ReadFile(f)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 // Code borrowed from https://github.com/docker/docker/blob/df0e0c76831bed08cf5e08ac9a1abebf6739da23/builder/support.go

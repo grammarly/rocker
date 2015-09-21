@@ -140,7 +140,7 @@ func (builder *Builder) Build() (imageID string, err error) {
 		}
 		defer fd.Close()
 
-		data, err := template.ProcessConfigTemplate(builder.Rockerfile, fd, builder.Vars.ToMapOfInterface(), map[string]interface{}{})
+		data, err := template.Process(builder.Rockerfile, fd, builder.Vars.ToMapOfInterface(), map[string]interface{}{})
 		if err != nil {
 			return err
 		}

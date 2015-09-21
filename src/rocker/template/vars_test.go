@@ -18,6 +18,9 @@ package template
 
 import (
 	"encoding/json"
+	"fmt"
+	"os"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -87,7 +90,10 @@ func TestVarsFromStrings(t *testing.T) {
 	}
 
 	for _, a := range tests {
-		result := VarsFromStrings(a.input)
+		result, err := VarsFromStrings(a.input)
+		if err != nil {
+			t.Fatal(err)
+		}
 		assert.Equal(t, len(a.input), len(result), "resulting number of strings not match number of vars keys")
 	}
 }
@@ -177,4 +183,47 @@ func TestVarsJsonMarshal(t *testing.T) {
 	assert.Equal(t, 2, len(v4), "bad decoded vars length")
 	assert.Equal(t, "qwe", v4["asd"], "bad decoded vars element")
 	assert.Equal(t, "bar", v4["foo"], "bad decoded vars element")
+}
+
+func TestVarsFileContent(t *testing.T) {
+	t.Parallel()
+
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Test absolute
+	result, err := VarsFromStrings([]string{fmt.Sprintf("FOO=@%s/testdata/content.txt", wd)})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "hello\n", result["FOO"])
+
+	// Test relative
+	result2, err := VarsFromStrings([]string{"FOO=@testdata/content.txt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "hello\n", result2["FOO"])
+
+	// Test escaped @
+	result3, err := VarsFromStrings([]string{"FOO=\\@testdata/content.txt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "@testdata/content.txt", result3["FOO"])
+
+	// Test HOME
+	os.Setenv("HOME", path.Join(wd, "testdata"))
+
+	result4, err := VarsFromStrings([]string{"FOO=@~/content.txt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "hello\n", result4["FOO"])
 }

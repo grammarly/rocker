@@ -35,8 +35,8 @@ var (
 	}
 )
 
-func TestProcessConfigTemplate_Basic(t *testing.T) {
-	result, err := ProcessConfigTemplate("test", strings.NewReader("this is a test {{.mykey}}"), configTemplateVars, map[string]interface{}{})
+func TestProcess_Basic(t *testing.T) {
+	result, err := Process("test", strings.NewReader("this is a test {{.mykey}}"), configTemplateVars, map[string]interface{}{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestProcessConfigTemplate_Basic(t *testing.T) {
 	assert.Equal(t, "this is a test myval", result.String(), "template should be rendered")
 }
 
-func TestProcessConfigTemplate_Seq(t *testing.T) {
+func TestProcess_Seq(t *testing.T) {
 	assert.Equal(t, "[1 2 3 4 5]", processTemplate(t, "{{ seq 1 5 1 }}"))
 	assert.Equal(t, "[0 1 2 3 4]", processTemplate(t, "{{ seq 0 4 1 }}"))
 	assert.Equal(t, "[1 3 5]", processTemplate(t, "{{ seq 1 5 2 }}"))
@@ -75,35 +75,49 @@ func TestProcessConfigTemplate_Seq(t *testing.T) {
 	assert.Equal(t, "[1 2 3 4 5]", processTemplate(t, "{{ seq .n }}"))
 }
 
-func TestProcessConfigTemplate_Replace(t *testing.T) {
+func TestProcess_Replace(t *testing.T) {
 	assert.Equal(t, "url-com-", processTemplate(t, `{{ replace "url.com." "." "-" }}`))
 	assert.Equal(t, "url", processTemplate(t, `{{ replace "url" "*" "l" }}`))
 	assert.Equal(t, "krl", processTemplate(t, `{{ replace "url" "u" "k" }}`))
 }
 
-func TestProcessConfigTemplate_Env(t *testing.T) {
+func TestProcess_Env(t *testing.T) {
 	env := os.Environ()
 	kv := strings.SplitN(env[0], "=", 2)
 	assert.Equal(t, kv[1], processTemplate(t, fmt.Sprintf("{{ .Env.%s }}", kv[0])))
 }
 
-func TestProcessConfigTemplate_Dump(t *testing.T) {
+func TestProcess_Dump(t *testing.T) {
 	assert.Equal(t, `map[string]string{"foo":"bar"}`, processTemplate(t, "{{ dump .data }}"))
 }
 
-func TestProcessConfigTemplate_AssertSuccess(t *testing.T) {
+func TestProcess_AssertSuccess(t *testing.T) {
 	assert.Equal(t, "output", processTemplate(t, "{{ assert true }}output"))
 }
 
-func TestProcessConfigTemplate_AssertFail(t *testing.T) {
+func TestProcess_AssertFail(t *testing.T) {
 	tpl := "{{ assert .Version }}lololo"
-	_, err := ProcessConfigTemplate("test", strings.NewReader(tpl), configTemplateVars, map[string]interface{}{})
+	_, err := Process("test", strings.NewReader(tpl), configTemplateVars, map[string]interface{}{})
 	errStr := "Error executing template test, error: template: test:1:3: executing \"test\" at <assert .Version>: error calling assert: Assertion failed"
 	assert.Equal(t, errStr, err.Error())
 }
 
+func TestProcess_Json(t *testing.T) {
+	assert.Equal(t, "key: {\"foo\":\"bar\"}", processTemplate(t, "key: {{ .data | json }}"))
+}
+
+func TestProcess_Shellarg(t *testing.T) {
+	assert.Equal(t, "echo 'hello world'", processTemplate(t, "echo {{ \"hello world\" | shell }}"))
+}
+
+func TestProcess_Yaml(t *testing.T) {
+	assert.Equal(t, "key: foo: bar\n", processTemplate(t, "key: {{ .data | yaml }}"))
+	assert.Equal(t, "key: myval\n", processTemplate(t, "key: {{ .mykey | yaml }}"))
+	assert.Equal(t, "key: |-\n  hello\n  world\n", processTemplate(t, "key: {{ \"hello\\nworld\" | yaml }}"))
+}
+
 func processTemplate(t *testing.T, tpl string) string {
-	result, err := ProcessConfigTemplate("test", strings.NewReader(tpl), configTemplateVars, map[string]interface{}{})
+	result, err := Process("test", strings.NewReader(tpl), configTemplateVars, map[string]interface{}{})
 	if err != nil {
 		t.Fatal(err)
 	}
