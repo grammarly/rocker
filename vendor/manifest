@@ -101,6 +101,27 @@
 			"repository": "https://github.com/stretchr/objx",
 			"revision": "cbeaeb16a013161a98496fad62933b1d21786672",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/urlutil",
+			"repository": "https://github.com/docker/docker",
+			"revision": "148be8bd7efd2cdb74b0cd9466fccb57c4c51834",
+			"branch": "master",
+			"path": "/pkg/urlutil"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/httputils",
+			"repository": "https://github.com/docker/docker",
+			"revision": "148be8bd7efd2cdb74b0cd9466fccb57c4c51834",
+			"branch": "master",
+			"path": "/pkg/httputils"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/tarsum",
+			"repository": "https://github.com/docker/docker",
+			"revision": "148be8bd7efd2cdb74b0cd9466fccb57c4c51834",
+			"branch": "master",
+			"path": "/pkg/tarsum"
 		}
 	]
 }
