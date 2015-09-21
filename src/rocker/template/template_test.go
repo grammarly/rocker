@@ -76,9 +76,9 @@ func TestProcess_Seq(t *testing.T) {
 }
 
 func TestProcess_Replace(t *testing.T) {
-	assert.Equal(t, "url-com-", processTemplate(t, `{{ replace "url.com." "." "-" }}`))
-	assert.Equal(t, "url", processTemplate(t, `{{ replace "url" "*" "l" }}`))
-	assert.Equal(t, "krl", processTemplate(t, `{{ replace "url" "u" "k" }}`))
+	assert.Equal(t, "url-com-", processTemplate(t, `{{ replace "url.com." "." "-" -1 }}`))
+	assert.Equal(t, "url", processTemplate(t, `{{ replace "url" "*" "l" -1 }}`))
+	assert.Equal(t, "krl", processTemplate(t, `{{ replace "url" "u" "k" -1 }}`))
 }
 
 func TestProcess_Env(t *testing.T) {

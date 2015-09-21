@@ -19,15 +19,44 @@ container-3
 container-5
 ```
 
-### {{ replace *s* *old* *new* }}
-Does a string replacement. Works simply like Go's [strings.Replace](http://golang.org/pkg/strings/#Replace).
+### String functions
+`rocker/template` exposes some Go's native functions from [strings](http://golang.org/pkg/strings/) package. Here is the list of them:
+
+* `compare` - [strings.Compare](http://golang.org/pkg/strings/#Compare)
+* `contains` - [strings.Contains](http://golang.org/pkg/strings/#Contains)
+* `containsAny` - [strings.ContainsAny](http://golang.org/pkg/strings/#ContainsAny)
+* `count` - [strings.Count](http://golang.org/pkg/strings/#Count)
+* `equalFold` - [strings.EqualFold](http://golang.org/pkg/strings/#EqualFold)
+* `hasPrefix` - [strings.HasPrefix](http://golang.org/pkg/strings/#HasPrefix)
+* `hasSuffix` - [strings.HasSuffix](http://golang.org/pkg/strings/#HasSuffix)
+* `index` - [strings.Index](http://golang.org/pkg/strings/#Index)
+* `indexAny` - [strings.IndexAny](http://golang.org/pkg/strings/#IndexAny)
+* `join` - [strings.Join](http://golang.org/pkg/strings/#Join)
+* `lastIndex` - [strings.LastIndex](http://golang.org/pkg/strings/#LastIndex)
+* `lastIndexAny` - [strings.LastIndexAny](http://golang.org/pkg/strings/#LastIndexAny)
+* `repeat` - [strings.Repeat](http://golang.org/pkg/strings/#Repeat)
+* `replace` - [strings.Replace](http://golang.org/pkg/strings/#Replace)
+* `split` - [strings.Split](http://golang.org/pkg/strings/#Split)
+* `splitAfter` - [strings.SplitAfter](http://golang.org/pkg/strings/#SplitAfter)
+* `splitAfterN` - [strings.SplitAfterN](http://golang.org/pkg/strings/#SplitAfterN)
+* `splitN` - [strings.SplitN](http://golang.org/pkg/strings/#SplitN)
+* `title` - [strings.Title](http://golang.org/pkg/strings/#Title)
+* `toLower` - [strings.ToLower](http://golang.org/pkg/strings/#ToLower)
+* `toTitle` - [strings.ToTitle](http://golang.org/pkg/strings/#ToTitle)
+* `toUpper` - [strings.ToUpper](http://golang.org/pkg/strings/#ToUpper)
+* `trim` - [strings.Trim](http://golang.org/pkg/strings/#Trim)
+* `trimLeft` - [strings.TrimLeft](http://golang.org/pkg/strings/#TrimLeft)
+* `trimPrefix` - [strings.TrimPrefix](http://golang.org/pkg/strings/#TrimPrefix)
+* `trimRight` - [strings.TrimRight](http://golang.org/pkg/strings/#TrimRight)
+* `trimSpace` - [strings.TrimSpace](http://golang.org/pkg/strings/#TrimSpace)
+* `trimSuffix` - [strings.TrimSuffix](http://golang.org/pkg/strings/#TrimSuffix)
 
 Example:
 ```
-{{ replace "www.google.com" "google" "grammarly" }}
+{{ replace "www.google.com" "google" "grammarly" -1 }}
 ```
 
-This template will yield:
+Will yield:
 ```
 www.grammarly.com
 ```

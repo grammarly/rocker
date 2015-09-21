@@ -49,13 +49,42 @@ func Process(name string, reader io.Reader, vars Vars, funcs map[string]interfac
 
 	// Populate functions
 	funcMap := map[string]interface{}{
-		"seq":     seq,
-		"replace": replace,
-		"dump":    dump,
-		"assert":  assertFn,
-		"json":    jsonFn,
-		"shell":   EscapeShellarg,
-		"yaml":    yamlFn,
+		"seq":    seq,
+		"dump":   dump,
+		"assert": assertFn,
+		"json":   jsonFn,
+		"shell":  EscapeShellarg,
+		"yaml":   yamlFn,
+
+		// strings functions
+		"compare":      strings.Compare,
+		"contains":     strings.Contains,
+		"containsAny":  strings.ContainsAny,
+		"count":        strings.Count,
+		"equalFold":    strings.EqualFold,
+		"hasPrefix":    strings.HasPrefix,
+		"hasSuffix":    strings.HasSuffix,
+		"index":        strings.Index,
+		"indexAny":     strings.IndexAny,
+		"join":         strings.Join,
+		"lastIndex":    strings.LastIndex,
+		"lastIndexAny": strings.LastIndexAny,
+		"repeat":       strings.Repeat,
+		"replace":      strings.Replace,
+		"split":        strings.Split,
+		"splitAfter":   strings.SplitAfter,
+		"splitAfterN":  strings.SplitAfterN,
+		"splitN":       strings.SplitN,
+		"title":        strings.Title,
+		"toLower":      strings.ToLower,
+		"toTitle":      strings.ToTitle,
+		"toUpper":      strings.ToUpper,
+		"trim":         strings.Trim,
+		"trimLeft":     strings.TrimLeft,
+		"trimPrefix":   strings.TrimPrefix,
+		"trimRight":    strings.TrimRight,
+		"trimSpace":    strings.TrimSpace,
+		"trimSuffix":   strings.TrimSuffix,
 	}
 	for k, f := range funcs {
 		funcMap[k] = f
@@ -71,11 +100,6 @@ func Process(name string, reader io.Reader, vars Vars, funcs map[string]interfac
 	}
 
 	return &buf, nil
-}
-
-// strings replace helper
-func replace(s, old, new string) string {
-	return strings.Replace(s, old, new, -1)
 }
 
 // seq produces a sequence slice of a given length. See README.md for more info.
