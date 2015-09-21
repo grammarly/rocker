@@ -206,7 +206,10 @@ PUSH quay.io/testing_project`
 		t.Fatal(err)
 	}
 
-	vars := template.VarsFromStrings([]string{"asd=qwe"})
+	vars, err := template.VarsFromStrings([]string{"asd=qwe"})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	builder := &Builder{
 		Rockerfile: tempDir + "/Rockerfile",
@@ -380,10 +383,15 @@ RUN echo "version:$version" > /version`,
 		t.Fatal(err)
 	}
 
+	vars, err := template.VarsFromStrings([]string{"version=125"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	builder := &Builder{
 		Rockerfile: tempDir + "/Rockerfile",
 		OutStream:  util.PrefixPipe("[TEST] ", os.Stdout),
-		Vars:       template.VarsFromStrings([]string{"version=125"}),
+		Vars:       vars,
 		// Push:       true,
 		Docker: client,
 	}
@@ -701,11 +709,16 @@ CMD cat /testing`,
 	}
 
 	run := func(vars []string) (string, error) {
+		tlpVars, err := template.VarsFromStrings(vars)
+		if err != nil {
+			return "", err
+		}
+
 		builder := &Builder{
 			Rockerfile: tempDir + "/Rockerfile",
 			OutStream:  util.PrefixPipe("[TEST] ", os.Stdout),
 			Docker:     client,
-			Vars:       template.VarsFromStrings(vars),
+			Vars:       tlpVars,
 		}
 
 		imageID, err := builder.Build()
@@ -756,11 +769,16 @@ CMD cat /testing`,
 	}
 
 	run := func(vars []string) (string, error) {
+		tplVars, err := template.VarsFromStrings(vars)
+		if err != nil {
+			return "", err
+		}
+
 		builder := &Builder{
 			Rockerfile: tempDir + "/Rockerfile",
 			OutStream:  util.PrefixPipe("[TEST] ", os.Stdout),
 			Docker:     client,
-			Vars:       template.VarsFromStrings(vars),
+			Vars:       tplVars,
 		}
 
 		imageID, err := builder.Build()

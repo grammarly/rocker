@@ -1,4 +1,4 @@
-FROM dockerhub.grammarly.io/golang-1.4.2-cross:v2
+FROM golang:1.5.1
 
 REQUIRE Version
 
