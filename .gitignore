@@ -7,3 +7,6 @@ dev
 .idea
 
 *.sublime-workspace
+
+src/rocker/build2/testdata/file.tar
+src/rocker/build2/testdata/file.txt2
