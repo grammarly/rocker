@@ -179,6 +179,13 @@ func TestImageLatest(t *testing.T) {
 	assert.Equal(t, "latest", img.GetTag(), "bad image tag")
 }
 
+func TestImageIpRegistry(t *testing.T) {
+	img := NewFromString("127.0.0.1:5000/golang:1.4")
+	assert.Equal(t, "127.0.0.1:5000", img.Registry, "bag registry value")
+	assert.Equal(t, "golang", img.Name, "bad image name")
+	assert.Equal(t, "1.4", img.GetTag(), "bad image tag")
+}
+
 func TestImageIsSameKind(t *testing.T) {
 	assert.True(t, NewFromString("rocker-build").IsSameKind(*NewFromString("rocker-build")))
 	assert.True(t, NewFromString("rocker-build:latest").IsSameKind(*NewFromString("rocker-build:latest")))

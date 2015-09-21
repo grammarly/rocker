@@ -45,11 +45,14 @@ type ImageName struct {
 
 // NewFromString parses a given string and returns ImageName
 func NewFromString(image string) *ImageName {
-	split := strings.SplitN(image, ":", 2)
-	if len(split) > 1 {
-		return New(split[0], split[1])
+	n := strings.LastIndex(image, ":")
+	if n < 0 {
+		return New(image, "")
 	}
-	return New(split[0], "")
+	if tag := image[n+1:]; !strings.Contains(tag, "/") {
+		return New(image[:n], tag)
+	}
+	return New(image, "")
 }
 
 // New parses a given 'image' and 'tag' strings and returns ImageName
