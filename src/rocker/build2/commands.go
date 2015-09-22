@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
+	"github.com/docker/docker/pkg/units"
 	"github.com/fsouza/go-dockerclient"
 )
 
@@ -70,11 +72,11 @@ func (c *CommandFrom) String() string {
 	return c.cfg.original
 }
 
-func (c *CommandFrom) Execute(b *Build) (state State, err error) {
+func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 	// TODO: for "scratch" image we may use /images/create
 
 	if len(c.cfg.args) != 1 {
-		return state, fmt.Errorf("FROM requires one argument")
+		return s, fmt.Errorf("FROM requires one argument")
 	}
 
 	var (
@@ -85,27 +87,35 @@ func (c *CommandFrom) Execute(b *Build) (state State, err error) {
 	// If Pull is true, then img will remain nil and it will be pulled below
 	if !b.cfg.Pull {
 		if img, err = b.client.InspectImage(name); err != nil {
-			return state, err
+			return s, err
 		}
 	}
 
 	if img == nil {
 		if err = b.client.PullImage(name); err != nil {
-			return state, err
+			return s, err
 		}
 		if img, err = b.client.InspectImage(name); err != nil {
-			return state, err
+			return s, err
 		}
 		if img == nil {
-			return state, fmt.Errorf("FROM: Failed to inspect image after pull: %s", name)
+			return s, fmt.Errorf("FROM: Failed to inspect image after pull: %s", name)
 		}
 	}
 
-	state = b.state
-	state.imageID = img.ID
-	state.config = *img.Config
+	// We want to say the size of the FROM image. Better to do it
+	// from the client, but don't know how to do it better,
+	// without duplicating InspectImage calls and making unnecessary functions
 
-	return state, nil
+	log.WithFields(log.Fields{
+		"size": units.HumanSize(float64(img.VirtualSize)),
+	}).Infof("      | Image %.12s", img.ID)
+
+	s = b.state
+	s.imageID = img.ID
+	s.config = *img.Config
+
+	return s, nil
 }
 
 // CommandReset cleans the builder state before the next FROM
