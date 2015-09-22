@@ -131,6 +131,10 @@ func main() {
 			Name:  "artifacts-path",
 			Usage: "put artifacts (files with pushed images description) to the directory",
 		},
+		cli.BoolFlag{
+			Name:  "no-garbage",
+			Usage: "remove the images from the tail if not tagged",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -261,6 +265,7 @@ func buildCommand(c *cli.Context) {
 		OutStream:  os.Stdout,
 		ContextDir: contextDir,
 		Pull:       c.Bool("pull"),
+		NoGarbage:  c.Bool("no-garbage"),
 	})
 
 	plan, err := build2.NewPlan(builder)

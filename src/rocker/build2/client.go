@@ -34,6 +34,7 @@ import (
 type Client interface {
 	InspectImage(name string) (*docker.Image, error)
 	PullImage(name string) error
+	RemoveImage(imageID string) error
 	CreateContainer(state State) (id string, err error)
 	RunContainer(containerID string, attach bool) error
 	CommitContainer(state State, message string) (imageID string, err error)
@@ -104,6 +105,16 @@ func (c *DockerClient) PullImage(name string) error {
 	}
 
 	return nil
+}
+
+func (c *DockerClient) RemoveImage(imageID string) error {
+	log.Infof("      | Remove image %.12s", imageID)
+
+	opts := docker.RemoveImageOptions{
+		Force:   true,
+		NoPrune: false,
+	}
+	return c.client.RemoveImageExtended(imageID, opts)
 }
 
 func (c *DockerClient) CreateContainer(s State) (string, error) {
