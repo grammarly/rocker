@@ -23,6 +23,8 @@ import (
 	"os/signal"
 	"rocker/imagename"
 
+	"github.com/docker/docker/pkg/units"
+
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/term"
 	"github.com/fsouza/go-dockerclient"
@@ -285,7 +287,21 @@ func (c *DockerClient) CommitContainer(s State, message string) (string, error) 
 		return "", err
 	}
 
-	log.Infof("      | Result image is %.12s", image.ID)
+	// Inspect the image to get the real size
+	log.Debugf("Inspect image %s", image.ID)
+
+	if image, err = c.client.InspectImage(image.ID); err != nil {
+		return "", err
+	}
+
+	size := fmt.Sprintf("%s (+%s)",
+		units.HumanSize(float64(image.VirtualSize)),
+		units.HumanSize(float64(image.Size)),
+	)
+
+	log.WithFields(log.Fields{
+		"size": size,
+	}).Infof("      | Result image is %.12s", image.ID)
 
 	return image.ID, nil
 }
