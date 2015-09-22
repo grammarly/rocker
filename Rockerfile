@@ -1,6 +1,6 @@
 FROM golang:1.5.1
 
-REQUIRE Version
+{{ assert .Version }}
 
 ADD . /src
 WORKDIR /src
@@ -18,11 +18,11 @@ RUN make test
 {{ end }}
 
 RUN \
-  TIME=$(date "+%Y-%m-%d %H:%M GMT") \
+  TIME=$(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT") \
   GOPATH=/src:/src/vendor \
   go build \
     -a -installsuffix cgo \
-    -ldflags "-X main.Version '{{ .Version }}' -X main.GitCommit '$commit' -X main.GitBranch '$branch' -X main.BuildTime '$TIME'" \
+    -ldflags "-X main.Version={{ .Version }} -X main.GitCommit=$commit -X main.GitBranch=$branch -X main.BuildTime=$TIME" \
     -v -o /bin/rocker src/cmd/rocker/main.go
 
 EXPORT /bin/rocker

@@ -66,7 +66,7 @@ $(ALL_BINARIES): build_image
 	docker run --rm -ti -v $(shell pwd)/dist:/src/dist \
 		-e GOOS=$(call os,$@) -e GOARCH=$(call arch,$@) -e GOPATH=/src:/src/vendor \
 		rocker-build:latest go build \
-		-ldflags "-X main.Version '$(VERSION)' -X main.GitCommit '$(GITCOMMIT)' -X main.GitBranch '$(GITBRANCH)' -X main.BuildTime '$(BUILDTIME)'" \
+		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
 		-v -o $@ src/cmd/$(call bin,$@)/main.go
 
 build_image:
