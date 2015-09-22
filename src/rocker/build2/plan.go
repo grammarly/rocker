@@ -31,6 +31,13 @@ func NewPlan(b *Build) (plan Plan, err error) {
 		committed = true
 	}
 
+	cleanup := func(i int) {
+		plan = append(plan, &CommandCleanup{
+			final:  i == len(commands)-1,
+			tagged: strings.Contains("tag push from", commands[i].name),
+		})
+	}
+
 	alwaysCommitBefore := "run attach add copy tag push"
 	alwaysCommitAfter := "run attach add copy"
 	neverCommitAfter := "from tag push"
@@ -50,7 +57,7 @@ func NewPlan(b *Build) (plan Plan, err error) {
 				commit()
 			}
 			if i > 0 {
-				plan = append(plan, &CommandReset{})
+				cleanup(i - 1)
 			}
 		}
 
@@ -75,6 +82,11 @@ func NewPlan(b *Build) (plan Plan, err error) {
 			if i == len(commands)-1 {
 				commit()
 			}
+		}
+
+		// Always cleanup at the end
+		if i == len(commands)-1 {
+			cleanup(i)
 		}
 	}
 

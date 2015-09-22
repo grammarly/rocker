@@ -29,6 +29,7 @@ FROM ubuntu
 
 	expected := []Command{
 		&CommandFrom{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
@@ -47,6 +48,7 @@ RUN apt-get update
 		&CommandFrom{},
 		&CommandRun{},
 		&CommandCommit{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
@@ -70,6 +72,7 @@ RUN apt-get update
 		&CommandCommit{},
 		&CommandRun{},
 		&CommandCommit{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
@@ -88,6 +91,7 @@ ENV name=web
 		&CommandFrom{},
 		&CommandEnv{},
 		&CommandCommit{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
@@ -104,8 +108,9 @@ FROM alpine
 
 	expected := []Command{
 		&CommandFrom{},
-		&CommandReset{},
+		&CommandCleanup{},
 		&CommandFrom{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
@@ -125,8 +130,9 @@ FROM alpine
 		&CommandFrom{},
 		&CommandEnv{},
 		&CommandCommit{},
-		&CommandReset{},
+		&CommandCleanup{},
 		&CommandFrom{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
@@ -147,10 +153,11 @@ ENV mode=run
 		&CommandFrom{},
 		&CommandEnv{},
 		&CommandCommit{},
-		&CommandReset{},
+		&CommandCleanup{},
 		&CommandFrom{},
 		&CommandEnv{},
 		&CommandCommit{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
@@ -168,6 +175,7 @@ TAG my-build
 	expected := []Command{
 		&CommandFrom{},
 		&CommandTag{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
@@ -188,6 +196,7 @@ TAG my-build
 		&CommandEnv{},
 		&CommandCommit{},
 		&CommandTag{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
@@ -208,6 +217,7 @@ ENV type=web
 		&CommandTag{},
 		&CommandEnv{},
 		&CommandCommit{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
@@ -226,8 +236,9 @@ FROM alpine
 	expected := []Command{
 		&CommandFrom{},
 		&CommandTag{},
-		&CommandReset{},
+		&CommandCleanup{},
 		&CommandFrom{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
@@ -248,6 +259,7 @@ TAG my-build
 		&CommandRun{},
 		&CommandCommit{},
 		&CommandTag{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
@@ -266,12 +278,56 @@ COPY rootfs /
 		&CommandFrom{},
 		&CommandCopy{},
 		&CommandCommit{},
+		&CommandCleanup{},
 	}
 
 	assert.Len(t, p, len(expected))
 	for i, c := range expected {
 		assert.IsType(t, c, p[i])
 	}
+}
+
+func TestPlan_CleanupTaggedFinal(t *testing.T) {
+	p := makePlan(t, `
+FROM ubuntu
+TAG dev
+`)
+
+	// from, tag, cleanup
+	c := p[2]
+
+	assert.IsType(t, &CommandCleanup{}, c)
+	assert.True(t, c.(*CommandCleanup).tagged)
+	assert.True(t, c.(*CommandCleanup).final)
+}
+
+func TestPlan_CleanupNotTaggedFinal(t *testing.T) {
+	p := makePlan(t, `
+FROM ubuntu
+ENV foo=bar
+`)
+
+	// from, env, commit, cleanup
+	c := p[3]
+
+	assert.IsType(t, &CommandCleanup{}, c)
+	assert.False(t, c.(*CommandCleanup).tagged)
+	assert.True(t, c.(*CommandCleanup).final)
+}
+
+func TestPlan_CleanupNotTaggedMiddleFrom(t *testing.T) {
+	p := makePlan(t, `
+FROM ubuntu
+ENV foo=bar
+FROM alpine
+`)
+
+	// from, env, commit, cleanup, from, cleanup
+	c := p[3]
+
+	assert.IsType(t, &CommandCleanup{}, c)
+	assert.False(t, c.(*CommandCleanup).tagged)
+	assert.False(t, c.(*CommandCleanup).final)
 }
 
 // internal helpers

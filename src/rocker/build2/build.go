@@ -75,12 +75,6 @@ func (b *Build) Run(plan Plan) (err error) {
 		log.Debugf("State after step %d: %# v", k+1, pretty.Formatter(b.state))
 	}
 
-	if b.cfg.NoGarbage && b.state.imageID != "" {
-		if err := b.client.RemoveImage(b.state.imageID); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 

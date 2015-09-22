@@ -109,16 +109,30 @@ func (c *CommandFrom) Execute(b *Build) (state State, err error) {
 }
 
 // CommandReset cleans the builder state before the next FROM
-type CommandReset struct{}
-
-func (c *CommandReset) String() string {
-	return "Cleaning up state before the next FROM"
+type CommandCleanup struct {
+	final  bool
+	tagged bool
 }
 
-func (c *CommandReset) Execute(b *Build) (State, error) {
-	state := b.state
-	state.imageID = ""
-	return state, nil
+func (c *CommandCleanup) String() string {
+	return "Cleaning up"
+}
+
+func (c *CommandCleanup) Execute(b *Build) (State, error) {
+	s := b.state
+
+	if b.cfg.NoGarbage && !c.tagged && s.imageID != "" {
+		if err := b.client.RemoveImage(s.imageID); err != nil {
+			return s, err
+		}
+	}
+
+	// For final cleanup we want to keep imageID
+	if !c.final {
+		s.imageID = ""
+	}
+
+	return s, nil
 }
 
 // CommandCommit commits collected changes
