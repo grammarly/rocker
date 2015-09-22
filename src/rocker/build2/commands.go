@@ -109,7 +109,7 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 
 	log.WithFields(log.Fields{
 		"size": units.HumanSize(float64(img.VirtualSize)),
-	}).Infof("      | Image %.12s", img.ID)
+	}).Infof("| Image %.12s", img.ID)
 
 	s = b.state
 	s.imageID = img.ID

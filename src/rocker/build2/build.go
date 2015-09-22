@@ -66,7 +66,7 @@ func (b *Build) Run(plan Plan) (err error) {
 	for k, c := range plan {
 
 		log.Debugf("Step %d: %# v", k+1, pretty.Formatter(c))
-		log.Infof("Step %d: %s", k+1, c)
+		log.Infof("%s", c)
 
 		if b.state, err = c.Execute(b); err != nil {
 			return err

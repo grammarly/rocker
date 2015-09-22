@@ -110,7 +110,7 @@ func (c *DockerClient) PullImage(name string) error {
 }
 
 func (c *DockerClient) RemoveImage(imageID string) error {
-	log.Infof("      | Remove image %.12s", imageID)
+	log.Infof("| Remove image %.12s", imageID)
 
 	opts := docker.RemoveImageOptions{
 		Force:   true,
@@ -143,7 +143,7 @@ func (c *DockerClient) CreateContainer(s State) (string, error) {
 		return "", err
 	}
 
-	log.Infof("      | Created container %.12s (image %.12s)", container.ID, s.imageID)
+	log.Infof("| Created container %.12s (image %.12s)", container.ID, s.imageID)
 
 	return container.ID, nil
 }
@@ -301,13 +301,13 @@ func (c *DockerClient) CommitContainer(s State, message string) (string, error) 
 
 	log.WithFields(log.Fields{
 		"size": size,
-	}).Infof("      | Result image is %.12s", image.ID)
+	}).Infof("| Result image is %.12s", image.ID)
 
 	return image.ID, nil
 }
 
 func (c *DockerClient) RemoveContainer(containerID string) error {
-	log.Infof("      | Removing container %.12s", containerID)
+	log.Infof("| Removing container %.12s", containerID)
 
 	opts := docker.RemoveContainerOptions{
 		ID:            containerID,
@@ -319,7 +319,7 @@ func (c *DockerClient) RemoveContainer(containerID string) error {
 }
 
 func (c *DockerClient) UploadToContainer(containerID string, stream io.Reader, path string) error {
-	log.Infof("      | Uploading files to container %.12s", containerID)
+	log.Infof("| Uploading files to container %.12s", containerID)
 
 	opts := docker.UploadToContainerOptions{
 		InputStream:          stream,
