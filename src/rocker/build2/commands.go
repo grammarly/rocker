@@ -80,6 +80,8 @@ func NewCommand(cfg ConfigCommand) (Command, error) {
 		return &CommandExpose{cfg}, nil
 	case "volume":
 		return &CommandVolume{cfg}, nil
+	case "user":
+		return &CommandUser{cfg}, nil
 	}
 	return nil, fmt.Errorf("Unknown command: %s", cfg.name)
 }
@@ -551,6 +553,30 @@ func (c *CommandVolume) Execute(b *Build) (s State, err error) {
 	}
 
 	s.Commit(fmt.Sprintf("VOLUME %v", c.cfg.args))
+
+	return s, nil
+}
+
+// CommandUser implements USER
+type CommandUser struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandUser) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandUser) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+
+	if len(c.cfg.args) != 1 {
+		return s, fmt.Errorf("USER requires exactly one argument")
+	}
+
+	s.Config.User = c.cfg.args[0]
+
+	s.Commit(fmt.Sprintf("USER %v", c.cfg.args))
 
 	return s, nil
 }

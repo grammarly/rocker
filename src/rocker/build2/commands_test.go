@@ -529,6 +529,22 @@ func TestCommandVolume_Add(t *testing.T) {
 	assert.True(t, reflect.DeepEqual(volumes, state.Config.Volumes), "bad volumes")
 }
 
+// =========== Testing USER ===========
+
+func TestCommandUser_Simple(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandUser{ConfigCommand{
+		args: []string{"www"},
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "www", state.Config.User)
+}
+
 // =========== Testing COPY ===========
 
 func TestCommandCopy_Simple(t *testing.T) {
