@@ -52,7 +52,7 @@ type Command interface {
 }
 
 func NewCommand(cfg ConfigCommand) (Command, error) {
-	// TODO: use reflection
+	// TODO: use reflection?
 	switch cfg.name {
 	case "from":
 		return &CommandFrom{cfg}, nil
@@ -137,6 +137,21 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 	s = b.state
 	s.ImageID = img.ID
 	s.Config = *img.Config
+
+	// If we don't have OnBuild triggers, then we are done
+	if len(s.Config.OnBuild) == 0 {
+		return s, nil
+	}
+
+	log.Infof("| Found %d ONBUILD triggers", len(s.Config.OnBuild))
+
+	// parse the ONBUILD triggers by invoking the parser
+	if s.InjectCommands, err = parseOnbuildCommands(s.Config.OnBuild); err != nil {
+		return s, err
+	}
+
+	// Remove them from the config, since the config will be committed.
+	s.Config.OnBuild = []string{}
 
 	return s, nil
 }
@@ -610,7 +625,7 @@ func (c *CommandCopy) Execute(b *Build) (State, error) {
 	return copyFiles(b, c.cfg.args, "COPY")
 }
 
-// CommandCopy implements ADD
+// CommandAdd implements ADD
 // For now it is an alias of COPY, but later will add urls and archives to it
 type CommandAdd struct {
 	cfg ConfigCommand
@@ -625,4 +640,17 @@ func (c *CommandAdd) Execute(b *Build) (State, error) {
 		return b.state, fmt.Errorf("ADD requires at least two arguments")
 	}
 	return copyFiles(b, c.cfg.args, "ADD")
+}
+
+// CommandOnbuildWrap wraps ONBUILD command
+type CommandOnbuildWrap struct {
+	cmd Command
+}
+
+func (c *CommandOnbuildWrap) String() string {
+	return "ONBUILD " + c.cmd.String()
+}
+
+func (c *CommandOnbuildWrap) Execute(b *Build) (State, error) {
+	return c.cmd.Execute(b)
 }

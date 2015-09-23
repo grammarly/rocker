@@ -40,12 +40,13 @@ type Config struct {
 }
 
 type State struct {
-	Config        docker.Config
-	ImageID       string
-	ContainerID   string
-	CommitMsg     []string
-	ProducedImage bool
-	CmdSet        bool
+	Config         docker.Config
+	ImageID        string
+	ContainerID    string
+	CommitMsg      []string
+	ProducedImage  bool
+	CmdSet         bool
+	InjectCommands []Command
 }
 
 type Build struct {
@@ -66,7 +67,8 @@ func New(client Client, rockerfile *Rockerfile, cfg Config) *Build {
 
 func (b *Build) Run(plan Plan) (err error) {
 
-	for k, c := range plan {
+	for k := 0; k < len(plan); k++ {
+		c := plan[k]
 
 		log.Debugf("Step %d: %# v", k+1, pretty.Formatter(c))
 		log.Infof("%s", color.New(color.FgWhite, color.Bold).SprintFunc()(c))
@@ -77,6 +79,12 @@ func (b *Build) Run(plan Plan) (err error) {
 		}
 
 		log.Debugf("State after step %d: %# v", k+1, pretty.Formatter(b.state))
+
+		if len(b.state.InjectCommands) > 0 {
+			tail := append(b.state.InjectCommands, plan[k+1:]...)
+			plan = append(plan[:k+1], tail...)
+			b.state.InjectCommands = []Command{}
+		}
 	}
 
 	return nil

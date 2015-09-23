@@ -21,6 +21,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/kr/pretty"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -56,4 +57,19 @@ func TestRockerfileCommands(t *testing.T) {
 	assert.Len(t, commands, 1)
 	assert.Equal(t, "from", commands[0].name)
 	assert.Equal(t, "ubuntu", commands[0].args[0])
+}
+
+func TestRockerfileParseOnbuildCommands(t *testing.T) {
+	triggers := []string{
+		"RUN make",
+		"RUN make install",
+	}
+
+	commands, err := parseOnbuildCommands(triggers)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// TODO: asserts
+	pretty.Println(commands)
 }

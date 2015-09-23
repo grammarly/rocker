@@ -84,22 +84,7 @@ func (r *Rockerfile) Commands() []ConfigCommand {
 	commands := []ConfigCommand{}
 
 	for i := 0; i < len(r.rootNode.Children); i++ {
-		node := r.rootNode.Children[i]
-
-		cfg := ConfigCommand{
-			name:     node.Value,
-			attrs:    node.Attributes,
-			original: node.Original,
-			args:     []string{},
-			flags:    parseFlags(node.Flags),
-		}
-
-		// fill in args and substitute vars
-		for n := node.Next; n != nil; n = n.Next {
-			cfg.args = append(cfg.args, n.Value)
-		}
-
-		commands = append(commands, cfg)
+		commands = append(commands, parseCommand(r.rootNode.Children[i]))
 	}
 
 	return commands
@@ -116,6 +101,53 @@ func handleJSONArgs(args []string, attributes map[string]bool) []string {
 
 	// literal string command, not an exec array
 	return []string{strings.Join(args, " ")}
+}
+
+func parseCommand(node *parser.Node) ConfigCommand {
+	cfg := ConfigCommand{
+		name:     node.Value,
+		attrs:    node.Attributes,
+		original: node.Original,
+		args:     []string{},
+		flags:    parseFlags(node.Flags),
+	}
+
+	// fill in args and substitute vars
+	for n := node.Next; n != nil; n = n.Next {
+		cfg.args = append(cfg.args, n.Value)
+	}
+
+	return cfg
+}
+
+func parseOnbuildCommands(onBuildTriggers []string) ([]Command, error) {
+	commands := []Command{}
+
+	for _, step := range onBuildTriggers {
+
+		ast, err := parser.Parse(strings.NewReader(step))
+		if err != nil {
+			return commands, err
+		}
+
+		for _, n := range ast.Children {
+			switch strings.ToUpper(n.Value) {
+			case "ONBUILD":
+				return commands, fmt.Errorf("Chaining ONBUILD via `ONBUILD ONBUILD` isn't allowed")
+			case "MAINTAINER", "FROM":
+				return commands, fmt.Errorf("%s isn't allowed as an ONBUILD trigger", n.Value)
+			}
+
+			cmd, err := NewCommand(parseCommand(n))
+			if err != nil {
+				return commands, err
+			}
+
+			commands = append(commands, &CommandOnbuildWrap{cmd})
+		}
+	}
+
+	return commands, nil
 }
 
 func parseFlags(flags []string) map[string]string {
