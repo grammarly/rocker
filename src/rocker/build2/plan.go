@@ -42,6 +42,8 @@ func NewPlan(b *Build) (plan Plan, err error) {
 	alwaysCommitAfter := "run attach add copy"
 	neverCommitAfter := "from tag push"
 
+	// TODO: Process ONBUILD triggers if they exist
+
 	for i := 0; i < len(commands); i++ {
 		cfg := commands[i]
 
