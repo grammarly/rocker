@@ -17,6 +17,7 @@
 package build2
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/kr/pretty"
@@ -247,6 +248,58 @@ func TestCommandEnv_Advanced(t *testing.T) {
 
 	assert.Equal(t, []string{"ENV type=web env=prod"}, state.commitMsg)
 	assert.Equal(t, []string{"env=prod", "version=1.2.3", "type=web"}, state.config.Env)
+}
+
+// =========== Testing LABEL ===========
+
+func TestCommandLabel_Simple(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandLabel{ConfigCommand{
+		args: []string{"type", "web", "env", "prod"},
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedLabels := map[string]string{
+		"type": "web",
+		"env":  "prod",
+	}
+
+	t.Logf("Result labels: %# v", pretty.Formatter(state.config.Labels))
+
+	assert.Equal(t, []string{"LABEL type=web env=prod"}, state.commitMsg)
+	assert.True(t, reflect.DeepEqual(state.config.Labels, expectedLabels), "bad result labels")
+}
+
+func TestCommandLabel_Advanced(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandLabel{ConfigCommand{
+		args: []string{"type", "web", "env", "prod"},
+	}}
+
+	b.state.config.Labels = map[string]string{
+		"env":     "dev",
+		"version": "1.2.3",
+	}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedLabels := map[string]string{
+		"type":    "web",
+		"version": "1.2.3",
+		"env":     "prod",
+	}
+
+	t.Logf("Result labels: %# v", pretty.Formatter(state.config.Labels))
+
+	assert.Equal(t, []string{"LABEL type=web env=prod"}, state.commitMsg)
+	assert.True(t, reflect.DeepEqual(state.config.Labels, expectedLabels), "bad result labels")
 }
 
 // =========== Testing CMD ===========

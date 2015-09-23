@@ -53,6 +53,8 @@ func NewCommand(cfg ConfigCommand) (Command, error) {
 		return &CommandRun{cfg}, nil
 	case "env":
 		return &CommandEnv{cfg}, nil
+	case "label":
+		return &CommandLabel{cfg}, nil
 	case "tag":
 		return &CommandTag{cfg}, nil
 	case "copy":
@@ -281,6 +283,50 @@ func (c *CommandEnv) Execute(b *Build) (s State, err error) {
 		if !gotOne {
 			s.config.Env = append(s.config.Env, newVar)
 		}
+	}
+
+	s.commitMsg = append(s.commitMsg, commitStr)
+
+	return s, nil
+}
+
+// CommandEnv implements LABEL
+type CommandLabel struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandLabel) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandLabel) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+	args := c.cfg.args
+
+	if len(args) == 0 {
+		return s, fmt.Errorf("LABEL requires at least one argument")
+	}
+
+	if len(args)%2 != 0 {
+		// should never get here, but just in case
+		return s, fmt.Errorf("Bad input to LABEL, too many args")
+	}
+
+	commitStr := "LABEL"
+
+	if s.config.Labels == nil {
+		s.config.Labels = map[string]string{}
+	}
+
+	for j := 0; j < len(args); j++ {
+		// name  ==> args[j]
+		// value ==> args[j+1]
+		newVar := args[j] + "=" + args[j+1] + ""
+		commitStr += " " + newVar
+
+		s.config.Labels[args[j]] = args[j+1]
+		j++
 	}
 
 	s.commitMsg = append(s.commitMsg, commitStr)
