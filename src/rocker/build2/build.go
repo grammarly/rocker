@@ -45,6 +45,7 @@ type State struct {
 	ContainerID   string
 	CommitMsg     []string
 	ProducedImage bool
+	CmdSet        bool
 }
 
 type Build struct {

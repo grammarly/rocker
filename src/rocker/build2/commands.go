@@ -424,10 +424,9 @@ func (c *CommandCmd) Execute(b *Build) (s State, err error) {
 
 	s.Commit(fmt.Sprintf("CMD %q", cmd))
 
-	// TODO: unsetting CMD?
-	// if len(args) != 0 {
-	// 	b.cmdSet = true
-	// }
+	if len(c.cfg.args) != 0 {
+		s.CmdSet = true
+	}
 
 	return s, nil
 }
@@ -460,11 +459,12 @@ func (c *CommandEntrypoint) Execute(b *Build) (s State, err error) {
 
 	s.Commit(fmt.Sprintf("ENTRYPOINT %q", s.Config.Entrypoint))
 
-	// TODO: when setting the entrypoint if a CMD was not explicitly set then
+	// TODO: test this
+	// when setting the entrypoint if a CMD was not explicitly set then
 	// set the command to nil
-	// if !b.cmdSet {
-	// 	b.Config.Cmd = nil
-	// }
+	if !s.CmdSet {
+		s.Config.Cmd = nil
+	}
 
 	return s, nil
 }
