@@ -71,6 +71,8 @@ func NewRockerfile(name string, in io.Reader, vars template.Vars, funs template.
 
 	r.Content = content.String()
 
+	// TODO: update parser from Docker
+
 	if r.rootNode, err = parser.Parse(content); err != nil {
 		return nil, err
 	}
