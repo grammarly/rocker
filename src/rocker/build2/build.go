@@ -19,6 +19,8 @@ package build2
 import (
 	"io"
 
+	"github.com/fatih/color"
+
 	"github.com/fsouza/go-dockerclient"
 	"github.com/kr/pretty"
 
@@ -42,7 +44,7 @@ type State struct {
 	imageID     string
 	containerID string
 	commitMsg   []string
-	postCommit  func(s State) (s1 State, err error)
+	skipCommit  bool
 }
 
 type Build struct {
@@ -66,7 +68,8 @@ func (b *Build) Run(plan Plan) (err error) {
 	for k, c := range plan {
 
 		log.Debugf("Step %d: %# v", k+1, pretty.Formatter(c))
-		log.Infof("%s", c)
+		log.Infof("%s", color.New(color.FgWhite, color.Bold).SprintFunc()(c))
+		// log.Infof("%s", color.New(color.FgBlue).SprintFunc()(c))
 
 		if b.state, err = c.Execute(b); err != nil {
 			return err

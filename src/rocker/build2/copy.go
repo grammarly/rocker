@@ -1,40 +1,56 @@
-// NOTICE: it was originally grabbed from the docker source and
-//         adopted for use by rocker; see LICENSE in the current
-//         directory from the license and the copyright.
-//
-//         Copyright 2013-2015 Docker, Inc.
+/*-
+ * Copyright 2015 Grammarly, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 package build2
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
+	"archive/tar"
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
-	"github.com/docker/docker/pkg/httputils"
 	"github.com/docker/docker/pkg/tarsum"
-	"github.com/docker/docker/pkg/urlutil"
-	"github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/archive"
-	"github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/system"
+	"github.com/docker/docker/pkg/units"
+	"github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/fileutils"
+	"github.com/kr/pretty"
+
+	log "github.com/Sirupsen/logrus"
 )
 
-type copyInfo struct {
-	origPath   string
-	destPath   string
-	hash       string
-	decompress bool
-	tmpDir     string
+const buffer32K = 32 * 1024
+
+type upload struct {
+	tar   io.ReadCloser
+	size  int64
+	src   string
+	files []*uploadFile
+	dest  string
 }
 
-func copyCommand(b *Build, args []string, allowRemote bool, allowDecompression bool, cmdName string) (s State, err error) {
+type uploadFile struct {
+	src  string
+	dest string
+	size int64
+}
+
+func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 
 	s = b.state
 
@@ -42,303 +58,224 @@ func copyCommand(b *Build, args []string, allowRemote bool, allowDecompression b
 		return s, fmt.Errorf("Invalid %s format - at least two arguments required", cmdName)
 	}
 
-	// Work in daemon-specific filepath semantics
-	dest := filepath.FromSlash(args[len(args)-1]) // last one is always the dest
+	var (
+		tarSum tarsum.TarSum
+		src    = args[0 : len(args)-1]
+		dest   = filepath.FromSlash(args[len(args)-1]) // last one is always the dest
+		u      *upload
 
-	copyInfos := []*copyInfo{}
+		// TODO: read .dockerignore
+		excludes = []string{}
+	)
 
-	// b.Config.Image = b.image
-
-	defer func() {
-		for _, ci := range copyInfos {
-			if ci.tmpDir != "" {
-				os.RemoveAll(ci.tmpDir)
-			}
-		}
-	}()
-
-	// Loop through each src file and calculate the info we need to
-	// do the copy (e.g. hash value if cached).  Don't actually do
-	// the copy until we've looked at all src files
-	for _, orig := range args[0 : len(args)-1] {
-		if err := calcCopyInfo(
-			b,
-			cmdName,
-			&copyInfos,
-			orig,
-			dest,
-			allowRemote,
-			allowDecompression,
-			true,
-		); err != nil {
-			return s, err
-		}
+	if u, err = makeTarStream(b.cfg.ContextDir, dest, cmdName, src, excludes); err != nil {
+		return s, err
 	}
 
-	if len(copyInfos) == 0 {
-		return s, fmt.Errorf("No source files were specified")
-	}
-	if len(copyInfos) > 1 && !strings.HasSuffix(dest, string(os.PathSeparator)) {
-		return s, fmt.Errorf("When using %s with more than one source file, the destination must be a directory and end with a /", cmdName)
-	}
-
-	// For backwards compat, if there's just one CI then use it as the
-	// cache look-up string, otherwise hash 'em all into one
-	var srcHash string
-	// var origPaths string
-
-	if len(copyInfos) == 1 {
-		srcHash = copyInfos[0].hash
-		// origPaths = copyInfos[0].origPath
-	} else {
-		var hashs []string
-		var origs []string
-		for _, ci := range copyInfos {
-			hashs = append(hashs, ci.hash)
-			origs = append(origs, ci.origPath)
-		}
-		hasher := sha256.New()
-		hasher.Write([]byte(strings.Join(hashs, ",")))
-		srcHash = "multi:" + hex.EncodeToString(hasher.Sum(nil))
-		// origPaths = strings.Join(origs, " ")
+	// skip COPY if no files matched
+	if len(u.files) == 0 {
+		log.Infof("| No files matched")
+		s.skipCommit = true
+		return s, nil
 	}
 
-	s.commitMsg = append(s.commitMsg, fmt.Sprintf("%s %s in %s", cmdName, srcHash, dest))
+	log.Infof("| Calculating tarsum for %d files (%s total)", len(u.files), units.HumanSize(float64(u.size)))
 
-	// TODO: probe cache
+	if tarSum, err = tarsum.NewTarSum(u.tar, true, tarsum.Version1); err != nil {
+		return s, err
+	}
+	if _, err = io.Copy(ioutil.Discard, tarSum); err != nil {
+		return s, err
+	}
+	u.tar.Close()
 
-	// TODO: do the actual copy
+	// TODO: useful commit comment?
 
-	// for _, ci := range copyInfos {
-	// 	if err := b.addContext(container, ci.origPath, ci.destPath, ci.decompress); err != nil {
-	// 		return err
-	// 	}
-	// }
+	message := fmt.Sprintf("%s %s to %s", cmdName, tarSum.Sum(nil), dest)
+	s.commitMsg = append(s.commitMsg, message)
+
+	origCmd := s.config.Cmd
+	s.config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + message}
+
+	if s.containerID, err = b.client.CreateContainer(s); err != nil {
+		return s, err
+	}
+
+	s.config.Cmd = origCmd
+
+	// We need to make a new tar stream, because the previous one has been
+	// read by the tarsum; maybe, optimize this in future
+	if u, err = makeTarStream(b.cfg.ContextDir, dest, cmdName, src, excludes); err != nil {
+		return s, err
+	}
+
+	// Copy to "/" because we made the prefix inside the tar archive
+	// Do that because we are not able to reliably create directories inside the container
+	if err = b.client.UploadToContainer(s.containerID, u.tar, "/"); err != nil {
+		return s, err
+	}
 
 	return s, nil
 }
 
-func calcCopyInfo(b *Build, cmdName string, cInfos *[]*copyInfo, origPath string, destPath string, allowRemote bool, allowDecompression bool, allowWildcards bool) error {
+func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string) (u *upload, err error) {
 
-	// Work in daemon-specific OS filepath semantics. However, we save
-	// the the origPath passed in here, as it might also be a URL which
-	// we need to check for in this function.
-	passedInOrigPath := origPath
-	origPath = filepath.FromSlash(origPath)
-	destPath = filepath.FromSlash(destPath)
-
-	if origPath != "" && origPath[0] == os.PathSeparator && len(origPath) > 1 {
-		origPath = origPath[1:]
-	}
-	origPath = strings.TrimPrefix(origPath, "."+string(os.PathSeparator))
-
-	// Twiddle the destPath when its a relative path - meaning, make it
-	// relative to the WORKINGDIR
-	if !filepath.IsAbs(destPath) {
-		hasSlash := strings.HasSuffix(destPath, string(os.PathSeparator))
-		destPath = filepath.Join(string(os.PathSeparator), filepath.FromSlash(b.state.config.WorkingDir), destPath)
-
-		// Make sure we preserve any trailing slash
-		if hasSlash {
-			destPath += string(os.PathSeparator)
-		}
+	u = &upload{
+		src:  srcPath,
+		dest: dest,
 	}
 
-	// In the remote/URL case, download it and gen its hashcode
-	if urlutil.IsURL(passedInOrigPath) {
+	if u.files, err = listFiles(srcPath, includes, excludes); err != nil {
+		return u, err
+	}
 
-		// As it's a URL, we go back to processing on what was passed in
-		// to this function
-		origPath = passedInOrigPath
+	// Calculate total size
+	for _, f := range u.files {
+		u.size += f.size
+	}
 
-		if !allowRemote {
-			return fmt.Errorf("Source can't be a URL for %s", cmdName)
+	sep := string(os.PathSeparator)
+
+	if len(u.files) == 0 {
+		return u, nil
+	}
+
+	// If destination is not a directory (no leading slash)
+	if !strings.HasSuffix(u.dest, sep) {
+		if len(u.files) > 1 {
+			return u, fmt.Errorf("When using %s with more than one source file, the destination must be a directory and end with a /", cmdName)
+		}
+		// If we transfer a single file and the destination is not a directory,
+		// then rename it and remove prefix
+		u.files[0].dest = strings.TrimLeft(u.dest, sep)
+		u.dest = ""
+	}
+
+	// Cut the slash prefix from the dest, because it will be the root of the tar
+	// the archive will be always uploaded to the root of a container
+	if strings.HasPrefix(u.dest, sep) {
+		u.dest = u.dest[1:]
+	}
+
+	log.Debugf("Making archive prefix=%s %# v", u.dest, pretty.Formatter(u))
+
+	pipeReader, pipeWriter := io.Pipe()
+	u.tar = pipeReader
+
+	go func() {
+		ta := &tarAppender{
+			TarWriter: tar.NewWriter(pipeWriter),
+			Buffer:    bufio.NewWriterSize(nil, buffer32K),
+			SeenFiles: make(map[uint64]string),
 		}
 
-		ci := copyInfo{}
-		ci.origPath = origPath
-		ci.hash = origPath // default to this but can change
-		ci.destPath = destPath
-		ci.decompress = false
-		*cInfos = append(*cInfos, &ci)
-
-		// Initiate the download
-		resp, err := httputils.Download(ci.origPath)
-		if err != nil {
-			return err
-		}
-
-		// Create a tmp dir
-		tmpDirName, err := ioutil.TempDir(b.cfg.ContextDir, "docker-remote")
-		if err != nil {
-			return err
-		}
-		ci.tmpDir = tmpDirName
-
-		// Create a tmp file within our tmp dir
-		tmpFileName := filepath.Join(tmpDirName, "tmp")
-		tmpFile, err := os.OpenFile(tmpFileName, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
-		if err != nil {
-			return err
-		}
-
-		// Download and dump result to tmp file
-		// TODO: adopt Docker's progressreader?
-		if _, err := io.Copy(tmpFile, resp.Body); err != nil {
-			tmpFile.Close()
-			return err
-		}
-		tmpFile.Close()
-
-		// Set the mtime to the Last-Modified header value if present
-		// Otherwise just remove atime and mtime
-		times := make([]syscall.Timespec, 2)
-
-		lastMod := resp.Header.Get("Last-Modified")
-		if lastMod != "" {
-			mTime, err := http.ParseTime(lastMod)
-			// If we can't parse it then just let it default to 'zero'
-			// otherwise use the parsed time value
-			if err == nil {
-				times[1] = syscall.NsecToTimespec(mTime.UnixNano())
+		defer func() {
+			if err := ta.TarWriter.Close(); err != nil {
+				log.Errorf("Failed to close tar writer, error: %s", err)
 			}
+			if err := pipeWriter.Close(); err != nil {
+				log.Errorf("Failed to close pipe writer, error: %s", err)
+			}
+		}()
+
+		// write files to tar
+		for _, f := range u.files {
+			ta.addTarFile(f.src, u.dest+f.dest)
+		}
+	}()
+
+	return u, nil
+}
+
+func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, error) {
+
+	result := []*uploadFile{}
+	seen := map[string]struct{}{}
+
+	// TODO: support urls
+	// TODO: support local archives (and maybe a remote archives as well)
+
+	for _, pattern := range includes {
+
+		matches, err := filepath.Glob(filepath.Join(srcPath, pattern))
+		if err != nil {
+			return result, err
 		}
 
-		if err := system.UtimesNano(tmpFileName, times); err != nil {
-			return err
-		}
+		for _, match := range matches {
 
-		ci.origPath = filepath.Join(filepath.Base(tmpDirName), filepath.Base(tmpFileName))
-
-		// If the destination is a directory, figure out the filename.
-		if strings.HasSuffix(ci.destPath, string(os.PathSeparator)) {
-			u, err := url.Parse(origPath)
+			// We need to check if the current match is dir
+			// to prefix files inside with it
+			matchInfo, err := os.Stat(match)
 			if err != nil {
-				return err
+				return result, err
 			}
-			path := u.Path
-			if strings.HasSuffix(path, string(os.PathSeparator)) {
-				path = path[:len(path)-1]
-			}
-			parts := strings.Split(path, string(os.PathSeparator))
-			filename := parts[len(parts)-1]
-			if filename == "" {
-				return fmt.Errorf("cannot determine filename from url: %s", u)
-			}
-			ci.destPath = ci.destPath + filename
-		}
 
-		// Calc the checksum, even if we're using the cache
-		r, err := archive.Tar(tmpFileName, archive.Uncompressed)
-		if err != nil {
-			return err
-		}
-		tarSum, err := tarsum.NewTarSum(r, true, tarsum.Version1)
-		if err != nil {
-			return err
-		}
-		if _, err := io.Copy(ioutil.Discard, tarSum); err != nil {
-			return err
-		}
-		ci.hash = tarSum.Sum(nil)
-		r.Close()
+			// Walk through each match since it may be a directory
+			err = filepath.Walk(match, func(path string, info os.FileInfo, err error) error {
 
-		return nil
+				relFilePath, err := filepath.Rel(srcPath, path)
+				if err != nil {
+					return err
+				}
+
+				// TODO: ensure explicit include does not get excluded by the following rule
+				// TODO: ensure ignoring works correctly, maybe improve .dockerignore to work more like .gitignore?
+
+				skip, err := fileutils.Matches(relFilePath, excludes)
+				if err != nil {
+					return err
+				}
+				if skip {
+					return nil
+				}
+
+				// TODO: read links?
+
+				// skip checking if symlinks point to non-existing file
+				// also skip named pipes, because they hanging on open
+				if info.Mode()&(os.ModeSymlink|os.ModeNamedPipe) != 0 {
+					return nil
+				}
+
+				// not interested in dirs, since we walk already
+				if info.IsDir() {
+					return nil
+				}
+
+				if _, ok := seen[relFilePath]; ok {
+					return nil
+				}
+				seen[relFilePath] = struct{}{}
+
+				// cut the wildcard path of the file or use base name
+				var resultFilePath string
+				if containsWildcards(pattern) {
+					common := commonPrefix(pattern, relFilePath)
+					resultFilePath = strings.Replace(relFilePath, common, "", 1)
+				} else if matchInfo.IsDir() {
+					common := commonPrefix(pattern, match)
+					resultFilePath = strings.Replace(relFilePath, common, "", 1)
+				} else {
+					resultFilePath = filepath.Base(relFilePath)
+				}
+
+				result = append(result, &uploadFile{
+					src:  path,
+					dest: resultFilePath,
+					size: info.Size(),
+				})
+
+				return nil
+			})
+
+			if err != nil {
+				return result, err
+			}
+		}
 	}
 
-	// TODO: Deal with wildcards
-	// if allowWildcards && containsWildcards(origPath) {
-	// 	for _, fileInfo := range b.context.GetSums() {
-	// 		if fileInfo.Name() == "" {
-	// 			continue
-	// 		}
-	// 		match, _ := filepath.Match(origPath, fileInfo.Name())
-	// 		if !match {
-	// 			continue
-	// 		}
-
-	// 		// Note we set allowWildcards to false in case the name has
-	// 		// a * in it
-	// 		calcCopyInfo(b, cmdName, cInfos, fileInfo.Name(), destPath, allowRemote, allowDecompression, false)
-	// 	}
-	// 	return nil
-	// }
-
-	// Must be a dir or a file
-
-	if err := checkPathForAddition(b, origPath); err != nil {
-		return err
-	}
-	fi, _ := os.Stat(filepath.Join(b.cfg.ContextDir, origPath))
-
-	ci := copyInfo{}
-	ci.origPath = origPath
-	ci.hash = origPath
-	ci.destPath = destPath
-	ci.decompress = allowDecompression
-	*cInfos = append(*cInfos, &ci)
-
-	// Deal with the single file case
-	if !fi.IsDir() {
-		r, err := archive.Tar(ci.origPath, archive.Uncompressed)
-		if err != nil {
-			return err
-		}
-		tarSum, err := tarsum.NewTarSum(r, true, tarsum.Version1)
-		if err != nil {
-			return err
-		}
-		if _, err := io.Copy(ioutil.Discard, tarSum); err != nil {
-			return err
-		}
-		ci.hash = "file:" + tarSum.Sum(nil)
-		r.Close()
-
-		// This will match first file in sums of the archive
-		// fis := b.context.GetSums().GetFile(ci.origPath)
-		// if fis != nil {
-		// 	ci.hash = "file:" + fis.Sum()
-		// }
-		return nil
-	}
-
-	// TODO: tarsum for dirs
-	//       NewTarWithOptions might do the trick
-
-	// Must be a dir
-	// var subfiles []string
-	// absOrigPath := filepath.Join(b.cfg.ContextDir, ci.origPath)
-
-	// // Add a trailing / to make sure we only pick up nested files under
-	// // the dir and not sibling files of the dir that just happen to
-	// // start with the same chars
-	// if !strings.HasSuffix(absOrigPath, string(os.PathSeparator)) {
-	// 	absOrigPath += string(os.PathSeparator)
-	// }
-
-	// // Need path w/o slash too to find matching dir w/o trailing slash
-	// absOrigPathNoSlash := absOrigPath[:len(absOrigPath)-1]
-
-	// for _, fileInfo := range b.context.GetSums() {
-	// 	absFile := filepath.Join(b.contextPath, fileInfo.Name())
-	// 	// Any file in the context that starts with the given path will be
-	// 	// picked up and its hashcode used.  However, we'll exclude the
-	// 	// root dir itself.  We do this for a coupel of reasons:
-	// 	// 1 - ADD/COPY will not copy the dir itself, just its children
-	// 	//     so there's no reason to include it in the hash calc
-	// 	// 2 - the metadata on the dir will change when any child file
-	// 	//     changes.  This will lead to a miss in the cache check if that
-	// 	//     child file is in the .dockerignore list.
-	// 	if strings.HasPrefix(absFile, absOrigPath) && absFile != absOrigPathNoSlash {
-	// 		subfiles = append(subfiles, fileInfo.Sum())
-	// 	}
-	// }
-	// sort.Strings(subfiles)
-	// hasher := sha256.New()
-	// hasher.Write([]byte(strings.Join(subfiles, ",")))
-	// ci.hash = "dir:" + hex.EncodeToString(hasher.Sum(nil))
-
-	return nil
+	return result, nil
 }
 
 func containsWildcards(name string) bool {
@@ -353,20 +290,19 @@ func containsWildcards(name string) bool {
 	return false
 }
 
-func checkPathForAddition(b *Build, orig string) error {
-	origPath := filepath.Join(b.cfg.ContextDir, orig)
-	origPath, err := filepath.EvalSymlinks(origPath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("%s: no such file or directory", orig)
-		}
-		return err
+func commonPrefix(a, b string) (prefix string) {
+	// max length of either a or b
+	l := len(a)
+	if len(b) > l {
+		l = len(b)
 	}
-	if _, err := os.Stat(origPath); err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("%s: no such file or directory", orig)
+	// find common prefix
+	for i := 0; i < l; i++ {
+		if a[i] != b[i] {
+			break
 		}
-		return err
+		// not optimal, but I don't care
+		prefix = prefix + string(a[i])
 	}
-	return nil
+	return
 }

@@ -262,6 +262,7 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 			return err
 		}
 	case <-sigch:
+		// TODO: Removing container twice for some reason
 		log.Infof("Received SIGINT, remove current container...")
 		if err := c.RemoveContainer(containerID); err != nil {
 			log.Errorf("Failed to remove container: %s", err)

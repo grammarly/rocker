@@ -149,11 +149,17 @@ func (c *CommandCleanup) Execute(b *Build) (State, error) {
 type CommandCommit struct{}
 
 func (c *CommandCommit) String() string {
-	return "Commit layers"
+	return "Commit changes"
 }
 
 func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	s = b.state
+
+	if s.skipCommit {
+		s.skipCommit = false
+		log.Infof("| Skip")
+		return s, nil
+	}
 
 	message := strings.Join(s.commitMsg, "; ")
 

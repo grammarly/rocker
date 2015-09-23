@@ -213,6 +213,8 @@ func TestCommandCommit_NoCommitMsgs(t *testing.T) {
 	assert.Contains(t, err.Error(), "Nothing to commit")
 }
 
+// TODO: test skip commit
+
 // =========== Testing ENV ===========
 
 func TestCommandEnv_Simple(t *testing.T) {
@@ -284,7 +286,7 @@ func TestCommandCopy_Simple(t *testing.T) {
 	// TODO: do we need to check the dest is always a directory?
 	b, c := makeBuild(t, "", Config{})
 	cmd := &CommandCopy{ConfigCommand{
-		args: []string{"testdata/file.txt", "/file.txt"},
+		args: []string{"testdata/Rockerfile", "/Rockerfile"},
 	}}
 
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
@@ -293,16 +295,17 @@ func TestCommandCopy_Simple(t *testing.T) {
 		assert.True(t, len(arg.config.Cmd) > 0)
 	}).Once()
 
-	c.On("UploadToContainer", "456", mock.AnythingOfType("*io.PipeReader"), "/file.txt").Return(nil).Once()
+	c.On("UploadToContainer", "456", mock.AnythingOfType("*io.PipeReader"), "/").Return(nil).Once()
 
 	state, err := cmd.Execute(b)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// assert.Equal(t, []string{"/bin/sh", "-c", "apt-get install"}, state.config.Cmd)
-	pretty.Println(state)
+	t.Logf("state: %# v", pretty.Formatter(state))
 
 	c.AssertExpectations(t)
 	assert.Equal(t, "456", state.containerID)
 }
+
+// TODO: test Cleanup
