@@ -515,7 +515,6 @@ func (c *CommandExpose) Execute(b *Build) (s State, err error) {
 		i++
 	}
 	sort.Strings(portList)
-	// return b.commit("", b.Config.Cmd, fmt.Sprintf("EXPOSE %s", strings.Join(portList, " ")))
 
 	message := fmt.Sprintf("EXPOSE %s", strings.Join(portList, " "))
 	s.Commit(message)
