@@ -72,6 +72,8 @@ func NewCommand(cfg ConfigCommand) (Command, error) {
 		return &CommandAdd{cfg}, nil
 	case "cmd":
 		return &CommandCmd{cfg}, nil
+	case "entrypoint":
+		return &CommandEntrypoint{cfg}, nil
 	}
 	return nil, fmt.Errorf("Unknown command: %s", cfg.name)
 }
@@ -425,6 +427,43 @@ func (c *CommandCmd) Execute(b *Build) (s State, err error) {
 	// TODO: unsetting CMD?
 	// if len(args) != 0 {
 	// 	b.cmdSet = true
+	// }
+
+	return s, nil
+}
+
+// CommandEntrypoint implements ENTRYPOINT
+type CommandEntrypoint struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandEntrypoint) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandEntrypoint) Execute(b *Build) (s State, err error) {
+	s = b.state
+
+	parsed := handleJSONArgs(c.cfg.args, c.cfg.attrs)
+
+	switch {
+	case c.cfg.attrs["json"]:
+		// ENTRYPOINT ["echo", "hi"]
+		s.Config.Entrypoint = parsed
+	case len(parsed) == 0:
+		// ENTRYPOINT []
+		s.Config.Entrypoint = nil
+	default:
+		// ENTRYPOINT echo hi
+		s.Config.Entrypoint = []string{"/bin/sh", "-c", parsed[0]}
+	}
+
+	s.Commit(fmt.Sprintf("ENTRYPOINT %q", s.Config.Entrypoint))
+
+	// TODO: when setting the entrypoint if a CMD was not explicitly set then
+	// set the command to nil
+	// if !b.cmdSet {
+	// 	b.Config.Cmd = nil
 	// }
 
 	return s, nil

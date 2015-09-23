@@ -396,6 +396,53 @@ func TestCommandCmd_Json(t *testing.T) {
 	assert.Equal(t, []string{"apt-get", "install"}, state.Config.Cmd)
 }
 
+// =========== Testing ENTRYPOINT ===========
+
+func TestCommandEntrypoint_Simple(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandEntrypoint{ConfigCommand{
+		args: []string{"/bin/sh"},
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, []string{"/bin/sh", "-c", "/bin/sh"}, state.Config.Entrypoint)
+}
+
+func TestCommandEntrypoint_Json(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandEntrypoint{ConfigCommand{
+		args:  []string{"/bin/bash", "-c"},
+		attrs: map[string]bool{"json": true},
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, []string{"/bin/bash", "-c"}, state.Config.Entrypoint)
+}
+
+func TestCommandEntrypoint_Remove(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandEntrypoint{ConfigCommand{
+		args: []string{},
+	}}
+
+	b.state.Config.Entrypoint = []string{"/bin/sh", "-c"}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, []string(nil), state.Config.Entrypoint)
+}
+
 // =========== Testing COPY ===========
 
 func TestCommandCopy_Simple(t *testing.T) {
