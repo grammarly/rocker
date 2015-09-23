@@ -20,10 +20,9 @@ import "strings"
 
 type Plan []Command
 
-func NewPlan(b *Build) (plan Plan, err error) {
+func NewPlan(commands []ConfigCommand, finalCleanup bool) (plan Plan, err error) {
 	plan = Plan{}
 
-	commands := b.rockerfile.Commands()
 	committed := true
 
 	commit := func() {
@@ -40,9 +39,7 @@ func NewPlan(b *Build) (plan Plan, err error) {
 
 	alwaysCommitBefore := "run attach add copy tag push"
 	alwaysCommitAfter := "run attach add copy"
-	neverCommitAfter := "from tag push"
-
-	// TODO: Process ONBUILD triggers if they exist
+	neverCommitAfter := "from maintainer tag push"
 
 	for i := 0; i < len(commands); i++ {
 		cfg := commands[i]
@@ -87,7 +84,7 @@ func NewPlan(b *Build) (plan Plan, err error) {
 		}
 
 		// Always cleanup at the end
-		if i == len(commands)-1 {
+		if i == len(commands)-1 && finalCleanup {
 			cleanup(i)
 		}
 	}

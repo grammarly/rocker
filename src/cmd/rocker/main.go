@@ -268,7 +268,7 @@ func buildCommand(c *cli.Context) {
 		NoGarbage:  c.Bool("no-garbage"),
 	})
 
-	plan, err := build2.NewPlan(builder)
+	plan, err := build2.NewPlan(rockerfile.Commands(), true)
 	if err != nil {
 		log.Fatal(err)
 	}

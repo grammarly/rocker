@@ -46,7 +46,7 @@ type State struct {
 	CommitMsg      []string
 	ProducedImage  bool
 	CmdSet         bool
-	InjectCommands []Command
+	InjectCommands []string
 }
 
 type Build struct {
@@ -72,7 +72,6 @@ func (b *Build) Run(plan Plan) (err error) {
 
 		log.Debugf("Step %d: %# v", k+1, pretty.Formatter(c))
 		log.Infof("%s", color.New(color.FgWhite, color.Bold).SprintFunc()(c))
-		// log.Infof("%s", color.New(color.FgBlue).SprintFunc()(c))
 
 		if b.state, err = c.Execute(b); err != nil {
 			return err
@@ -80,10 +79,23 @@ func (b *Build) Run(plan Plan) (err error) {
 
 		log.Debugf("State after step %d: %# v", k+1, pretty.Formatter(b.state))
 
+		// Here we need to inject ONBUILD commands on the fly,
+		// build sub plan and merge it with the main plan.
+		// Not very beautiful, because Run uses Plan as the argument
+		// and then it builds its own. But.
 		if len(b.state.InjectCommands) > 0 {
-			tail := append(b.state.InjectCommands, plan[k+1:]...)
+			commands, err := parseOnbuildCommands(b.state.InjectCommands)
+			if err != nil {
+				return err
+			}
+			subPlan, err := NewPlan(commands, false)
+			if err != nil {
+				return err
+			}
+			tail := append(subPlan, plan[k+1:]...)
 			plan = append(plan[:k+1], tail...)
-			b.state.InjectCommands = []Command{}
+
+			b.state.InjectCommands = []string{}
 		}
 	}
 

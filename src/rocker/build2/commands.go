@@ -33,11 +33,12 @@ const (
 )
 
 type ConfigCommand struct {
-	name     string
-	args     []string
-	attrs    map[string]bool
-	flags    map[string]string
-	original string
+	name      string
+	args      []string
+	attrs     map[string]bool
+	flags     map[string]string
+	original  string
+	isOnbuild bool
 }
 
 type Command interface {
@@ -145,12 +146,8 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 
 	log.Infof("| Found %d ONBUILD triggers", len(s.Config.OnBuild))
 
-	// parse the ONBUILD triggers by invoking the parser
-	if s.InjectCommands, err = parseOnbuildCommands(s.Config.OnBuild); err != nil {
-		return s, err
-	}
-
 	// Remove them from the config, since the config will be committed.
+	s.InjectCommands = s.Config.OnBuild
 	s.Config.OnBuild = []string{}
 
 	return s, nil
@@ -165,16 +162,14 @@ func (c *CommandMaintainer) String() string {
 	return c.cfg.original
 }
 
-func (c *CommandMaintainer) Execute(b *Build) (s State, err error) {
-	s = b.state
+func (c *CommandMaintainer) Execute(b *Build) (State, error) {
 	if len(c.cfg.args) != 1 {
-		return s, fmt.Errorf("MAINTAINER requires exactly one argument")
+		return b.state, fmt.Errorf("MAINTAINER requires exactly one argument")
 	}
 
 	// Don't see any sense of doing a commit here, as Docker does
-	s.SkipCommit()
 
-	return s, nil
+	return b.state, nil
 }
 
 // CommandReset cleans the builder state before the next FROM
@@ -225,7 +220,7 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	// Reset collected commit messages after the commit
 	s.CommitMsg = []string{}
 
-	if len(commits) == 0 {
+	if len(commits) == 0 && s.ContainerID == "" {
 		log.Infof("| Skip")
 		return s, nil
 	}

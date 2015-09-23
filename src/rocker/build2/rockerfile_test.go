@@ -21,7 +21,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kr/pretty"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -70,6 +69,9 @@ func TestRockerfileParseOnbuildCommands(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// TODO: asserts
-	pretty.Println(commands)
+	assert.Len(t, commands, 2)
+	assert.Equal(t, "run", commands[0].name)
+	assert.Equal(t, []string{"make"}, commands[0].args)
+	assert.Equal(t, "run", commands[1].name)
+	assert.Equal(t, []string{"make install"}, commands[1].args)
 }

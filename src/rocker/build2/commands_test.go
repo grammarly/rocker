@@ -315,8 +315,7 @@ func TestCommandMaintainer_Simple(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Len(t, state.CommitMsg, 1)
-	assert.Equal(t, COMMIT_SKIP, state.CommitMsg[0])
+	assert.Len(t, state.CommitMsg, 0)
 }
 
 // =========== Testing WORKDIR ===========

@@ -84,7 +84,7 @@ func (r *Rockerfile) Commands() []ConfigCommand {
 	commands := []ConfigCommand{}
 
 	for i := 0; i < len(r.rootNode.Children); i++ {
-		commands = append(commands, parseCommand(r.rootNode.Children[i]))
+		commands = append(commands, parseCommand(r.rootNode.Children[i], false))
 	}
 
 	return commands
@@ -103,13 +103,14 @@ func handleJSONArgs(args []string, attributes map[string]bool) []string {
 	return []string{strings.Join(args, " ")}
 }
 
-func parseCommand(node *parser.Node) ConfigCommand {
+func parseCommand(node *parser.Node, isOnbuild bool) ConfigCommand {
 	cfg := ConfigCommand{
-		name:     node.Value,
-		attrs:    node.Attributes,
-		original: node.Original,
-		args:     []string{},
-		flags:    parseFlags(node.Flags),
+		name:      node.Value,
+		attrs:     node.Attributes,
+		original:  node.Original,
+		args:      []string{},
+		flags:     parseFlags(node.Flags),
+		isOnbuild: isOnbuild,
 	}
 
 	// fill in args and substitute vars
@@ -120,8 +121,8 @@ func parseCommand(node *parser.Node) ConfigCommand {
 	return cfg
 }
 
-func parseOnbuildCommands(onBuildTriggers []string) ([]Command, error) {
-	commands := []Command{}
+func parseOnbuildCommands(onBuildTriggers []string) ([]ConfigCommand, error) {
+	commands := []ConfigCommand{}
 
 	for _, step := range onBuildTriggers {
 
@@ -138,12 +139,7 @@ func parseOnbuildCommands(onBuildTriggers []string) ([]Command, error) {
 				return commands, fmt.Errorf("%s isn't allowed as an ONBUILD trigger", n.Value)
 			}
 
-			cmd, err := NewCommand(parseCommand(n))
-			if err != nil {
-				return commands, err
-			}
-
-			commands = append(commands, &CommandOnbuildWrap{cmd})
+			commands = append(commands, parseCommand(n, true))
 		}
 	}
 

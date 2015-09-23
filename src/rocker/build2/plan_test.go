@@ -335,7 +335,7 @@ FROM alpine
 func makePlan(t *testing.T, rockerfileContent string) Plan {
 	b, _ := makeBuild(t, rockerfileContent, Config{})
 
-	p, err := NewPlan(b)
+	p, err := NewPlan(b.rockerfile.Commands(), true)
 	if err != nil {
 		t.Fatal(err)
 	}
