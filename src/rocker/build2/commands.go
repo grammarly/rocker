@@ -18,6 +18,7 @@ package build2
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
@@ -61,6 +62,8 @@ func NewCommand(cfg ConfigCommand) (Command, error) {
 		return &CommandEnv{cfg}, nil
 	case "label":
 		return &CommandLabel{cfg}, nil
+	case "workdir":
+		return &CommandWorkdir{cfg}, nil
 	case "tag":
 		return &CommandTag{cfg}, nil
 	case "copy":
@@ -362,6 +365,37 @@ func (c *CommandLabel) Execute(b *Build) (s State, err error) {
 	}
 
 	s.Commit(commitStr)
+
+	return s, nil
+}
+
+// CommandWorkdir implements WORKDIR
+type CommandWorkdir struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandWorkdir) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandWorkdir) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+
+	if len(c.cfg.args) != 1 {
+		return s, fmt.Errorf("WORKDIR requires exactly one argument")
+	}
+
+	workdir := c.cfg.args[0]
+
+	if !filepath.IsAbs(workdir) {
+		current := s.Config.WorkingDir
+		workdir = filepath.Join("/", current, workdir)
+	}
+
+	s.Config.WorkingDir = workdir
+
+	s.Commit(fmt.Sprintf("WORKDIR %v", workdir))
 
 	return s, nil
 }

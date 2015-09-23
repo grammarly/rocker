@@ -319,6 +319,52 @@ func TestCommandMaintainer_Simple(t *testing.T) {
 	assert.Equal(t, COMMIT_SKIP, state.CommitMsg[0])
 }
 
+// =========== Testing WORKDIR ===========
+
+func TestCommandWorkdir_Simple(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandWorkdir{ConfigCommand{
+		args: []string{"/app"},
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "/app", state.Config.WorkingDir)
+}
+
+func TestCommandWorkdir_Relative_HasRoot(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandWorkdir{ConfigCommand{
+		args: []string{"www"},
+	}}
+
+	b.state.Config.WorkingDir = "/home"
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "/home/www", state.Config.WorkingDir)
+}
+
+func TestCommandWorkdir_Relative_NoRoot(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandWorkdir{ConfigCommand{
+		args: []string{"www"},
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "/www", state.Config.WorkingDir)
+}
+
 // =========== Testing CMD ===========
 
 func TestCommandCmd_Simple(t *testing.T) {
