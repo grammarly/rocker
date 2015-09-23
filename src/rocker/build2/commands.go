@@ -325,7 +325,7 @@ func (c *CommandEnv) Execute(b *Build) (s State, err error) {
 	return s, nil
 }
 
-// CommandEnv implements LABEL
+// CommandLabel implements LABEL
 type CommandLabel struct {
 	cfg ConfigCommand
 }
