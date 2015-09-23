@@ -68,6 +68,11 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 		excludes = []string{}
 	)
 
+	// If destination is not a directory (no leading slash)
+	if !strings.HasSuffix(dest, string(os.PathSeparator)) && len(src) > 1 {
+		return s, fmt.Errorf("When using %s with more than one source file, the destination must be a directory and end with a /", cmdName)
+	}
+
 	if u, err = makeTarStream(b.cfg.ContextDir, dest, cmdName, src, excludes); err != nil {
 		return s, err
 	}
@@ -142,13 +147,15 @@ func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string) (
 
 	// If destination is not a directory (no leading slash)
 	if !strings.HasSuffix(u.dest, sep) {
-		if len(u.files) > 1 {
-			return u, fmt.Errorf("When using %s with more than one source file, the destination must be a directory and end with a /", cmdName)
-		}
 		// If we transfer a single file and the destination is not a directory,
 		// then rename it and remove prefix
-		u.files[0].dest = strings.TrimLeft(u.dest, sep)
-		u.dest = ""
+		if len(u.files) == 1 {
+			u.files[0].dest = strings.TrimLeft(u.dest, sep)
+			u.dest = ""
+		} else {
+			// add leading slash for more then one file
+			u.dest += sep
+		}
 	}
 
 	// Cut the slash prefix from the dest, because it will be the root of the tar

@@ -164,8 +164,6 @@ func TestListFiles_Dir_AndFiles(t *testing.T) {
 	}
 }
 
-// TODO: COPY . /go/src/app
-
 func TestListFiles_Dir_Multi(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"a/test.txt": "hello",
@@ -292,6 +290,42 @@ func TestMakeTarStream_OneFileToDir(t *testing.T) {
 
 	assertion := strings.Join([]string{
 		"src/test.txt",
+	}, "\n") + "\n"
+
+	assert.Equal(t, assertion, out, "bad tar content")
+}
+
+func TestMakeTarStream_CurrentDir(t *testing.T) {
+	tmpDir := makeTmpDir(t, map[string]string{
+		"a/test.txt": "hello",
+		"b/1.txt":    "hello",
+		"b/2.txt":    "hello",
+		"c/foo.txt":  "hello",
+		"c/x/1.txt":  "hello",
+		"c/x/2.txt":  "hello",
+	})
+	defer os.RemoveAll(tmpDir)
+
+	includes := []string{
+		".",
+	}
+	excludes := []string{}
+	dest := "/go/app/src"
+
+	stream, err := makeTarStream(tmpDir, dest, "COPY", includes, excludes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out := writeReadTar(t, tmpDir, stream.tar)
+
+	assertion := strings.Join([]string{
+		"go/app/src/a/test.txt",
+		"go/app/src/b/1.txt",
+		"go/app/src/b/2.txt",
+		"go/app/src/c/foo.txt",
+		"go/app/src/c/x/1.txt",
+		"go/app/src/c/x/2.txt",
 	}, "\n") + "\n"
 
 	assert.Equal(t, assertion, out, "bad tar content")
