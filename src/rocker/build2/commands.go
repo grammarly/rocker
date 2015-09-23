@@ -53,6 +53,8 @@ func NewCommand(cfg ConfigCommand) (Command, error) {
 	switch cfg.name {
 	case "from":
 		return &CommandFrom{cfg}, nil
+	case "maintainer":
+		return &CommandMaintainer{cfg}, nil
 	case "run":
 		return &CommandRun{cfg}, nil
 	case "env":
@@ -122,6 +124,27 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 	s = b.state
 	s.ImageID = img.ID
 	s.Config = *img.Config
+
+	return s, nil
+}
+
+// CommandMaintainer implements CMD
+type CommandMaintainer struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandMaintainer) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandMaintainer) Execute(b *Build) (s State, err error) {
+	s = b.state
+	if len(c.cfg.args) != 1 {
+		return s, fmt.Errorf("MAINTAINER requires exactly one argument")
+	}
+
+	// Don't see any sense of doing a commit here, as Docker does
+	s.SkipCommit()
 
 	return s, nil
 }

@@ -302,6 +302,23 @@ func TestCommandLabel_Advanced(t *testing.T) {
 	assert.True(t, reflect.DeepEqual(state.Config.Labels, expectedLabels), "bad result labels")
 }
 
+// =========== Testing MAINTAINER ===========
+
+func TestCommandMaintainer_Simple(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandMaintainer{ConfigCommand{
+		args: []string{"terminator"},
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Len(t, state.CommitMsg, 1)
+	assert.Equal(t, COMMIT_SKIP, state.CommitMsg[0])
+}
+
 // =========== Testing CMD ===========
 
 func TestCommandCmd_Simple(t *testing.T) {
