@@ -164,6 +164,8 @@ func TestListFiles_Dir_AndFiles(t *testing.T) {
 	}
 }
 
+// TODO: COPY . /go/src/app
+
 func TestListFiles_Dir_Multi(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"a/test.txt": "hello",
