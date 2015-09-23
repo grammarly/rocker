@@ -57,6 +57,8 @@ func NewCommand(cfg ConfigCommand) (Command, error) {
 		return &CommandTag{cfg}, nil
 	case "copy":
 		return &CommandCopy{cfg}, nil
+	case "add":
+		return &CommandAdd{cfg}, nil
 	case "cmd":
 		return &CommandCmd{cfg}, nil
 	}
@@ -343,4 +345,21 @@ func (c *CommandCopy) Execute(b *Build) (State, error) {
 		return b.state, fmt.Errorf("COPY requires at least two arguments")
 	}
 	return copyFiles(b, c.cfg.args, "COPY")
+}
+
+// CommandCopy implements ADD
+// For now it is an alias of COPY, but later will add urls and archives to it
+type CommandAdd struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandAdd) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandAdd) Execute(b *Build) (State, error) {
+	if len(c.cfg.args) < 2 {
+		return b.state, fmt.Errorf("ADD requires at least two arguments")
+	}
+	return copyFiles(b, c.cfg.args, "ADD")
 }
