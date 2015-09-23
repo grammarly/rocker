@@ -443,6 +443,49 @@ func TestCommandEntrypoint_Remove(t *testing.T) {
 	assert.Equal(t, []string(nil), state.Config.Entrypoint)
 }
 
+// =========== Testing EXPOSE ===========
+
+func TestCommandExpose_Simple(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandExpose{ConfigCommand{
+		args: []string{"80"},
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedPorts := map[docker.Port]struct{}{
+		docker.Port("80/tcp"): struct{}{},
+	}
+
+	assert.True(t, reflect.DeepEqual(expectedPorts, state.Config.ExposedPorts), "bad exposed ports")
+}
+
+func TestCommandExpose_Add(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandExpose{ConfigCommand{
+		args: []string{"443"},
+	}}
+
+	b.state.Config.ExposedPorts = map[docker.Port]struct{}{
+		docker.Port("80/tcp"): struct{}{},
+	}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedPorts := map[docker.Port]struct{}{
+		docker.Port("80/tcp"):  struct{}{},
+		docker.Port("443/tcp"): struct{}{},
+	}
+
+	assert.True(t, reflect.DeepEqual(expectedPorts, state.Config.ExposedPorts), "bad exposed ports")
+}
+
 // =========== Testing COPY ===========
 
 func TestCommandCopy_Simple(t *testing.T) {

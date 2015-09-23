@@ -19,9 +19,11 @@ package build2
 import (
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/docker/docker/pkg/nat"
 	"github.com/docker/docker/pkg/units"
 	"github.com/fsouza/go-dockerclient"
 )
@@ -74,6 +76,8 @@ func NewCommand(cfg ConfigCommand) (Command, error) {
 		return &CommandCmd{cfg}, nil
 	case "entrypoint":
 		return &CommandEntrypoint{cfg}, nil
+	case "expose":
+		return &CommandExpose{cfg}, nil
 	}
 	return nil, fmt.Errorf("Unknown command: %s", cfg.name)
 }
@@ -465,6 +469,54 @@ func (c *CommandEntrypoint) Execute(b *Build) (s State, err error) {
 	if !s.CmdSet {
 		s.Config.Cmd = nil
 	}
+
+	return s, nil
+}
+
+// CommandExpose implements EXPOSE
+type CommandExpose struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandExpose) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandExpose) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+
+	if len(c.cfg.args) == 0 {
+		return s, fmt.Errorf("EXPOSE requires at least one argument")
+	}
+
+	if s.Config.ExposedPorts == nil {
+		s.Config.ExposedPorts = map[docker.Port]struct{}{}
+	}
+
+	ports, _, err := nat.ParsePortSpecs(c.cfg.args)
+	if err != nil {
+		return s, err
+	}
+
+	// instead of using ports directly, we build a list of ports and sort it so
+	// the order is consistent. This prevents cache burst where map ordering
+	// changes between builds
+	portList := make([]string, len(ports))
+	var i int
+	for port := range ports {
+		dockerPort := docker.Port(port)
+		if _, exists := s.Config.ExposedPorts[dockerPort]; !exists {
+			s.Config.ExposedPorts[dockerPort] = struct{}{}
+		}
+		portList[i] = string(port)
+		i++
+	}
+	sort.Strings(portList)
+	// return b.commit("", b.Config.Cmd, fmt.Sprintf("EXPOSE %s", strings.Join(portList, " ")))
+
+	message := fmt.Sprintf("EXPOSE %s", strings.Join(portList, " "))
+	s.Commit(message)
 
 	return s, nil
 }
