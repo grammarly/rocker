@@ -78,6 +78,8 @@ func NewCommand(cfg ConfigCommand) (Command, error) {
 		return &CommandEntrypoint{cfg}, nil
 	case "expose":
 		return &CommandExpose{cfg}, nil
+	case "volume":
+		return &CommandVolume{cfg}, nil
 	}
 	return nil, fmt.Errorf("Unknown command: %s", cfg.name)
 }
@@ -517,6 +519,39 @@ func (c *CommandExpose) Execute(b *Build) (s State, err error) {
 
 	message := fmt.Sprintf("EXPOSE %s", strings.Join(portList, " "))
 	s.Commit(message)
+
+	return s, nil
+}
+
+// CommandVolume implements VOLUME
+type CommandVolume struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandVolume) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandVolume) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+
+	if len(c.cfg.args) == 0 {
+		return s, fmt.Errorf("VOLUME requires at least one argument")
+	}
+
+	if s.Config.Volumes == nil {
+		s.Config.Volumes = map[string]struct{}{}
+	}
+	for _, v := range c.cfg.args {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return s, fmt.Errorf("Volume specified can not be an empty string")
+		}
+		s.Config.Volumes[v] = struct{}{}
+	}
+
+	s.Commit(fmt.Sprintf("VOLUME %v", c.cfg.args))
 
 	return s, nil
 }

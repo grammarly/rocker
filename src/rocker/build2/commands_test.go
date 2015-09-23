@@ -486,6 +486,49 @@ func TestCommandExpose_Add(t *testing.T) {
 	assert.True(t, reflect.DeepEqual(expectedPorts, state.Config.ExposedPorts), "bad exposed ports")
 }
 
+// =========== Testing VOLUME ===========
+
+func TestCommandVolume_Simple(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandVolume{ConfigCommand{
+		args: []string{"/data"},
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	volumes := map[string]struct{}{
+		"/data": struct{}{},
+	}
+
+	assert.True(t, reflect.DeepEqual(volumes, state.Config.Volumes), "bad volumes")
+}
+
+func TestCommandVolume_Add(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandVolume{ConfigCommand{
+		args: []string{"/var/log"},
+	}}
+
+	b.state.Config.Volumes = map[string]struct{}{
+		"/data": struct{}{},
+	}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	volumes := map[string]struct{}{
+		"/data":    struct{}{},
+		"/var/log": struct{}{},
+	}
+
+	assert.True(t, reflect.DeepEqual(volumes, state.Config.Volumes), "bad volumes")
+}
+
 // =========== Testing COPY ===========
 
 func TestCommandCopy_Simple(t *testing.T) {
