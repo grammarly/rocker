@@ -220,6 +220,8 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 
 	success <- <-success
 
+	// TODO: support options for container resources constraints like `docker build` has
+
 	if err := c.client.StartContainer(containerID, &docker.HostConfig{}); err != nil {
 		return err
 	}
