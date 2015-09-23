@@ -75,7 +75,7 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 	// skip COPY if no files matched
 	if len(u.files) == 0 {
 		log.Infof("| No files matched")
-		s.skipCommit = true
+		s.SkipCommit()
 		return s, nil
 	}
 
@@ -92,16 +92,16 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 	// TODO: useful commit comment?
 
 	message := fmt.Sprintf("%s %s to %s", cmdName, tarSum.Sum(nil), dest)
-	s.commitMsg = append(s.commitMsg, message)
+	s.Commit(message)
 
-	origCmd := s.config.Cmd
-	s.config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + message}
+	origCmd := s.Config.Cmd
+	s.Config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + message}
 
-	if s.containerID, err = b.client.CreateContainer(s); err != nil {
+	if s.ContainerID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
 	}
 
-	s.config.Cmd = origCmd
+	s.Config.Cmd = origCmd
 
 	// We need to make a new tar stream, because the previous one has been
 	// read by the tarsum; maybe, optimize this in future
@@ -111,7 +111,7 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 
 	// Copy to "/" because we made the prefix inside the tar archive
 	// Do that because we are not able to reliably create directories inside the container
-	if err = b.client.UploadToContainer(s.containerID, u.tar, "/"); err != nil {
+	if err = b.client.UploadToContainer(s.ContainerID, u.tar, "/"); err != nil {
 		return s, err
 	}
 

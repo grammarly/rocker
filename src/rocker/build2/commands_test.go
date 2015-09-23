@@ -50,8 +50,8 @@ func TestCommandFrom_Existing(t *testing.T) {
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, "123", state.imageID)
-	assert.Equal(t, "localhost", state.config.Hostname)
+	assert.Equal(t, "123", state.ImageID)
+	assert.Equal(t, "localhost", state.Config.Hostname)
 }
 
 func TestCommandFrom_PullExisting(t *testing.T) {
@@ -76,8 +76,8 @@ func TestCommandFrom_PullExisting(t *testing.T) {
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, "123", state.imageID)
-	assert.Equal(t, "localhost", state.config.Hostname)
+	assert.Equal(t, "123", state.ImageID)
+	assert.Equal(t, "localhost", state.Config.Hostname)
 }
 
 func TestCommandFrom_NotExisting(t *testing.T) {
@@ -103,7 +103,7 @@ func TestCommandFrom_NotExisting(t *testing.T) {
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, "123", state.imageID)
+	assert.Equal(t, "123", state.ImageID)
 }
 
 func TestCommandFrom_AfterPullNotExisting(t *testing.T) {
@@ -131,12 +131,12 @@ func TestCommandRun_Simple(t *testing.T) {
 	}}
 
 	origCmd := []string{"/bin/program"}
-	b.state.config.Cmd = origCmd
-	b.state.imageID = "123"
+	b.state.Config.Cmd = origCmd
+	b.state.ImageID = "123"
 
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
 		arg := args.Get(0).(State)
-		assert.Equal(t, []string{"/bin/sh", "-c", "whoami"}, arg.config.Cmd)
+		assert.Equal(t, []string{"/bin/sh", "-c", "whoami"}, arg.Config.Cmd)
 	}).Once()
 
 	c.On("RunContainer", "456", false).Return(nil).Once()
@@ -147,10 +147,10 @@ func TestCommandRun_Simple(t *testing.T) {
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, origCmd, b.state.config.Cmd)
-	assert.Equal(t, origCmd, state.config.Cmd)
-	assert.Equal(t, "123", state.imageID)
-	assert.Equal(t, "456", state.containerID)
+	assert.Equal(t, origCmd, b.state.Config.Cmd)
+	assert.Equal(t, origCmd, state.Config.Cmd)
+	assert.Equal(t, "123", state.ImageID)
+	assert.Equal(t, "456", state.ContainerID)
 }
 
 // =========== Testing COMMIT ===========
@@ -160,8 +160,8 @@ func TestCommandCommit_Simple(t *testing.T) {
 	cmd := &CommandCommit{}
 
 	origCommitMsg := []string{"a", "b"}
-	b.state.containerID = "456"
-	b.state.commitMsg = origCommitMsg
+	b.state.ContainerID = "456"
+	b.state.CommitMsg = origCommitMsg
 
 	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return("789", nil).Once()
 	c.On("RemoveContainer", "456").Return(nil).Once()
@@ -172,11 +172,11 @@ func TestCommandCommit_Simple(t *testing.T) {
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, origCommitMsg, b.state.commitMsg)
-	assert.Equal(t, []string{}, state.commitMsg)
-	assert.Equal(t, []string(nil), state.config.Cmd)
-	assert.Equal(t, "789", state.imageID)
-	assert.Equal(t, "", state.containerID)
+	assert.Equal(t, origCommitMsg, b.state.CommitMsg)
+	assert.Equal(t, []string{}, state.CommitMsg)
+	assert.Equal(t, []string(nil), state.Config.Cmd)
+	assert.Equal(t, "789", state.ImageID)
+	assert.Equal(t, "", state.ContainerID)
 }
 
 func TestCommandCommit_NoContainer(t *testing.T) {
@@ -184,11 +184,11 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 	cmd := &CommandCommit{}
 
 	origCommitMsg := []string{"a", "b"}
-	b.state.commitMsg = origCommitMsg
+	b.state.CommitMsg = origCommitMsg
 
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
 		arg := args.Get(0).(State)
-		assert.Equal(t, []string{"/bin/sh", "-c", "#(nop) a; b"}, arg.config.Cmd)
+		assert.Equal(t, []string{"/bin/sh", "-c", "#(nop) a; b"}, arg.Config.Cmd)
 	}).Once()
 
 	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return("789", nil).Once()
@@ -200,10 +200,10 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, origCommitMsg, b.state.commitMsg)
-	assert.Equal(t, []string{}, state.commitMsg)
-	assert.Equal(t, "789", state.imageID)
-	assert.Equal(t, "", state.containerID)
+	assert.Equal(t, origCommitMsg, b.state.CommitMsg)
+	assert.Equal(t, []string{}, state.CommitMsg)
+	assert.Equal(t, "789", state.ImageID)
+	assert.Equal(t, "", state.ContainerID)
 }
 
 func TestCommandCommit_NoCommitMsgs(t *testing.T) {
@@ -211,7 +211,7 @@ func TestCommandCommit_NoCommitMsgs(t *testing.T) {
 	cmd := &CommandCommit{}
 
 	_, err := cmd.Execute(b)
-	assert.Contains(t, err.Error(), "Nothing to commit")
+	assert.Nil(t, err)
 }
 
 // TODO: test skip commit
@@ -229,8 +229,8 @@ func TestCommandEnv_Simple(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, []string{"ENV type=web env=prod"}, state.commitMsg)
-	assert.Equal(t, []string{"type=web", "env=prod"}, state.config.Env)
+	assert.Equal(t, []string{"ENV type=web env=prod"}, state.CommitMsg)
+	assert.Equal(t, []string{"type=web", "env=prod"}, state.Config.Env)
 }
 
 func TestCommandEnv_Advanced(t *testing.T) {
@@ -239,15 +239,15 @@ func TestCommandEnv_Advanced(t *testing.T) {
 		args: []string{"type", "web", "env", "prod"},
 	}}
 
-	b.state.config.Env = []string{"env=dev", "version=1.2.3"}
+	b.state.Config.Env = []string{"env=dev", "version=1.2.3"}
 
 	state, err := cmd.Execute(b)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, []string{"ENV type=web env=prod"}, state.commitMsg)
-	assert.Equal(t, []string{"env=prod", "version=1.2.3", "type=web"}, state.config.Env)
+	assert.Equal(t, []string{"ENV type=web env=prod"}, state.CommitMsg)
+	assert.Equal(t, []string{"env=prod", "version=1.2.3", "type=web"}, state.Config.Env)
 }
 
 // =========== Testing LABEL ===========
@@ -268,10 +268,10 @@ func TestCommandLabel_Simple(t *testing.T) {
 		"env":  "prod",
 	}
 
-	t.Logf("Result labels: %# v", pretty.Formatter(state.config.Labels))
+	t.Logf("Result labels: %# v", pretty.Formatter(state.Config.Labels))
 
-	assert.Equal(t, []string{"LABEL type=web env=prod"}, state.commitMsg)
-	assert.True(t, reflect.DeepEqual(state.config.Labels, expectedLabels), "bad result labels")
+	assert.Equal(t, []string{"LABEL type=web env=prod"}, state.CommitMsg)
+	assert.True(t, reflect.DeepEqual(state.Config.Labels, expectedLabels), "bad result labels")
 }
 
 func TestCommandLabel_Advanced(t *testing.T) {
@@ -280,7 +280,7 @@ func TestCommandLabel_Advanced(t *testing.T) {
 		args: []string{"type", "web", "env", "prod"},
 	}}
 
-	b.state.config.Labels = map[string]string{
+	b.state.Config.Labels = map[string]string{
 		"env":     "dev",
 		"version": "1.2.3",
 	}
@@ -296,10 +296,10 @@ func TestCommandLabel_Advanced(t *testing.T) {
 		"env":     "prod",
 	}
 
-	t.Logf("Result labels: %# v", pretty.Formatter(state.config.Labels))
+	t.Logf("Result labels: %# v", pretty.Formatter(state.Config.Labels))
 
-	assert.Equal(t, []string{"LABEL type=web env=prod"}, state.commitMsg)
-	assert.True(t, reflect.DeepEqual(state.config.Labels, expectedLabels), "bad result labels")
+	assert.Equal(t, []string{"LABEL type=web env=prod"}, state.CommitMsg)
+	assert.True(t, reflect.DeepEqual(state.Config.Labels, expectedLabels), "bad result labels")
 }
 
 // =========== Testing CMD ===========
@@ -315,7 +315,7 @@ func TestCommandCmd_Simple(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, []string{"/bin/sh", "-c", "apt-get install"}, state.config.Cmd)
+	assert.Equal(t, []string{"/bin/sh", "-c", "apt-get install"}, state.Config.Cmd)
 }
 
 func TestCommandCmd_Json(t *testing.T) {
@@ -330,7 +330,7 @@ func TestCommandCmd_Json(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, []string{"apt-get", "install"}, state.config.Cmd)
+	assert.Equal(t, []string{"apt-get", "install"}, state.Config.Cmd)
 }
 
 // =========== Testing COPY ===========
@@ -345,7 +345,7 @@ func TestCommandCopy_Simple(t *testing.T) {
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
 		arg := args.Get(0).(State)
 		// TODO: a better check
-		assert.True(t, len(arg.config.Cmd) > 0)
+		assert.True(t, len(arg.Config.Cmd) > 0)
 	}).Once()
 
 	c.On("UploadToContainer", "456", mock.AnythingOfType("*io.PipeReader"), "/").Return(nil).Once()
@@ -358,7 +358,7 @@ func TestCommandCopy_Simple(t *testing.T) {
 	t.Logf("state: %# v", pretty.Formatter(state))
 
 	c.AssertExpectations(t)
-	assert.Equal(t, "456", state.containerID)
+	assert.Equal(t, "456", state.ContainerID)
 }
 
 // TODO: test Cleanup

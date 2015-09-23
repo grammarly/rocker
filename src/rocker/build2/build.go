@@ -40,11 +40,11 @@ type Config struct {
 }
 
 type State struct {
-	config      docker.Config
-	imageID     string
-	containerID string
-	commitMsg   []string
-	skipCommit  bool
+	Config        docker.Config
+	ImageID       string
+	ContainerID   string
+	CommitMsg     []string
+	ProducedImage bool
 }
 
 type Build struct {
@@ -86,5 +86,13 @@ func (b *Build) GetState() State {
 }
 
 func (b *Build) GetImageID() string {
-	return b.state.imageID
+	return b.state.ImageID
+}
+
+func (s *State) Commit(msg string) {
+	s.CommitMsg = append(s.CommitMsg, msg)
+}
+
+func (s *State) SkipCommit() {
+	s.Commit(COMMIT_SKIP)
 }

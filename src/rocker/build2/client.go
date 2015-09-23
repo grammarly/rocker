@@ -124,12 +124,12 @@ func (c *DockerClient) CreateContainer(s State) (string, error) {
 	// volumesFrom := builder.getMountContainerIds()
 	// binds := builder.getBinds()
 
-	s.config.Image = s.imageID
+	s.Config.Image = s.ImageID
 
 	// TODO: assign human readable name?
 
 	opts := docker.CreateContainerOptions{
-		Config:     &s.config,
+		Config:     &s.Config,
 		HostConfig: &docker.HostConfig{
 		// Binds:       binds,
 		// VolumesFrom: volumesFrom,
@@ -143,7 +143,7 @@ func (c *DockerClient) CreateContainer(s State) (string, error) {
 		return "", err
 	}
 
-	log.Infof("| Created container %.12s (image %.12s)", container.ID, s.imageID)
+	log.Infof("| Created container %.12s (image %.12s)", container.ID, s.ImageID)
 
 	return container.ID, nil
 }
@@ -276,9 +276,9 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 
 func (c *DockerClient) CommitContainer(s State, message string) (string, error) {
 	commitOpts := docker.CommitContainerOptions{
-		Container: s.containerID,
+		Container: s.ContainerID,
 		Message:   message,
-		Run:       &s.config,
+		Run:       &s.Config,
 	}
 
 	log.Debugf("Commit container: %# v", pretty.Formatter(commitOpts))

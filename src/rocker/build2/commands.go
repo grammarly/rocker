@@ -25,6 +25,10 @@ import (
 	"github.com/fsouza/go-dockerclient"
 )
 
+const (
+	COMMIT_SKIP = "COMMIT_SKIP"
+)
+
 type ConfigCommand struct {
 	name     string
 	args     []string
@@ -116,8 +120,8 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 	}).Infof("| Image %.12s", img.ID)
 
 	s = b.state
-	s.imageID = img.ID
-	s.config = *img.Config
+	s.ImageID = img.ID
+	s.Config = *img.Config
 
 	return s, nil
 }
@@ -135,15 +139,15 @@ func (c *CommandCleanup) String() string {
 func (c *CommandCleanup) Execute(b *Build) (State, error) {
 	s := b.state
 
-	if b.cfg.NoGarbage && !c.tagged && s.imageID != "" {
-		if err := b.client.RemoveImage(s.imageID); err != nil {
+	if b.cfg.NoGarbage && !c.tagged && s.ImageID != "" && s.ProducedImage {
+		if err := b.client.RemoveImage(s.ImageID); err != nil {
 			return s, err
 		}
 	}
 
 	// For final cleanup we want to keep imageID
 	if !c.final {
-		s.imageID = ""
+		s.ImageID = ""
 	}
 
 	return s, nil
@@ -159,41 +163,46 @@ func (c *CommandCommit) String() string {
 func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	s = b.state
 
-	if s.skipCommit {
-		s.skipCommit = false
+	// Collect commits that are not skipped
+	commits := []string{}
+	for _, msg := range s.CommitMsg {
+		if msg != COMMIT_SKIP {
+			commits = append(commits, msg)
+		}
+	}
+
+	// Reset collected commit messages after the commit
+	s.CommitMsg = []string{}
+
+	if len(commits) == 0 {
 		log.Infof("| Skip")
 		return s, nil
 	}
 
-	message := strings.Join(s.commitMsg, "; ")
+	message := strings.Join(commits, "; ")
 
-	// Reset collected commit messages after the commit
-	s.commitMsg = []string{}
+	if s.ContainerID == "" {
+		origCmd := s.Config.Cmd
+		s.Config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + message}
 
-	if s.containerID == "" {
-		if message == "" {
-			return s, fmt.Errorf("Nothing to commit, this might be a bug.")
-		}
-
-		origCmd := s.config.Cmd
-		s.config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + message}
-
-		if s.containerID, err = b.client.CreateContainer(s); err != nil {
+		if s.ContainerID, err = b.client.CreateContainer(s); err != nil {
 			return s, err
 		}
 
-		s.config.Cmd = origCmd
+		s.Config.Cmd = origCmd
 	}
 
-	if s.imageID, err = b.client.CommitContainer(s, message); err != nil {
+	if s.ImageID, err = b.client.CommitContainer(s, message); err != nil {
 		return s, err
 	}
 
-	if err = b.client.RemoveContainer(s.containerID); err != nil {
+	s.ProducedImage = true
+
+	if err = b.client.RemoveContainer(s.ContainerID); err != nil {
 		return s, err
 	}
 
-	s.containerID = ""
+	s.ContainerID = ""
 
 	return s, nil
 }
@@ -210,7 +219,7 @@ func (c *CommandRun) String() string {
 func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	s = b.state
 
-	if s.imageID == "" {
+	if s.ImageID == "" {
 		return s, fmt.Errorf("Please provide a source image with `FROM` prior to run")
 	}
 
@@ -223,19 +232,19 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	// TODO: test with ENTRYPOINT
 
 	// We run this command in the container using CMD
-	origCmd := s.config.Cmd
-	s.config.Cmd = cmd
+	origCmd := s.Config.Cmd
+	s.Config.Cmd = cmd
 
-	if s.containerID, err = b.client.CreateContainer(s); err != nil {
+	if s.ContainerID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
 	}
 
-	if err = b.client.RunContainer(s.containerID, false); err != nil {
+	if err = b.client.RunContainer(s.ContainerID, false); err != nil {
 		return s, err
 	}
 
 	// Restore command after commit
-	s.config.Cmd = origCmd
+	s.Config.Cmd = origCmd
 
 	return s, nil
 }
@@ -272,20 +281,20 @@ func (c *CommandEnv) Execute(b *Build) (s State, err error) {
 		commitStr += " " + newVar
 
 		gotOne := false
-		for i, envVar := range s.config.Env {
+		for i, envVar := range s.Config.Env {
 			envParts := strings.SplitN(envVar, "=", 2)
 			if envParts[0] == args[j] {
-				s.config.Env[i] = newVar
+				s.Config.Env[i] = newVar
 				gotOne = true
 				break
 			}
 		}
 		if !gotOne {
-			s.config.Env = append(s.config.Env, newVar)
+			s.Config.Env = append(s.Config.Env, newVar)
 		}
 	}
 
-	s.commitMsg = append(s.commitMsg, commitStr)
+	s.Commit(commitStr)
 
 	return s, nil
 }
@@ -315,8 +324,8 @@ func (c *CommandLabel) Execute(b *Build) (s State, err error) {
 
 	commitStr := "LABEL"
 
-	if s.config.Labels == nil {
-		s.config.Labels = map[string]string{}
+	if s.Config.Labels == nil {
+		s.Config.Labels = map[string]string{}
 	}
 
 	for j := 0; j < len(args); j++ {
@@ -325,11 +334,11 @@ func (c *CommandLabel) Execute(b *Build) (s State, err error) {
 		newVar := args[j] + "=" + args[j+1] + ""
 		commitStr += " " + newVar
 
-		s.config.Labels[args[j]] = args[j+1]
+		s.Config.Labels[args[j]] = args[j+1]
 		j++
 	}
 
-	s.commitMsg = append(s.commitMsg, commitStr)
+	s.Commit(commitStr)
 
 	return s, nil
 }
@@ -352,9 +361,9 @@ func (c *CommandCmd) Execute(b *Build) (s State, err error) {
 		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
 	}
 
-	s.config.Cmd = cmd
+	s.Config.Cmd = cmd
 
-	s.commitMsg = append(s.commitMsg, fmt.Sprintf("CMD %q", cmd))
+	s.Commit(fmt.Sprintf("CMD %q", cmd))
 
 	// TODO: unsetting CMD?
 	// if len(args) != 0 {
