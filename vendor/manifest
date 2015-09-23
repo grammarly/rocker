@@ -122,6 +122,20 @@
 			"revision": "148be8bd7efd2cdb74b0cd9466fccb57c4c51834",
 			"branch": "master",
 			"path": "/pkg/tarsum"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/nat",
+			"repository": "https://github.com/docker/docker",
+			"revision": "b0dc11127ef4fc20261ccc0db03a16b17f7f91c4",
+			"branch": "master",
+			"path": "/pkg/nat"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/parsers",
+			"repository": "https://github.com/docker/docker",
+			"revision": "b0dc11127ef4fc20261ccc0db03a16b17f7f91c4",
+			"branch": "master",
+			"path": "/pkg/parsers"
 		}
 	]
 }
