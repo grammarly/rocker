@@ -61,6 +61,8 @@ func NewCommand(cfg ConfigCommand) (cmd Command, err error) {
 		cmd = &CommandMaintainer{cfg}
 	case "run":
 		cmd = &CommandRun{cfg}
+	case "attach":
+		cmd = &CommandAttach{cfg}
 	case "env":
 		cmd = &CommandEnv{cfg}
 	case "label":
@@ -300,6 +302,67 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 
 	// Restore command after commit
 	s.Config.Cmd = origCmd
+
+	return s, nil
+}
+
+// CommandAttach implements ATTACH
+type CommandAttach struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandAttach) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandAttach) Execute(b *Build) (s State, err error) {
+	s = b.state
+
+	// simply ignore this command if we don't wanna attach
+	if !b.cfg.Attach {
+		log.Infof("Skip ATTACH; use --attach option to get inside")
+		s.SkipCommit()
+		return s, nil
+	}
+
+	if s.ImageID == "" {
+		return s, fmt.Errorf("Please provide a source image with `FROM` prior to ATTACH")
+	}
+
+	cmd := handleJSONArgs(c.cfg.args, c.cfg.attrs)
+
+	if len(cmd) == 0 {
+		cmd = []string{"/bin/sh"}
+	} else if !c.cfg.attrs["json"] {
+		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
+	}
+
+	// TODO: test with ENTRYPOINT
+
+	// We run this command in the container using CMD
+
+	// Backup the config so we can restore it later
+	origConfig := s.Config
+
+	s.Config.Cmd = cmd
+	s.Config.Entrypoint = []string{}
+	s.Config.Tty = true
+	s.Config.OpenStdin = true
+	s.Config.StdinOnce = true
+	s.Config.AttachStdin = true
+	s.Config.AttachStderr = true
+	s.Config.AttachStdout = true
+
+	if s.ContainerID, err = b.client.CreateContainer(s); err != nil {
+		return s, err
+	}
+
+	if err = b.client.RunContainer(s.ContainerID, true); err != nil {
+		return s, err
+	}
+
+	// Restore the config
+	s.Config = origConfig
 
 	return s, nil
 }

@@ -147,10 +147,13 @@ func (c *DockerClient) CreateContainer(s State) (string, error) {
 func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error {
 
 	var (
-		success = make(chan struct{})
-		def     = log.StandardLogger()
+		success  = make(chan struct{})
+		finished = make(chan struct{}, 1)
+		sigch    = make(chan os.Signal, 1)
+		errch    = make(chan error)
 
 		// Wrap output streams with logger
+		def       = log.StandardLogger()
 		outLogger = &log.Logger{
 			Out:       def.Out,
 			Formatter: NewContainerFormatter(containerID, log.InfoLevel),
@@ -161,6 +164,9 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 			Formatter: NewContainerFormatter(containerID, log.ErrorLevel),
 			Level:     def.Level,
 		}
+
+		in                 = os.Stdin
+		fdIn, isTerminalIn = term.GetFdInfo(in)
 	)
 
 	attachOpts := docker.AttachToContainerOptions{
@@ -173,25 +179,31 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 		Success:      success,
 	}
 
-	// TODO: will implement attach later
-	// if attachStdin {
-	// 	if !builder.isTerminalIn {
-	// 		return fmt.Errorf("Cannot attach to a container on non tty input")
-	// 	}
-	// 	oldState, err := term.SetRawTerminal(builder.fdIn)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	defer term.RestoreTerminal(builder.fdIn, oldState)
+	// Used by ATTACH
+	if attachStdin {
+		log.Infof("| Attach stdin to the container %.12s", containerID)
 
-	// 	attachOpts.InputStream = readerVoidCloser{builder.InStream}
-	// 	attachOpts.OutputStream = builder.OutStream
-	// 	attachOpts.ErrorStream = builder.OutStream
-	// 	attachOpts.Stdin = true
-	// 	attachOpts.RawTerminal = true
-	// }
+		if !isTerminalIn {
+			return fmt.Errorf("Cannot attach to a container on non tty input")
+		}
 
-	finished := make(chan struct{}, 1)
+		attachOpts.InputStream = readerVoidCloser{in}
+		attachOpts.OutputStream = os.Stdout
+		attachOpts.ErrorStream = os.Stderr
+		attachOpts.Stdin = true
+		attachOpts.RawTerminal = true
+	}
+
+	// We want do debug the final attach options before setting raw term
+	log.Debugf("Attach to container with options: %# v", attachOpts)
+
+	if attachStdin {
+		oldState, err := term.SetRawTerminal(fdIn)
+		if err != nil {
+			return err
+		}
+		defer term.RestoreTerminal(fdIn, oldState)
+	}
 
 	go func() {
 		if err := c.client.AttachToContainer(attachOpts); err != nil {
@@ -222,21 +234,19 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 		return err
 	}
 
-	// if attachStdin {
-	// 	if err := builder.monitorTtySize(containerID); err != nil {
-	// 		return fmt.Errorf("Failed to monitor TTY size for container %.12s, error: %s", containerID, err)
-	// 	}
-	// }
+	if attachStdin {
+		if err := c.monitorTtySize(containerID, os.Stdout); err != nil {
+			return fmt.Errorf("Failed to monitor TTY size for container %.12s, error: %s", containerID, err)
+		}
+	}
 
 	// TODO: move signal handling to the builder?
 
-	sigch := make(chan os.Signal, 1)
 	signal.Notify(sigch, os.Interrupt)
-
-	errch := make(chan error)
 
 	go func() {
 		statusCode, err := c.client.WaitContainer(containerID)
+		// log.Debugf("Wait finished, status %q error %q", statusCode, err)
 		if err != nil {
 			errch <- err
 		} else if statusCode != 0 {

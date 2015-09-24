@@ -266,6 +266,7 @@ func buildCommand(c *cli.Context) {
 		ContextDir: contextDir,
 		Pull:       c.Bool("pull"),
 		NoGarbage:  c.Bool("no-garbage"),
+		Attach:     c.Bool("attach"),
 	})
 
 	plan, err := build2.NewPlan(rockerfile.Commands(), true)

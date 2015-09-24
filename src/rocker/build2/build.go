@@ -37,6 +37,7 @@ type Config struct {
 	ContextDir string
 	Pull       bool
 	NoGarbage  bool
+	Attach     bool
 }
 
 type State struct {
