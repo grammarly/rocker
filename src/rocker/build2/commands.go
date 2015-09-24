@@ -842,7 +842,7 @@ func (c *CommandMount) Execute(b *Build) (s State, err error) {
 
 		// MOUNT dir
 		case false:
-			name, err := b.createVolumeContainer(arg)
+			name, err := b.getVolumeContainer(arg)
 			if err != nil {
 				return s, err
 			}

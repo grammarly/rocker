@@ -114,7 +114,7 @@ func (b *Build) GetImageID() string {
 	return b.state.ImageID
 }
 
-func (b *Build) createVolumeContainer(path string) (name string, err error) {
+func (b *Build) getVolumeContainer(path string) (name string, err error) {
 
 	name = b.mountsContainerName(path)
 
