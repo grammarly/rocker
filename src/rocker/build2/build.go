@@ -125,6 +125,8 @@ func (b *Build) getVolumeContainer(path string) (name string, err error) {
 		},
 	}
 
+	log.Debugf("Make MOUNT volume container %s with options %# v", name, config)
+
 	if _, err = b.client.EnsureContainer(name, config, path); err != nil {
 		return name, err
 	}
