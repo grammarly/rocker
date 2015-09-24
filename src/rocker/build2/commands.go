@@ -842,7 +842,17 @@ func (c *CommandMount) Execute(b *Build) (s State, err error) {
 
 		// MOUNT dir
 		case false:
-			// mount = builderMount{cache: useCache, dest: arg}
+			name, err := b.createVolumeContainer(arg)
+			if err != nil {
+				return s, err
+			}
+
+			if s.HostConfig.VolumesFrom == nil {
+				s.HostConfig.VolumesFrom = []string{}
+			}
+
+			s.HostConfig.VolumesFrom = append(s.HostConfig.VolumesFrom, name)
+			commitIds = append(commitIds, name+":"+arg)
 		}
 	}
 

@@ -108,3 +108,13 @@ func (m *MockClient) ResolveHostPath(path string) (resultPath string, err error)
 	args := m.Called(path)
 	return args.String(0), args.Error(1)
 }
+
+func (m *MockClient) EnsureImage(imageName string) error {
+	args := m.Called(imageName)
+	return args.Error(0)
+}
+
+func (m *MockClient) EnsureContainer(containerName string, config *docker.Config, purpose string) (containerID string, err error) {
+	args := m.Called(containerName, config, purpose)
+	return args.String(0), args.Error(1)
+}

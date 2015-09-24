@@ -17,6 +17,7 @@
 package build2
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
@@ -704,6 +705,33 @@ func TestCommandMount_Simple(t *testing.T) {
 	c.AssertExpectations(t)
 	assert.Equal(t, []string{"/resolved/src:/dest"}, state.HostConfig.Binds)
 	assert.Equal(t, []string{`MOUNT ["/src:/dest"]`}, state.CommitMsg)
+}
+
+func TestCommandMount_VolumeContainer(t *testing.T) {
+	b, c := makeBuild(t, "", Config{})
+	cmd := &CommandMount{ConfigCommand{
+		args: []string{"/cache"},
+	}}
+
+	containerName := b.mountsContainerName("/cache")
+
+	c.On("EnsureContainer", containerName, mock.AnythingOfType("*docker.Config"), "/cache").Return("123", nil).Run(func(args mock.Arguments) {
+		arg := args.Get(1).(*docker.Config)
+		// TODO: a better check
+		// assert.True(t, len(arg.Config.Cmd) > 0)
+		assert.Equal(t, MountVolumeImage, arg.Image)
+	}).Once()
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	commitMsg := fmt.Sprintf("MOUNT [\"%s:/cache\"]", containerName)
+
+	c.AssertExpectations(t)
+	assert.Equal(t, []string{containerName}, state.HostConfig.VolumesFrom)
+	assert.Equal(t, []string{commitMsg}, state.CommitMsg)
 }
 
 // TODO: test Cleanup

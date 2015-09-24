@@ -16,7 +16,26 @@
 
 package build2
 
-import "io"
+import (
+	"crypto/md5"
+	"fmt"
+	"io"
+)
+
+// mountsContainerName returns the name of volume container that will be used for a particular MOUNT
+func (b *Build) mountsContainerName(path string) string {
+	// TODO: mounts are reused between different FROMs, is it ok?
+	mountID := b.getIdentifier() + ":" + path
+	return fmt.Sprintf("rocker_mount_%.6x", md5.Sum([]byte(mountID)))
+}
+
+// getIdentifier returns the sequence that is unique to the current Rockerfile
+func (b *Build) getIdentifier() string {
+	if b.cfg.ID != "" {
+		return b.cfg.ID
+	}
+	return b.cfg.ContextDir + ":" + b.rockerfile.Name
+}
 
 // readerVoidCloser is a hack of the improved go-dockerclient's hijacking behavior
 // It simply wraps io.Reader (os.Stdin in our case) and discards any Close() call.

@@ -41,11 +41,13 @@ type Client interface {
 	RemoveImage(imageID string) error
 	TagImage(imageID, imageName string) error
 	PushImage(imageName string) error
+	EnsureImage(imageName string) error
 	CreateContainer(state State) (id string, err error)
 	RunContainer(containerID string, attach bool) error
 	CommitContainer(state State, message string) (imageID string, err error)
 	RemoveContainer(containerID string) error
 	UploadToContainer(containerID string, stream io.Reader, path string) error
+	EnsureContainer(containerName string, config *docker.Config, purpose string) (containerID string, err error)
 	ResolveHostPath(path string) (resultPath string, err error)
 }
 
@@ -391,4 +393,52 @@ func (c *DockerClient) PushImage(imageName string) error {
 
 func (c *DockerClient) ResolveHostPath(path string) (resultPath string, err error) {
 	return dockerclient.ResolveHostPath(path, c.client)
+}
+
+func (c *DockerClient) EnsureImage(imageName string) (err error) {
+
+	var img *docker.Image
+	if img, err = c.client.InspectImage(imageName); err != nil && err != docker.ErrNoSuchImage {
+		return err
+	}
+	if img != nil {
+		return nil
+	}
+
+	return c.PullImage(imageName)
+}
+
+func (c *DockerClient) EnsureContainer(containerName string, config *docker.Config, purpose string) (containerID string, err error) {
+
+	// Check if container exists
+	container, err := c.client.InspectContainer(containerName)
+
+	if _, ok := err.(*docker.NoSuchContainer); !ok && err != nil {
+		return "", err
+	}
+	if container != nil {
+		return container.ID, nil
+	}
+
+	// No data volume container for this build, create it
+
+	if err := c.EnsureImage(config.Image); err != nil {
+		return "", fmt.Errorf("Failed to check image %s, error: %s", config.Image, err)
+	}
+
+	log.Infof("| Create container: %s for %s", containerName, purpose)
+
+	opts := docker.CreateContainerOptions{
+		Name:   containerName,
+		Config: config,
+	}
+
+	log.Debugf("Create container options %# v", opts)
+
+	container, err = c.client.CreateContainer(opts)
+	if err != nil {
+		return "", fmt.Errorf("Failed to create container %s from image %s, error: %s", containerName, config.Image, err)
+	}
+
+	return container.ID, err
 }

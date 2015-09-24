@@ -29,12 +29,14 @@ import (
 
 var (
 	NoBaseImageSpecifier = "scratch"
+	MountVolumeImage     = "grammarly/scratch:latest"
 )
 
 type Config struct {
 	OutStream  io.Writer
 	InStream   io.ReadCloser
 	ContextDir string
+	ID         string
 	Pull       bool
 	NoGarbage  bool
 	Attach     bool
@@ -110,6 +112,26 @@ func (b *Build) GetState() State {
 
 func (b *Build) GetImageID() string {
 	return b.state.ImageID
+}
+
+func (b *Build) createVolumeContainer(path string) (name string, err error) {
+
+	name = b.mountsContainerName(path)
+
+	config := &docker.Config{
+		Image: MountVolumeImage,
+		Volumes: map[string]struct{}{
+			path: struct{}{},
+		},
+	}
+
+	if _, err = b.client.EnsureContainer(name, config, path); err != nil {
+		return name, err
+	}
+
+	log.Infof("| Using container %s for %s", name, path)
+
+	return name, nil
 }
 
 func (s *State) Commit(msg string) {
