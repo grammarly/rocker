@@ -268,17 +268,18 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 		s.Config.Cmd = origCmd
 	}
 
+	defer func(id string) {
+		s.ContainerID = ""
+		if err = b.client.RemoveContainer(id); err != nil {
+			log.Errorf("Failed to remove temporary container %.12s, error: %s", id, err)
+		}
+	}(s.ContainerID)
+
 	if s.ImageID, err = b.client.CommitContainer(s, message); err != nil {
 		return s, err
 	}
 
 	s.ProducedImage = true
-
-	if err = b.client.RemoveContainer(s.ContainerID); err != nil {
-		return s, err
-	}
-
-	s.ContainerID = ""
 
 	return s, nil
 }
@@ -316,6 +317,7 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	}
 
 	if err = b.client.RunContainer(s.ContainerID, false); err != nil {
+		b.client.RemoveContainer(s.ContainerID)
 		return s, err
 	}
 
@@ -359,7 +361,10 @@ func (c *CommandAttach) Execute(b *Build) (s State, err error) {
 	// We run this command in the container using CMD
 
 	// Backup the config so we can restore it later
-	origConfig := s.Config
+	origState := s
+	defer func() {
+		s = origState
+	}()
 
 	s.Config.Cmd = cmd
 	s.Config.Entrypoint = []string{}
@@ -375,11 +380,9 @@ func (c *CommandAttach) Execute(b *Build) (s State, err error) {
 	}
 
 	if err = b.client.RunContainer(s.ContainerID, true); err != nil {
+		b.client.RemoveContainer(s.ContainerID)
 		return s, err
 	}
-
-	// Restore the config
-	s.Config = origConfig
 
 	return s, nil
 }
@@ -946,13 +949,13 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	if exportsID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
 	}
+	defer b.client.RemoveContainer(exportsID)
 
 	log.Infof("| Running in %.12s: %s", exportsID, strings.Join(cmd, " "))
 
 	if err = b.client.RunContainer(exportsID, false); err != nil {
 		return s, err
 	}
-	defer b.client.RemoveContainer(exportsID)
 
 	return s, nil
 }
@@ -991,8 +994,11 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 
 	defer func() {
 		s = origState
-		s.ContainerID = importID
-		s.Commit(fmt.Sprintf("IMPORT %s %q", s.ExportsID, args))
+
+		if err == nil {
+			s.ContainerID = importID
+			s.Commit(fmt.Sprintf("IMPORT %s %q", s.ExportsID, args))
+		}
 	}()
 
 	cmd := []string{"/opt/rsync/bin/rsync", "-a"}
@@ -1021,6 +1027,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	log.Infof("| Running in %.12s: %s", importID, strings.Join(cmd, " "))
 
 	if err = b.client.RunContainer(importID, false); err != nil {
+		b.client.RemoveContainer(importID)
 		return s, err
 	}
 

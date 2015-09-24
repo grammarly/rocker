@@ -248,13 +248,7 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 		if err != nil {
 			errch <- err
 		} else if statusCode != 0 {
-			// Remove errored container
-			// TODO: make option to keep them
-			if err := c.RemoveContainer(containerID); err != nil {
-				log.Error(err)
-			}
-
-			errch <- fmt.Errorf("Failed to run container, exit with code %d", statusCode)
+			errch <- fmt.Errorf("Container %.12s exited with code %d", containerID, statusCode)
 		}
 		errch <- nil
 		return
