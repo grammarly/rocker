@@ -336,9 +336,9 @@ func (c *DockerClient) UploadToContainer(containerID string, stream io.Reader, p
 }
 
 func (c *DockerClient) TagImage(imageID, imageName string) error {
-	log.Infof("| Tag %.12s -> %s", imageID, imageName)
-
 	img := imagename.NewFromString(imageName)
+
+	log.Infof("| Tag %.12s -> %s", imageID, img)
 
 	opts := docker.TagImageOptions{
 		Repo:  img.NameWithRegistry(),
