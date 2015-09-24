@@ -356,8 +356,6 @@ func (c *CommandAttach) Execute(b *Build) (s State, err error) {
 		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
 	}
 
-	// TODO: test with ENTRYPOINT
-
 	// We run this command in the container using CMD
 
 	// Backup the config so we can restore it later
