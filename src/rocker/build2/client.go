@@ -83,7 +83,7 @@ func (c *DockerClient) PullImage(name string) error {
 		out = def.Writer()
 	}
 
-	pullOpts := docker.PullImageOptions{
+	opts := docker.PullImageOptions{
 		Repository:    image.NameWithRegistry(),
 		Registry:      image.Registry,
 		Tag:           image.GetTag(),
@@ -91,25 +91,18 @@ func (c *DockerClient) PullImage(name string) error {
 		RawJSONStream: true,
 	}
 
+	log.Infof("| Pull image %s", image)
+	log.Debugf("Pull image %s with options: %# v", image, opts)
+
 	go func() {
-		err := c.client.PullImage(pullOpts, c.auth)
-
-		if err := pipeWriter.Close(); err != nil {
-			log.Errorf("pipeWriter.Close() err: %s", err)
-		}
-
-		errch <- err
+		errch <- jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut)
 	}()
 
-	if err := jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut); err != nil {
-		return fmt.Errorf("Failed to process json stream for image: %s, error: %s", image, err)
+	if err := c.client.PullImage(opts, c.auth); err != nil {
+		return err
 	}
 
-	if err := <-errch; err != nil {
-		return fmt.Errorf("Failed to pull image: %s, error: %s", image, err)
-	}
-
-	return nil
+	return <-errch
 }
 
 func (c *DockerClient) RemoveImage(imageID string) error {
