@@ -18,6 +18,8 @@ package build2
 
 import (
 	"fmt"
+	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -90,6 +92,8 @@ func NewCommand(cfg ConfigCommand) (cmd Command, err error) {
 		cmd = &CommandUser{cfg}
 	case "onbuild":
 		cmd = &CommandOnbuild{cfg}
+	case "mount":
+		cmd = &CommandMount{cfg}
 	default:
 		return nil, fmt.Errorf("Unknown command: %s", cfg.name)
 	}
@@ -784,6 +788,67 @@ func (c *CommandAdd) Execute(b *Build) (State, error) {
 		return b.state, fmt.Errorf("ADD requires at least two arguments")
 	}
 	return copyFiles(b, c.cfg.args, "ADD")
+}
+
+// CommandMount implements MOUNT
+type CommandMount struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandMount) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandMount) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+
+	if len(c.cfg.args) == 0 {
+		return b.state, fmt.Errorf("MOUNT requires at least one argument")
+	}
+
+	commitIds := []string{}
+
+	for _, arg := range c.cfg.args {
+
+		switch strings.Contains(arg, ":") {
+		// MOUNT src:dest
+		case true:
+			var (
+				pair = strings.SplitN(arg, ":", 2)
+				src  = pair[0]
+				dest = pair[1]
+				err  error
+			)
+
+			// Process relative paths in volumes
+			if strings.HasPrefix(src, "~") {
+				src = strings.Replace(src, "~", os.Getenv("HOME"), 1)
+			}
+			if !path.IsAbs(src) {
+				src = path.Join(b.cfg.ContextDir, src)
+			}
+
+			if src, err = b.client.ResolveHostPath(src); err != nil {
+				return s, err
+			}
+
+			if s.HostConfig.Binds == nil {
+				s.HostConfig.Binds = []string{}
+			}
+
+			s.HostConfig.Binds = append(s.HostConfig.Binds, src+":"+dest)
+			commitIds = append(commitIds, arg)
+
+		// MOUNT dir
+		case false:
+			// mount = builderMount{cache: useCache, dest: arg}
+		}
+	}
+
+	s.Commit(fmt.Sprintf("MOUNT %q", commitIds))
+
+	return s, nil
 }
 
 // CommandOnbuildWrap wraps ONBUILD command

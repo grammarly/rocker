@@ -686,4 +686,24 @@ func TestCommandPush_NoImage(t *testing.T) {
 	assert.EqualError(t, err, "Cannot PUSH empty image")
 }
 
+// =========== Testing MOUNT ===========
+
+func TestCommandMount_Simple(t *testing.T) {
+	b, c := makeBuild(t, "", Config{})
+	cmd := &CommandMount{ConfigCommand{
+		args: []string{"/src:/dest"},
+	}}
+
+	c.On("ResolveHostPath", "/src").Return("/resolved/src", nil).Once()
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.AssertExpectations(t)
+	assert.Equal(t, []string{"/resolved/src:/dest"}, state.HostConfig.Binds)
+	assert.Equal(t, []string{`MOUNT ["/src:/dest"]`}, state.CommitMsg)
+}
+
 // TODO: test Cleanup

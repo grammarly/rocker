@@ -103,3 +103,8 @@ func (m *MockClient) UploadToContainer(containerID string, stream io.Reader, pat
 	args := m.Called(containerID, stream, path)
 	return args.Error(0)
 }
+
+func (m *MockClient) ResolveHostPath(path string) (resultPath string, err error) {
+	args := m.Called(path)
+	return args.String(0), args.Error(1)
+}

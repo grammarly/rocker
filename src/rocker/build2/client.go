@@ -22,6 +22,7 @@ import (
 	"os"
 	"os/signal"
 
+	"rocker/dockerclient"
 	"rocker/imagename"
 
 	"github.com/docker/docker/pkg/units"
@@ -45,6 +46,7 @@ type Client interface {
 	CommitContainer(state State, message string) (imageID string, err error)
 	RemoveContainer(containerID string) error
 	UploadToContainer(containerID string, stream io.Reader, path string) error
+	ResolveHostPath(path string) (resultPath string, err error)
 }
 
 type DockerClient struct {
@@ -116,9 +118,6 @@ func (c *DockerClient) RemoveImage(imageID string) error {
 }
 
 func (c *DockerClient) CreateContainer(s State) (string, error) {
-	// TODO: mount volumes
-	// volumesFrom := builder.getMountContainerIds()
-	// binds := builder.getBinds()
 
 	s.Config.Image = s.ImageID
 
@@ -126,10 +125,7 @@ func (c *DockerClient) CreateContainer(s State) (string, error) {
 
 	opts := docker.CreateContainerOptions{
 		Config:     &s.Config,
-		HostConfig: &docker.HostConfig{
-		// Binds:       binds,
-		// VolumesFrom: volumesFrom,
-		},
+		HostConfig: &s.HostConfig,
 	}
 
 	log.Debugf("Create container: %# v", pretty.Formatter(opts))
@@ -391,4 +387,8 @@ func (c *DockerClient) PushImage(imageName string) error {
 	}
 
 	return <-errch
+}
+
+func (c *DockerClient) ResolveHostPath(path string) (resultPath string, err error) {
+	return dockerclient.ResolveHostPath(path, c.client)
 }

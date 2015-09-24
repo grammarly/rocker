@@ -42,6 +42,7 @@ type Config struct {
 
 type State struct {
 	Config         docker.Config
+	HostConfig     docker.HostConfig
 	ImageID        string
 	ContainerID    string
 	CommitMsg      []string
