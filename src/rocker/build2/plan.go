@@ -38,8 +38,8 @@ func NewPlan(commands []ConfigCommand, finalCleanup bool) (plan Plan, err error)
 	}
 
 	alwaysCommitBefore := "run attach add copy tag push"
-	alwaysCommitAfter := "run attach add copy"
-	neverCommitAfter := "from maintainer tag push"
+	alwaysCommitAfter := "run attach add copy import"
+	neverCommitAfter := "from maintainer tag push export"
 
 	for i := 0; i < len(commands); i++ {
 		cfg := commands[i]

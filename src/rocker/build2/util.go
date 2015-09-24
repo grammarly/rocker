@@ -29,6 +29,12 @@ func (b *Build) mountsContainerName(path string) string {
 	return fmt.Sprintf("rocker_mount_%.6x", md5.Sum([]byte(mountID)))
 }
 
+// exportsContainerName return the name of volume container that will be used for EXPORTs
+func (b *Build) exportsContainerName() string {
+	mountID := b.getIdentifier()
+	return fmt.Sprintf("rocker_exports_%.6x", md5.Sum([]byte(mountID)))
+}
+
 // getIdentifier returns the sequence that is unique to the current Rockerfile
 func (b *Build) getIdentifier() string {
 	if b.cfg.ID != "" {

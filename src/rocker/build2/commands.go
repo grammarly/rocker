@@ -22,6 +22,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"rocker/util"
 	"sort"
 	"strings"
 
@@ -94,6 +95,10 @@ func NewCommand(cfg ConfigCommand) (cmd Command, err error) {
 		cmd = &CommandOnbuild{cfg}
 	case "mount":
 		cmd = &CommandMount{cfg}
+	case "export":
+		cmd = &CommandExport{cfg}
+	case "import":
+		cmd = &CommandImport{cfg}
 	default:
 		return nil, fmt.Errorf("Unknown command: %s", cfg.name)
 	}
@@ -209,9 +214,16 @@ func (c *CommandCleanup) Execute(b *Build) (State, error) {
 		}
 	}
 
+	// Cleanup state
+	dirtyState := s
+	s = State{}
+
+	// Keep some stuff between froms
+	s.ExportsID = dirtyState.ExportsID
+
 	// For final cleanup we want to keep imageID
-	if !c.final {
-		s.ImageID = ""
+	if c.final {
+		s.ImageID = dirtyState.ImageID
 	}
 
 	return s, nil
@@ -857,6 +869,167 @@ func (c *CommandMount) Execute(b *Build) (s State, err error) {
 	}
 
 	s.Commit(fmt.Sprintf("MOUNT %q", commitIds))
+
+	return s, nil
+}
+
+// CommandExport implements EXPORT
+type CommandExport struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandExport) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandExport) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+	args := c.cfg.args
+
+	if len(args) == 0 {
+		return s, fmt.Errorf("EXPORT requires at least one argument")
+	}
+
+	// If only one argument was given to EXPORT, use basename of a file
+	// EXPORT /my/dir/file.tar --> /EXPORT_VOLUME/file.tar
+	if len(args) < 2 {
+		args = []string{args[0], "/"}
+	}
+
+	dest := args[len(args)-1] // last one is always the dest
+
+	// EXPORT /my/dir my_dir --> /EXPORT_VOLUME/my_dir
+	// EXPORT /my/dir /my_dir --> /EXPORT_VOLUME/my_dir
+	// EXPORT /my/dir stuff/ --> /EXPORT_VOLUME/stuff/my_dir
+	// EXPORT /my/dir /stuff/ --> /EXPORT_VOLUME/stuff/my_dir
+	// EXPORT /my/dir/* / --> /EXPORT_VOLUME/stuff/my_dir
+
+	exportsContainerName, err := b.getExportsContainer()
+	if err != nil {
+		return s, err
+	}
+
+	// Remember original stuff so we can restore it when we finished
+	var exportsID string
+	origState := s
+
+	defer func() {
+		s = origState
+		s.ExportsID = exportsID
+	}()
+
+	// Append exports container as a volume
+	s.HostConfig.VolumesFrom = []string{exportsContainerName}
+
+	// build the command
+	cmdDestPath, err := util.ResolvePath(ExportsPath, dest)
+	if err != nil {
+		return s, fmt.Errorf("Invalid EXPORT destination: %s", dest)
+	}
+
+	cmd := []string{"/opt/rsync/bin/rsync", "-a", "--delete-during"}
+
+	if b.cfg.Verbose {
+		cmd = append(cmd, "--verbose")
+	}
+
+	cmd = append(cmd, args[0:len(args)-1]...)
+	cmd = append(cmd, cmdDestPath)
+
+	s.Config.Cmd = cmd
+	s.Config.Entrypoint = []string{}
+
+	// For caching
+	// builder.addLabels(map[string]string{
+	// 	"rocker-exportsContainerId": exportsContainerID,
+	// })
+
+	if exportsID, err = b.client.CreateContainer(s); err != nil {
+		return s, err
+	}
+
+	log.Infof("| Running in %.12s: %s", exportsID, strings.Join(cmd, " "))
+
+	if err = b.client.RunContainer(exportsID, false); err != nil {
+		return s, err
+	}
+	defer b.client.RemoveContainer(exportsID)
+
+	return s, nil
+}
+
+// CommandImport implements IMPORT
+type CommandImport struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandImport) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandImport) Execute(b *Build) (s State, err error) {
+	s = b.state
+	args := c.cfg.args
+
+	if len(args) == 0 {
+		return s, fmt.Errorf("IMPORT requires at least one argument")
+	}
+	if s.ExportsID == "" {
+		return s, fmt.Errorf("You have to EXPORT something first in order to IMPORT")
+	}
+
+	// If only one argument was given to IMPORT, use the same path for destination
+	// IMPORT /my/dir/file.tar --> ADD ./EXPORT_VOLUME/my/dir/file.tar /my/dir/file.tar
+	if len(args) < 2 {
+		args = []string{args[0], "/"}
+	}
+	dest := args[len(args)-1] // last one is always the dest
+
+	// Remember original stuff so we can restore it when we finished
+	origState := s
+
+	var importID string
+
+	defer func() {
+		s = origState
+		s.ContainerID = importID
+		s.Commit(fmt.Sprintf("IMPORT %s %q", s.ExportsID, args))
+	}()
+
+	cmd := []string{"/opt/rsync/bin/rsync", "-a"}
+
+	if b.cfg.Verbose {
+		cmd = append(cmd, "--verbose")
+	}
+
+	for _, arg := range args[0 : len(args)-1] {
+		argResolved, err := util.ResolvePath(ExportsPath, arg)
+		if err != nil {
+			return s, fmt.Errorf("Invalid IMPORT source: %s", arg)
+		}
+		cmd = append(cmd, argResolved)
+	}
+	cmd = append(cmd, dest)
+
+	s.Config.Cmd = cmd
+	s.Config.Entrypoint = []string{}
+	s.HostConfig.VolumesFrom = []string{b.exportsContainerName()}
+
+	if importID, err = b.client.CreateContainer(s); err != nil {
+		return s, err
+	}
+
+	log.Infof("| Running in %.12s: %s", importID, strings.Join(cmd, " "))
+
+	if err = b.client.RunContainer(importID, false); err != nil {
+		return s, err
+	}
+
+	// For caching
+	// builder.addLabels(map[string]string{
+	// 	"rocker-lastExportImageId": builder.lastExportImageID,
+	// })
 
 	return s, nil
 }

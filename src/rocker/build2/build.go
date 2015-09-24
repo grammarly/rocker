@@ -30,6 +30,8 @@ import (
 var (
 	NoBaseImageSpecifier = "scratch"
 	MountVolumeImage     = "grammarly/scratch:latest"
+	RsyncImage           = "grammarly/rsync-static:1"
+	ExportsPath          = "/.rocker_exports"
 )
 
 type Config struct {
@@ -40,6 +42,7 @@ type Config struct {
 	Pull       bool
 	NoGarbage  bool
 	Attach     bool
+	Verbose    bool
 }
 
 type State struct {
@@ -47,6 +50,7 @@ type State struct {
 	HostConfig     docker.HostConfig
 	ImageID        string
 	ContainerID    string
+	ExportsID      string
 	CommitMsg      []string
 	ProducedImage  bool
 	CmdSet         bool
@@ -134,6 +138,29 @@ func (b *Build) getVolumeContainer(path string) (name string, err error) {
 	log.Infof("| Using container %s for %s", name, path)
 
 	return name, nil
+}
+
+func (b *Build) getExportsContainer() (name string, err error) {
+	name = b.exportsContainerName()
+
+	config := &docker.Config{
+		Image: RsyncImage,
+		Volumes: map[string]struct{}{
+			"/opt/rsync/bin": struct{}{},
+			ExportsPath:      struct{}{},
+		},
+	}
+
+	log.Debugf("Make EXPORT container %s with options %# v", name, config)
+
+	containerID, err := b.client.EnsureContainer(name, config, "exports")
+	if err != nil {
+		return "", err
+	}
+
+	log.Infof("| Using exports container %s", name)
+
+	return containerID, nil
 }
 
 func (s *State) Commit(msg string) {
