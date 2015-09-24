@@ -69,6 +69,8 @@ func NewCommand(cfg ConfigCommand) (cmd Command, err error) {
 		cmd = &CommandWorkdir{cfg}
 	case "tag":
 		cmd = &CommandTag{cfg}
+	case "push":
+		cmd = &CommandPush{cfg}
 	case "copy":
 		cmd = &CommandCopy{cfg}
 	case "add":
@@ -617,6 +619,35 @@ func (c *CommandTag) Execute(b *Build) (State, error) {
 	}
 
 	if err := b.client.TagImage(b.state.ImageID, c.cfg.args[0]); err != nil {
+		return b.state, err
+	}
+
+	return b.state, nil
+}
+
+// CommandPush implements PUSH
+type CommandPush struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandPush) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandPush) Execute(b *Build) (State, error) {
+	if len(c.cfg.args) != 1 {
+		return b.state, fmt.Errorf("PUSH requires exactly one argument")
+	}
+
+	if b.state.ImageID == "" {
+		return b.state, fmt.Errorf("Cannot PUSH empty image")
+	}
+
+	if err := b.client.TagImage(b.state.ImageID, c.cfg.args[0]); err != nil {
+		return b.state, err
+	}
+
+	if err := b.client.PushImage(c.cfg.args[0]); err != nil {
 		return b.state, err
 	}
 

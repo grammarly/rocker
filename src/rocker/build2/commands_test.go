@@ -620,4 +620,53 @@ func TestCommandTag_NoImage(t *testing.T) {
 	assert.EqualError(t, err, "Cannot TAG on empty image")
 }
 
+// =========== Testing PUSH ===========
+
+func TestCommandPush_Simple(t *testing.T) {
+	b, c := makeBuild(t, "", Config{})
+	cmd := &CommandPush{ConfigCommand{
+		args: []string{"docker.io/grammarly/rocker:1.0"},
+	}}
+
+	b.state.ImageID = "123"
+
+	c.On("TagImage", "123", "docker.io/grammarly/rocker:1.0").Return(nil).Once()
+	c.On("PushImage", "docker.io/grammarly/rocker:1.0").Return(nil).Once()
+
+	_, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.AssertExpectations(t)
+}
+
+func TestCommandPush_WrongArgsNumber(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandPush{ConfigCommand{
+		args: []string{},
+	}}
+	cmd2 := &CommandPush{ConfigCommand{
+		args: []string{"1", "2"},
+	}}
+
+	b.state.ImageID = "123"
+
+	_, err := cmd.Execute(b)
+	assert.EqualError(t, err, "PUSH requires exactly one argument")
+
+	_, err2 := cmd2.Execute(b)
+	assert.EqualError(t, err2, "PUSH requires exactly one argument")
+}
+
+func TestCommandPush_NoImage(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandPush{ConfigCommand{
+		args: []string{"docker.io/grammarly/rocker:1.0"},
+	}}
+
+	_, err := cmd.Execute(b)
+	assert.EqualError(t, err, "Cannot PUSH empty image")
+}
+
 // TODO: test Cleanup

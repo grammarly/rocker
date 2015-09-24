@@ -39,6 +39,7 @@ type Client interface {
 	PullImage(name string) error
 	RemoveImage(imageID string) error
 	TagImage(imageID, imageName string) error
+	PushImage(imageName string) error
 	CreateContainer(state State) (id string, err error)
 	RunContainer(containerID string, attach bool) error
 	CommitContainer(state State, message string) (imageID string, err error)
@@ -349,4 +350,42 @@ func (c *DockerClient) TagImage(imageID, imageName string) error {
 	log.Debugf("Tag image %s with options: %# v", imageID, opts)
 
 	return c.client.TagImage(imageID, opts)
+}
+
+func (c *DockerClient) PushImage(imageName string) error {
+	var (
+		img   = imagename.NewFromString(imageName)
+		errch = make(chan error)
+
+		pipeReader, pipeWriter = io.Pipe()
+		def                    = log.StandardLogger()
+		fdOut, isTerminalOut   = term.GetFdInfo(def.Out)
+		out                    = def.Out
+
+		opts = docker.PushImageOptions{
+			Name:          img.NameWithRegistry(),
+			Tag:           img.GetTag(),
+			Registry:      img.Registry,
+			OutputStream:  pipeWriter,
+			RawJSONStream: true,
+		}
+	)
+
+	if !isTerminalOut {
+		out = def.Writer()
+	}
+
+	log.Infof("| Push %s", img)
+
+	log.Debugf("Push with options: %# v", opts)
+
+	go func() {
+		errch <- jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut)
+	}()
+
+	if err := c.client.PushImage(opts, c.auth); err != nil {
+		return err
+	}
+
+	return <-errch
 }
