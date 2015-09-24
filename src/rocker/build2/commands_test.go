@@ -717,9 +717,11 @@ func TestCommandMount_VolumeContainer(t *testing.T) {
 
 	c.On("EnsureContainer", containerName, mock.AnythingOfType("*docker.Config"), "/cache").Return("123", nil).Run(func(args mock.Arguments) {
 		arg := args.Get(1).(*docker.Config)
-		// TODO: a better check
-		// assert.True(t, len(arg.Config.Cmd) > 0)
 		assert.Equal(t, MountVolumeImage, arg.Image)
+		expectedVolumes := map[string]struct{}{
+			"/cache": struct{}{},
+		}
+		assert.True(t, reflect.DeepEqual(expectedVolumes, arg.Volumes))
 	}).Once()
 
 	state, err := cmd.Execute(b)
