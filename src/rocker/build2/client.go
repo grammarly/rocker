@@ -21,6 +21,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+
 	"rocker/imagename"
 
 	"github.com/docker/docker/pkg/units"
@@ -37,6 +38,7 @@ type Client interface {
 	InspectImage(name string) (*docker.Image, error)
 	PullImage(name string) error
 	RemoveImage(imageID string) error
+	TagImage(imageID, imageName string) error
 	CreateContainer(state State) (id string, err error)
 	RunContainer(containerID string, attach bool) error
 	CommitContainer(state State, message string) (imageID string, err error)
@@ -331,4 +333,20 @@ func (c *DockerClient) UploadToContainer(containerID string, stream io.Reader, p
 	}
 
 	return c.client.UploadToContainer(containerID, opts)
+}
+
+func (c *DockerClient) TagImage(imageID, imageName string) error {
+	log.Infof("| Tag %.12s -> %s", imageID, imageName)
+
+	img := imagename.NewFromString(imageName)
+
+	opts := docker.TagImageOptions{
+		Repo:  img.NameWithRegistry(),
+		Tag:   img.GetTag(),
+		Force: true,
+	}
+
+	log.Debugf("Tag image %s with options: %# v", imageID, opts)
+
+	return c.client.TagImage(imageID, opts)
 }

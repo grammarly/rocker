@@ -572,4 +572,52 @@ func TestCommandCopy_Simple(t *testing.T) {
 	assert.Equal(t, "456", state.ContainerID)
 }
 
+// =========== Testing TAG ===========
+
+func TestCommandTag_Simple(t *testing.T) {
+	b, c := makeBuild(t, "", Config{})
+	cmd := &CommandTag{ConfigCommand{
+		args: []string{"docker.io/grammarly/rocker:1.0"},
+	}}
+
+	b.state.ImageID = "123"
+
+	c.On("TagImage", "123", "docker.io/grammarly/rocker:1.0").Return(nil).Once()
+
+	_, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.AssertExpectations(t)
+}
+
+func TestCommandTag_WrongArgsNumber(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandTag{ConfigCommand{
+		args: []string{},
+	}}
+	cmd2 := &CommandTag{ConfigCommand{
+		args: []string{"1", "2"},
+	}}
+
+	b.state.ImageID = "123"
+
+	_, err := cmd.Execute(b)
+	assert.EqualError(t, err, "TAG requires exactly one argument")
+
+	_, err2 := cmd2.Execute(b)
+	assert.EqualError(t, err2, "TAG requires exactly one argument")
+}
+
+func TestCommandTag_NoImage(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandTag{ConfigCommand{
+		args: []string{"docker.io/grammarly/rocker:1.0"},
+	}}
+
+	_, err := cmd.Execute(b)
+	assert.EqualError(t, err, "Cannot TAG on empty image")
+}
+
 // TODO: test Cleanup

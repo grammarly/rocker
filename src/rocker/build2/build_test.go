@@ -69,6 +69,11 @@ func (m *MockClient) RemoveImage(imageID string) error {
 	return args.Error(0)
 }
 
+func (m *MockClient) TagImage(imageID, imageName string) error {
+	args := m.Called(imageID, imageName)
+	return args.Error(0)
+}
+
 func (m *MockClient) CreateContainer(state State) (string, error) {
 	args := m.Called(state)
 	return args.String(0), args.Error(1)

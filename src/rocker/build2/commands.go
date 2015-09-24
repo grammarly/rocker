@@ -601,6 +601,18 @@ func (c *CommandTag) String() string {
 }
 
 func (c *CommandTag) Execute(b *Build) (State, error) {
+	if len(c.cfg.args) != 1 {
+		return b.state, fmt.Errorf("TAG requires exactly one argument")
+	}
+
+	if b.state.ImageID == "" {
+		return b.state, fmt.Errorf("Cannot TAG on empty image")
+	}
+
+	if err := b.client.TagImage(b.state.ImageID, c.cfg.args[0]); err != nil {
+		return b.state, err
+	}
+
 	return b.state, nil
 }
 
