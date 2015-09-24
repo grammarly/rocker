@@ -43,7 +43,7 @@ type Client interface {
 	PushImage(imageName string) error
 	EnsureImage(imageName string) error
 	CreateContainer(state State) (id string, err error)
-	RunContainer(containerID string, attach bool) error
+	RunContainer(containerID string, attachStdin bool) error
 	CommitContainer(state State, message string) (imageID string, err error)
 	RemoveContainer(containerID string) error
 	UploadToContainer(containerID string, stream io.Reader, path string) error
