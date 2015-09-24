@@ -52,39 +52,46 @@ type Command interface {
 	String() string
 }
 
-func NewCommand(cfg ConfigCommand) (Command, error) {
+func NewCommand(cfg ConfigCommand) (cmd Command, err error) {
 	// TODO: use reflection?
 	switch cfg.name {
 	case "from":
-		return &CommandFrom{cfg}, nil
+		cmd = &CommandFrom{cfg}
 	case "maintainer":
-		return &CommandMaintainer{cfg}, nil
+		cmd = &CommandMaintainer{cfg}
 	case "run":
-		return &CommandRun{cfg}, nil
+		cmd = &CommandRun{cfg}
 	case "env":
-		return &CommandEnv{cfg}, nil
+		cmd = &CommandEnv{cfg}
 	case "label":
-		return &CommandLabel{cfg}, nil
+		cmd = &CommandLabel{cfg}
 	case "workdir":
-		return &CommandWorkdir{cfg}, nil
+		cmd = &CommandWorkdir{cfg}
 	case "tag":
-		return &CommandTag{cfg}, nil
+		cmd = &CommandTag{cfg}
 	case "copy":
-		return &CommandCopy{cfg}, nil
+		cmd = &CommandCopy{cfg}
 	case "add":
-		return &CommandAdd{cfg}, nil
+		cmd = &CommandAdd{cfg}
 	case "cmd":
-		return &CommandCmd{cfg}, nil
+		cmd = &CommandCmd{cfg}
 	case "entrypoint":
-		return &CommandEntrypoint{cfg}, nil
+		cmd = &CommandEntrypoint{cfg}
 	case "expose":
-		return &CommandExpose{cfg}, nil
+		cmd = &CommandExpose{cfg}
 	case "volume":
-		return &CommandVolume{cfg}, nil
+		cmd = &CommandVolume{cfg}
 	case "user":
-		return &CommandUser{cfg}, nil
+		cmd = &CommandUser{cfg}
+	default:
+		return nil, fmt.Errorf("Unknown command: %s", cfg.name)
 	}
-	return nil, fmt.Errorf("Unknown command: %s", cfg.name)
+
+	if cfg.isOnbuild {
+		cmd = &CommandOnbuildWrap{cmd}
+	}
+
+	return cmd, nil
 }
 
 // CommandFrom implements FROM
