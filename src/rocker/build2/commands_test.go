@@ -544,6 +544,23 @@ func TestCommandUser_Simple(t *testing.T) {
 	assert.Equal(t, "www", state.Config.User)
 }
 
+// =========== Testing ONBUILD ===========
+
+func TestCommandOnBuild_Simple(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandOnbuild{ConfigCommand{
+		args:     []string{"RUN", "make", "install"},
+		original: "ONBUILD RUN make install",
+	}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, []string{"RUN make install"}, state.Config.OnBuild)
+}
+
 // =========== Testing COPY ===========
 
 func TestCommandCopy_Simple(t *testing.T) {

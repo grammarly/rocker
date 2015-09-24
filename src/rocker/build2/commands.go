@@ -19,6 +19,7 @@ package build2
 import (
 	"fmt"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -87,6 +88,8 @@ func NewCommand(cfg ConfigCommand) (cmd Command, err error) {
 		cmd = &CommandVolume{cfg}
 	case "user":
 		cmd = &CommandUser{cfg}
+	case "onbuild":
+		cmd = &CommandOnbuild{cfg}
 	default:
 		return nil, fmt.Errorf("Unknown command: %s", cfg.name)
 	}
@@ -659,6 +662,39 @@ func (c *CommandUser) Execute(b *Build) (s State, err error) {
 	s.Config.User = c.cfg.args[0]
 
 	s.Commit(fmt.Sprintf("USER %v", c.cfg.args))
+
+	return s, nil
+}
+
+// CommandOnbuild implements ONBUILD
+type CommandOnbuild struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandOnbuild) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandOnbuild) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+
+	if len(c.cfg.args) == 0 {
+		return s, fmt.Errorf("ONBUILD requires at least one argument")
+	}
+
+	command := strings.ToUpper(strings.TrimSpace(c.cfg.args[0]))
+	switch command {
+	case "ONBUILD":
+		return s, fmt.Errorf("Chaining ONBUILD via `ONBUILD ONBUILD` isn't allowed")
+	case "MAINTAINER", "FROM":
+		return s, fmt.Errorf("%s isn't allowed as an ONBUILD trigger", command)
+	}
+
+	orig := regexp.MustCompile(`(?i)^\s*ONBUILD\s*`).ReplaceAllString(c.cfg.original, "")
+
+	s.Config.OnBuild = append(s.Config.OnBuild, orig)
+	s.Commit(fmt.Sprintf("ONBUILD %s", orig))
 
 	return s, nil
 }
