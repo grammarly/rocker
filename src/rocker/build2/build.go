@@ -35,14 +35,15 @@ var (
 )
 
 type Config struct {
-	OutStream  io.Writer
-	InStream   io.ReadCloser
-	ContextDir string
-	ID         string
-	Pull       bool
-	NoGarbage  bool
-	Attach     bool
-	Verbose    bool
+	OutStream    io.Writer
+	InStream     io.ReadCloser
+	ContextDir   string
+	ID           string
+	Dockerignore []string
+	Pull         bool
+	NoGarbage    bool
+	Attach       bool
+	Verbose      bool
 }
 
 type State struct {
@@ -55,6 +56,7 @@ type State struct {
 	ProducedImage  bool
 	CmdSet         bool
 	InjectCommands []string
+	Dockerignore   []string
 }
 
 type Build struct {
@@ -65,11 +67,18 @@ type Build struct {
 }
 
 func New(client Client, rockerfile *Rockerfile, cfg Config) *Build {
-	return &Build{
+	b := &Build{
 		rockerfile: rockerfile,
 		cfg:        cfg,
 		client:     client,
-		state:      State{},
+	}
+	b.state = b.NewState()
+	return b
+}
+
+func (b *Build) NewState() State {
+	return State{
+		Dockerignore: b.cfg.Dockerignore,
 	}
 }
 

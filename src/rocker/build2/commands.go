@@ -216,7 +216,7 @@ func (c *CommandCleanup) Execute(b *Build) (State, error) {
 
 	// Cleanup state
 	dirtyState := s
-	s = State{}
+	s = b.NewState()
 
 	// Keep some stuff between froms
 	s.ExportsID = dirtyState.ExportsID

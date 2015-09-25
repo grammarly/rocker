@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -216,7 +215,7 @@ func buildCommand(c *cli.Context) {
 
 	if configFilename == "-" {
 
-		rockerfile, err = build2.NewRockerfile(path.Base(wd), os.Stdin, vars, template.Funs{})
+		rockerfile, err = build2.NewRockerfile(filepath.Base(wd), os.Stdin, vars, template.Funs{})
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -224,7 +223,7 @@ func buildCommand(c *cli.Context) {
 	} else {
 
 		if !filepath.IsAbs(configFilename) {
-			configFilename = path.Join(wd, configFilename)
+			configFilename = filepath.Join(wd, configFilename)
 		}
 
 		rockerfile, err = build2.NewRockerfileFromFile(configFilename, vars, template.Funs{})
@@ -235,7 +234,7 @@ func buildCommand(c *cli.Context) {
 		if len(args) > 0 {
 			contextDir = args[0]
 			if !filepath.IsAbs(contextDir) {
-				contextDir = path.Join(wd, args[0])
+				contextDir = filepath.Join(wd, args[0])
 			}
 		}
 	}
@@ -243,6 +242,15 @@ func buildCommand(c *cli.Context) {
 	if c.Bool("print") {
 		fmt.Print(rockerfile.Content)
 		os.Exit(0)
+	}
+
+	dockerignore := []string{}
+
+	dockerignoreFilename := filepath.Join(contextDir, ".dockerignore")
+	if _, err := os.Stat(dockerignoreFilename); err == nil {
+		if dockerignore, err = build2.ReadDockerignoreFile(dockerignoreFilename); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	dockerClient, err := dockerclient.NewFromCli(c)
@@ -261,14 +269,15 @@ func buildCommand(c *cli.Context) {
 	client := build2.NewDockerClient(dockerClient, auth)
 
 	builder := build2.New(client, rockerfile, build2.Config{
-		InStream:   os.Stdin,
-		OutStream:  os.Stdout,
-		ContextDir: contextDir,
-		Pull:       c.Bool("pull"),
-		NoGarbage:  c.Bool("no-garbage"),
-		Attach:     c.Bool("attach"),
-		Verbose:    c.GlobalBool("verbose"),
-		ID:         c.String("id"),
+		InStream:     os.Stdin,
+		OutStream:    os.Stdout,
+		ContextDir:   contextDir,
+		Dockerignore: dockerignore,
+		Pull:         c.Bool("pull"),
+		NoGarbage:    c.Bool("no-garbage"),
+		Attach:       c.Bool("attach"),
+		Verbose:      c.GlobalBool("verbose"),
+		ID:           c.String("id"),
 	})
 
 	plan, err := build2.NewPlan(rockerfile.Commands(), true)

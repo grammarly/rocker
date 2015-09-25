@@ -59,13 +59,11 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 	}
 
 	var (
-		tarSum tarsum.TarSum
-		src    = args[0 : len(args)-1]
-		dest   = filepath.FromSlash(args[len(args)-1]) // last one is always the dest
-		u      *upload
-
-		// TODO: read .dockerignore
-		excludes = []string{}
+		tarSum   tarsum.TarSum
+		src      = args[0 : len(args)-1]
+		dest     = filepath.FromSlash(args[len(args)-1]) // last one is always the dest
+		u        *upload
+		excludes = s.Dockerignore
 	)
 
 	// If destination is not a directory (no leading slash)
