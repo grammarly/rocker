@@ -26,9 +26,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/docker/docker/pkg/fileutils"
 	"github.com/docker/docker/pkg/tarsum"
 	"github.com/docker/docker/pkg/units"
-	"github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/fileutils"
 	"github.com/kr/pretty"
 
 	log "github.com/Sirupsen/logrus"
@@ -202,6 +202,14 @@ func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, erro
 	// TODO: support urls
 	// TODO: support local archives (and maybe a remote archives as well)
 
+	excludes, patDirs, exceptions, err := fileutils.CleanPatterns(excludes)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: here we remove some exclude patterns, how about patDirs?
+	excludes, nestedPatterns := findNestedPatterns(excludes)
+
 	for _, pattern := range includes {
 
 		matches, err := filepath.Glob(filepath.Join(srcPath, pattern))
@@ -226,27 +234,41 @@ func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, erro
 					return err
 				}
 
-				// TODO: ensure explicit include does not get excluded by the following rule
 				// TODO: ensure ignoring works correctly, maybe improve .dockerignore to work more like .gitignore?
 
-				skip, err := fileutils.Matches(relFilePath, excludes)
-				if err != nil {
-					return err
+				skip := false
+				skipNested := false
+
+				// Here we want to keep files that are specified explicitly in the includes,
+				// no matter what. For example, .dockerignore can have some wildcard items
+				// specified, by in COPY we want explicitly add a file, that could be ignored
+				// otherwise using a wildcard or directory COPY
+				if pattern != relFilePath {
+					if skip, err = fileutils.OptimizedMatches(relFilePath, excludes, patDirs); err != nil {
+						return err
+					}
+					if skipNested, err = matchNested(relFilePath, nestedPatterns); err != nil {
+						return err
+					}
 				}
-				if skip {
+
+				if skip || skipNested {
+					if !exceptions && info.IsDir() {
+						return filepath.SkipDir
+					}
 					return nil
 				}
 
 				// TODO: read links?
 
-				// skip checking if symlinks point to non-existing file
-				// also skip named pipes, because they hanging on open
-				if info.Mode()&(os.ModeSymlink|os.ModeNamedPipe) != 0 {
+				// not interested in dirs, since we walk already
+				if info.IsDir() {
 					return nil
 				}
 
-				// not interested in dirs, since we walk already
-				if info.IsDir() {
+				// skip checking if symlinks point to non-existing file
+				// also skip named pipes, because they hanging on open
+				if info.Mode()&(os.ModeSymlink|os.ModeNamedPipe) != 0 {
 					return nil
 				}
 
@@ -312,4 +334,41 @@ func commonPrefix(a, b string) (prefix string) {
 		prefix = prefix + string(a[i])
 	}
 	return
+}
+
+type nestedPattern struct {
+	prefix  string
+	pattern string
+}
+
+func (p nestedPattern) Match(path string) (bool, error) {
+	if !strings.HasPrefix(path, p.prefix) {
+		return false, nil
+	}
+	return filepath.Match(p.pattern, filepath.Base(path))
+}
+
+func matchNested(path string, patterns []nestedPattern) (bool, error) {
+	for _, p := range patterns {
+		if m, err := p.Match(path); err != nil || m {
+			return m, err
+		}
+	}
+	return false, nil
+}
+
+func findNestedPatterns(excludes []string) (newExcludes []string, nested []nestedPattern) {
+	newExcludes = []string{}
+	nested = []nestedPattern{}
+	for _, e := range excludes {
+		i := strings.Index(e, "**/")
+		// keep exclude
+		if i < 0 {
+			newExcludes = append(newExcludes, e)
+			continue
+		}
+		// make a nested pattern
+		nested = append(nested, nestedPattern{e[:i], e[i+3:]})
+	}
+	return newExcludes, nested
 }

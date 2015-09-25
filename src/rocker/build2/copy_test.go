@@ -32,7 +32,7 @@ import (
 	"github.com/docker/docker/pkg/tarsum"
 )
 
-func TestListFiles_Basic(t *testing.T) {
+func TestCopy_ListFiles_Basic(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"file1.txt": "hello",
 	})
@@ -63,7 +63,7 @@ func TestListFiles_Basic(t *testing.T) {
 	}
 }
 
-func TestListFiles_Wildcard(t *testing.T) {
+func TestCopy_ListFiles_Wildcard(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"file1.txt": "hello",
 		"file2.txt": "hello",
@@ -96,7 +96,7 @@ func TestListFiles_Wildcard(t *testing.T) {
 	}
 }
 
-func TestListFiles_Dir_Simple(t *testing.T) {
+func TestCopy_ListFiles_Dir_Simple(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"dir/foo.txt": "hello",
 		"dir/bar.txt": "hello",
@@ -129,7 +129,7 @@ func TestListFiles_Dir_Simple(t *testing.T) {
 	}
 }
 
-func TestListFiles_Dir_AndFiles(t *testing.T) {
+func TestCopy_ListFiles_Dir_AndFiles(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"test.txt":    "hello",
 		"dir/foo.txt": "hello",
@@ -164,7 +164,7 @@ func TestListFiles_Dir_AndFiles(t *testing.T) {
 	}
 }
 
-func TestListFiles_Dir_Multi(t *testing.T) {
+func TestCopy_ListFiles_Dir_Multi(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"a/test.txt": "hello",
 		"b/1.txt":    "hello",
@@ -206,7 +206,181 @@ func TestListFiles_Dir_Multi(t *testing.T) {
 	}
 }
 
-func TestMakeTarStream_Basic(t *testing.T) {
+func TestCopy_ListFiles_Excludes_Basic(t *testing.T) {
+	tmpDir := makeTmpDir(t, map[string]string{
+		"test1.txt": "hello",
+		"test2.txt": "hello",
+	})
+	defer os.RemoveAll(tmpDir)
+
+	includes := []string{
+		"*.txt",
+	}
+	excludes := []string{
+		"test2.txt",
+	}
+
+	matches, err := listFiles(tmpDir, includes, excludes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("includes: %# v", pretty.Formatter(includes))
+	t.Logf("excludes: %# v", pretty.Formatter(excludes))
+	t.Logf("matches: %# v", pretty.Formatter(matches))
+
+	assertions := [][2]string{
+		{tmpDir + "/test1.txt", "test1.txt"},
+	}
+
+	assert.Len(t, matches, len(assertions))
+	for i, a := range assertions {
+		assert.Equal(t, a[0], matches[i].src, "bad match src at index %d", i)
+		assert.Equal(t, a[1], matches[i].dest, "bad match dest at index %d", i)
+	}
+}
+
+func TestCopy_ListFiles_Excludes_Explicit(t *testing.T) {
+	tmpDir := makeTmpDir(t, map[string]string{
+		"test1.txt": "hello",
+		"test2.txt": "hello",
+		"test3.txt": "hello",
+	})
+	defer os.RemoveAll(tmpDir)
+
+	includes := []string{
+		"test2.txt",
+	}
+	excludes := []string{
+		"*.txt",
+	}
+
+	matches, err := listFiles(tmpDir, includes, excludes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("includes: %# v", pretty.Formatter(includes))
+	t.Logf("excludes: %# v", pretty.Formatter(excludes))
+	t.Logf("matches: %# v", pretty.Formatter(matches))
+
+	assertions := [][2]string{
+		{tmpDir + "/test2.txt", "test2.txt"},
+	}
+
+	assert.Len(t, matches, len(assertions))
+	for i, a := range assertions {
+		assert.Equal(t, a[0], matches[i].src, "bad match src at index %d", i)
+		assert.Equal(t, a[1], matches[i].dest, "bad match dest at index %d", i)
+	}
+}
+
+func TestCopy_ListFiles_Excludes_Exception(t *testing.T) {
+	tmpDir := makeTmpDir(t, map[string]string{
+		"test1.txt": "hello",
+		"test2.txt": "hello",
+		"test3.txt": "hello",
+	})
+	defer os.RemoveAll(tmpDir)
+
+	includes := []string{
+		"*",
+	}
+	excludes := []string{
+		"*.txt",
+		"!test2.txt",
+	}
+
+	matches, err := listFiles(tmpDir, includes, excludes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("includes: %# v", pretty.Formatter(includes))
+	t.Logf("excludes: %# v", pretty.Formatter(excludes))
+	t.Logf("matches: %# v", pretty.Formatter(matches))
+
+	assertions := [][2]string{
+		{tmpDir + "/test2.txt", "test2.txt"},
+	}
+
+	assert.Len(t, matches, len(assertions))
+	for i, a := range assertions {
+		assert.Equal(t, a[0], matches[i].src, "bad match src at index %d", i)
+		assert.Equal(t, a[1], matches[i].dest, "bad match dest at index %d", i)
+	}
+}
+
+func TestCopy_ListFiles_Excludes_Dir(t *testing.T) {
+	tmpDir := makeTmpDir(t, map[string]string{
+		"a/test1.txt": "hello",
+		"b/test2.txt": "hello",
+	})
+	defer os.RemoveAll(tmpDir)
+
+	includes := []string{
+		".",
+	}
+	excludes := []string{
+		"b",
+	}
+
+	matches, err := listFiles(tmpDir, includes, excludes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("includes: %# v", pretty.Formatter(includes))
+	t.Logf("excludes: %# v", pretty.Formatter(excludes))
+	t.Logf("matches: %# v", pretty.Formatter(matches))
+
+	assertions := [][2]string{
+		{tmpDir + "/a/test1.txt", "a/test1.txt"},
+	}
+
+	assert.Len(t, matches, len(assertions))
+	for i, a := range assertions {
+		assert.Equal(t, a[0], matches[i].src, "bad match src at index %d", i)
+		assert.Equal(t, a[1], matches[i].dest, "bad match dest at index %d", i)
+	}
+}
+
+func TestCopy_ListFiles_Excludes_FileInAnyDir(t *testing.T) {
+	tmpDir := makeTmpDir(t, map[string]string{
+		"a/test1.txt":     "hello",
+		"b/test2.txt":     "hello",
+		"c/d/e/test2.txt": "hello",
+	})
+	defer os.RemoveAll(tmpDir)
+
+	includes := []string{
+		".",
+	}
+	excludes := []string{
+		"**/test2.txt",
+	}
+
+	matches, err := listFiles(tmpDir, includes, excludes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Logf("includes: %# v", pretty.Formatter(includes))
+	t.Logf("excludes: %# v", pretty.Formatter(excludes))
+	t.Logf("matches: %# v", pretty.Formatter(matches))
+
+	assertions := [][2]string{
+		{tmpDir + "/a/test1.txt", "a/test1.txt"},
+	}
+
+	assert.Len(t, matches, len(assertions))
+	for i, a := range assertions {
+		assert.Equal(t, a[0], matches[i].src, "bad match src at index %d", i)
+		assert.Equal(t, a[1], matches[i].dest, "bad match dest at index %d", i)
+	}
+}
+
+func TestCopy_MakeTarStream_Basic(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"a/test.txt": "hello",
 		"b/1.txt":    "hello",
@@ -243,7 +417,7 @@ func TestMakeTarStream_Basic(t *testing.T) {
 	assert.Equal(t, assertion, out, "bad tar content")
 }
 
-func TestMakeTarStream_Rename(t *testing.T) {
+func TestCopy_MakeTarStream_Rename(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"a/test.txt": "hello",
 	})
@@ -269,7 +443,7 @@ func TestMakeTarStream_Rename(t *testing.T) {
 	assert.Equal(t, assertion, out, "bad tar content")
 }
 
-func TestMakeTarStream_OneFileToDir(t *testing.T) {
+func TestCopy_MakeTarStream_OneFileToDir(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"a/test.txt": "hello",
 	})
@@ -295,7 +469,7 @@ func TestMakeTarStream_OneFileToDir(t *testing.T) {
 	assert.Equal(t, assertion, out, "bad tar content")
 }
 
-func TestMakeTarStream_CurrentDir(t *testing.T) {
+func TestCopy_MakeTarStream_CurrentDir(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"a/test.txt": "hello",
 		"b/1.txt":    "hello",
