@@ -30,6 +30,7 @@ import (
 	"rocker/template"
 
 	"github.com/codegangsta/cli"
+	"github.com/docker/docker/pkg/units"
 	"github.com/fsouza/go-dockerclient"
 
 	log "github.com/Sirupsen/logrus"
@@ -289,7 +290,12 @@ func buildCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
-	log.Infof("Successfully built %.12s", builder.GetImageID())
+	size := fmt.Sprintf("final size %s (+%s from the base image)",
+		units.HumanSize(float64(builder.VirtualSize)),
+		units.HumanSize(float64(builder.ProducedSize)),
+	)
+
+	log.Infof("Successfully built %.12s | %s", builder.GetImageID(), size)
 
 	// builder := build.Builder{
 	// 	Rockerfile:   configFilename,

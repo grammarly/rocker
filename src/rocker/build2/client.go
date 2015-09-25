@@ -44,7 +44,7 @@ type Client interface {
 	EnsureImage(imageName string) error
 	CreateContainer(state State) (id string, err error)
 	RunContainer(containerID string, attachStdin bool) error
-	CommitContainer(state State, message string) (imageID string, err error)
+	CommitContainer(state State, message string) (img *docker.Image, err error)
 	RemoveContainer(containerID string) error
 	UploadToContainer(containerID string, stream io.Reader, path string) error
 	EnsureContainer(containerName string, config *docker.Config, purpose string) (containerID string, err error)
@@ -274,7 +274,7 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 	return nil
 }
 
-func (c *DockerClient) CommitContainer(s State, message string) (string, error) {
+func (c *DockerClient) CommitContainer(s State, message string) (*docker.Image, error) {
 	commitOpts := docker.CommitContainerOptions{
 		Container: s.ContainerID,
 		Message:   message,
@@ -285,14 +285,14 @@ func (c *DockerClient) CommitContainer(s State, message string) (string, error) 
 
 	image, err := c.client.CommitContainer(commitOpts)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
 	// Inspect the image to get the real size
 	log.Debugf("Inspect image %s", image.ID)
 
 	if image, err = c.client.InspectImage(image.ID); err != nil {
-		return "", err
+		return nil, err
 	}
 
 	size := fmt.Sprintf("%s (+%s)",
@@ -304,7 +304,7 @@ func (c *DockerClient) CommitContainer(s State, message string) (string, error) 
 		"size": size,
 	}).Infof("| Result image is %.12s", image.ID)
 
-	return image.ID, nil
+	return image, nil
 }
 
 func (c *DockerClient) RemoveContainer(containerID string) error {

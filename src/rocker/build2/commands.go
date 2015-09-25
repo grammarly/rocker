@@ -162,6 +162,9 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 	s.ImageID = img.ID
 	s.Config = *img.Config
 
+	b.ProducedSize = 0
+	b.VirtualSize = img.VirtualSize
+
 	// If we don't have OnBuild triggers, then we are done
 	if len(s.Config.OnBuild) == 0 {
 		return s, nil
@@ -275,11 +278,17 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 		}
 	}(s.ContainerID)
 
-	if s.ImageID, err = b.client.CommitContainer(s, message); err != nil {
+	var img *docker.Image
+	if img, err = b.client.CommitContainer(s, message); err != nil {
 		return s, err
 	}
 
+	s.ImageID = img.ID
 	s.ProducedImage = true
+
+	// Store some stuff to the build
+	b.ProducedSize += img.Size
+	b.VirtualSize = img.VirtualSize
 
 	return s, nil
 }

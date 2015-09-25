@@ -60,6 +60,9 @@ type State struct {
 }
 
 type Build struct {
+	ProducedSize int64
+	VirtualSize  int64
+
 	rockerfile *Rockerfile
 	cfg        Config
 	client     Client

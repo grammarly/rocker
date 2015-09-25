@@ -161,10 +161,11 @@ func TestCommandCommit_Simple(t *testing.T) {
 	cmd := &CommandCommit{}
 
 	origCommitMsg := []string{"a", "b"}
+	resultImage := &docker.Image{ID: "789"}
 	b.state.ContainerID = "456"
 	b.state.CommitMsg = origCommitMsg
 
-	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return("789", nil).Once()
+	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return(resultImage, nil).Once()
 	c.On("RemoveContainer", "456").Return(nil).Once()
 
 	state, err := cmd.Execute(b)
@@ -185,6 +186,7 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 	cmd := &CommandCommit{}
 
 	origCommitMsg := []string{"a", "b"}
+	resultImage := &docker.Image{ID: "789"}
 	b.state.CommitMsg = origCommitMsg
 
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
@@ -192,7 +194,7 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 		assert.Equal(t, []string{"/bin/sh", "-c", "#(nop) a; b"}, arg.Config.Cmd)
 	}).Once()
 
-	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return("789", nil).Once()
+	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return(resultImage, nil).Once()
 	c.On("RemoveContainer", "456").Return(nil).Once()
 
 	state, err := cmd.Execute(b)

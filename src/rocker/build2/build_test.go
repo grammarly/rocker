@@ -89,9 +89,9 @@ func (m *MockClient) RunContainer(containerID string, attach bool) error {
 	return args.Error(0)
 }
 
-func (m *MockClient) CommitContainer(state State, message string) (string, error) {
+func (m *MockClient) CommitContainer(state State, message string) (*docker.Image, error) {
 	args := m.Called(state, message)
-	return args.String(0), args.Error(1)
+	return args.Get(0).(*docker.Image), args.Error(1)
 }
 
 func (m *MockClient) RemoveContainer(containerID string) error {
