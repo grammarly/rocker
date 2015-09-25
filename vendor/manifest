@@ -136,6 +136,13 @@
 			"revision": "b0dc11127ef4fc20261ccc0db03a16b17f7f91c4",
 			"branch": "master",
 			"path": "/pkg/parsers"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/fileutils",
+			"repository": "https://github.com/docker/docker",
+			"revision": "02ae137b1d309729c32110aac6e315e798ba4f0e",
+			"branch": "master",
+			"path": "/pkg/fileutils"
 		}
 	]
 }
