@@ -228,6 +228,9 @@ func buildCommand(c *cli.Context) {
 		}
 
 		rockerfile, err = build2.NewRockerfileFromFile(configFilename, vars, template.Funs{})
+		if err != nil {
+			log.Fatal(err)
+		}
 
 		// Initialize context dir
 		contextDir = filepath.Dir(configFilename)
