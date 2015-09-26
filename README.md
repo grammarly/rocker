@@ -5,6 +5,12 @@ Rocker breaks the limits of Dockerfile. It adds some crucial features that are m
 # *NOTE on v1 branch*
 In this branch we are developing the new experimental implementation of Rocker that will be completely client-side driven, with no fallback on `docker build`. This means faster builds and more power. No build context uploads anymore. Also, the builder code is completely rewritten and made much more testable and extensible in the future. Caching might be also rethought. Cross-server builds determinism is our dream. 
 
+### v1 TODO
+
+- [ ] Cache
+- [ ] FROM scratch
+- [ ] ADD urls and local archives
+
 ---
 
 * [Installation](#installation)
