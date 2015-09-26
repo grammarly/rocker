@@ -45,9 +45,10 @@ type upload struct {
 }
 
 type uploadFile struct {
-	src  string
-	dest string
-	size int64
+	src     string
+	dest    string
+	relDest string
+	size    int64
 }
 
 func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
@@ -143,15 +144,27 @@ func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string) (
 		return u, nil
 	}
 
-	// If destination is not a directory (no leading slash)
-	if !strings.HasSuffix(u.dest, sep) {
-		// If we transfer a single file and the destination is not a directory,
-		// then rename it and remove prefix
-		if len(u.files) == 1 {
+	// If we transfer a single item and the destination is not a directory (no leading slash)
+	if !strings.HasSuffix(u.dest, sep) && len(includes) == 1 {
+		item := filepath.Clean(includes[0])
+		// If we've got a single file that was explicitly pointed in the source item
+		// we need to replace its name with the destination
+		// e.g. COPY src/foo.txt /app/bar.txt
+		if len(u.files) == 1 && filepath.Clean(u.files[0].relDest) == item {
 			u.files[0].dest = strings.TrimLeft(u.dest, sep)
 			u.dest = ""
+		} else if !containsWildcards(item) {
+			// The source item is a directory but not a wildcard, so we need to rename only
+			// the first bit e.g. COPY foo /src
+			for i := range u.files {
+				relDest, err := filepath.Rel(item, u.files[i].dest)
+				if err != nil {
+					return u, err
+				}
+				u.files[i].dest = relDest
+			}
+			u.dest += sep
 		} else {
-			// add leading slash for more then one file
 			u.dest += sep
 		}
 	}
@@ -288,9 +301,10 @@ func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, erro
 				}
 
 				result = append(result, &uploadFile{
-					src:  path,
-					dest: resultFilePath,
-					size: info.Size(),
+					src:     path,
+					dest:    resultFilePath,
+					relDest: relFilePath,
+					size:    info.Size(),
 				})
 
 				return nil
