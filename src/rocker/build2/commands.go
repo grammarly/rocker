@@ -52,6 +52,9 @@ type Command interface {
 	// and passed to the external command implementations.
 	Execute(b *Build) (State, error)
 
+	// Returns true if the command should be executed
+	ShouldRun(b *Build) (bool, error)
+
 	// String returns the human readable string representation of the command
 	String() string
 }
@@ -117,6 +120,10 @@ type CommandFrom struct {
 
 func (c *CommandFrom) String() string {
 	return c.cfg.original
+}
+
+func (c *CommandFrom) ShouldRun(b *Build) (bool, error) {
+	return true, nil
 }
 
 func (c *CommandFrom) Execute(b *Build) (s State, err error) {
@@ -188,6 +195,10 @@ func (c *CommandMaintainer) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandMaintainer) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandMaintainer) Execute(b *Build) (State, error) {
 	if len(c.cfg.args) != 1 {
 		return b.state, fmt.Errorf("MAINTAINER requires exactly one argument")
@@ -208,6 +219,10 @@ func (c *CommandCleanup) String() string {
 	return "Cleaning up"
 }
 
+func (c *CommandCleanup) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandCleanup) Execute(b *Build) (State, error) {
 	s := b.state
 
@@ -219,7 +234,7 @@ func (c *CommandCleanup) Execute(b *Build) (State, error) {
 
 	// Cleanup state
 	dirtyState := s
-	s = b.NewState()
+	s = NewState(b)
 
 	// Keep some stuff between froms
 	s.ExportsID = dirtyState.ExportsID
@@ -241,30 +256,33 @@ func (c *CommandCommit) String() string {
 	return "Commit changes"
 }
 
+func (c *CommandCommit) ShouldRun(b *Build) (bool, error) {
+	return b.state.GetCommits() != "", nil
+}
+
 func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	s = b.state
 
-	// Collect commits that are not skipped
-	commits := []string{}
-	for _, msg := range s.CommitMsg {
-		if msg != COMMIT_SKIP {
-			commits = append(commits, msg)
-		}
-	}
-
-	// Reset collected commit messages after the commit
-	s.CommitMsg = []string{}
-
-	if len(commits) == 0 && s.ContainerID == "" {
-		log.Infof("| Skip")
+	commits := s.GetCommits()
+	if commits == "" {
 		return s, nil
 	}
 
-	message := strings.Join(commits, "; ")
+	// TODO: ?
+	// if len(commits) == 0 && s.ContainerID == "" { log.Infof("| Skip")
+
+	// Check cache
+	s, hit, err := b.probeCache(s)
+	if err != nil {
+		return s, err
+	}
+	if hit {
+		return s, nil
+	}
 
 	if s.ContainerID == "" {
 		origCmd := s.Config.Cmd
-		s.Config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + message}
+		s.Config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + commits}
 
 		if s.ContainerID, err = b.client.CreateContainer(s); err != nil {
 			return s, err
@@ -274,19 +292,25 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	}
 
 	defer func(id string) {
-		s.ContainerID = ""
+		s.Commits = []string{}
 		if err = b.client.RemoveContainer(id); err != nil {
 			log.Errorf("Failed to remove temporary container %.12s, error: %s", id, err)
 		}
 	}(s.ContainerID)
 
 	var img *docker.Image
-	if img, err = b.client.CommitContainer(s, message); err != nil {
+	if img, err = b.client.CommitContainer(s, commits); err != nil {
 		return s, err
 	}
 
+	s.ContainerID = ""
+	s.ParentID = s.ImageID
 	s.ImageID = img.ID
 	s.ProducedImage = true
+
+	if b.cache != nil {
+		b.cache.Put(s)
+	}
 
 	// Store some stuff to the build
 	b.ProducedSize += img.Size
@@ -304,6 +328,10 @@ func (c *CommandRun) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandRun) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	s = b.state
 
@@ -315,6 +343,17 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 
 	if !c.cfg.attrs["json"] {
 		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
+	}
+
+	s.Commit("RUN %q", cmd)
+
+	// Check cache
+	s, hit, err := b.probeCache(s)
+	if err != nil {
+		return s, err
+	}
+	if hit {
+		return s, nil
 	}
 
 	// TODO: test with ENTRYPOINT
@@ -347,13 +386,18 @@ func (c *CommandAttach) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandAttach) ShouldRun(b *Build) (bool, error) {
+	// TODO: skip attach?
+	return true, nil
+}
+
 func (c *CommandAttach) Execute(b *Build) (s State, err error) {
 	s = b.state
 
 	// simply ignore this command if we don't wanna attach
 	if !b.cfg.Attach {
 		log.Infof("Skip ATTACH; use --attach option to get inside")
-		s.SkipCommit()
+		// s.SkipCommit()
 		return s, nil
 	}
 
@@ -368,6 +412,8 @@ func (c *CommandAttach) Execute(b *Build) (s State, err error) {
 	} else if !c.cfg.attrs["json"] {
 		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
 	}
+
+	// TODO: do s.commit unique
 
 	// We run this command in the container using CMD
 
@@ -405,6 +451,10 @@ type CommandEnv struct {
 
 func (c *CommandEnv) String() string {
 	return c.cfg.original
+}
+
+func (c *CommandEnv) ShouldRun(b *Build) (bool, error) {
+	return true, nil
 }
 
 func (c *CommandEnv) Execute(b *Build) (s State, err error) {
@@ -457,6 +507,10 @@ func (c *CommandLabel) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandLabel) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandLabel) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -501,6 +555,10 @@ func (c *CommandWorkdir) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandWorkdir) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandWorkdir) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -532,6 +590,10 @@ func (c *CommandCmd) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandCmd) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandCmd) Execute(b *Build) (s State, err error) {
 	s = b.state
 
@@ -559,6 +621,10 @@ type CommandEntrypoint struct {
 
 func (c *CommandEntrypoint) String() string {
 	return c.cfg.original
+}
+
+func (c *CommandEntrypoint) ShouldRun(b *Build) (bool, error) {
+	return true, nil
 }
 
 func (c *CommandEntrypoint) Execute(b *Build) (s State, err error) {
@@ -597,6 +663,10 @@ type CommandExpose struct {
 
 func (c *CommandExpose) String() string {
 	return c.cfg.original
+}
+
+func (c *CommandExpose) ShouldRun(b *Build) (bool, error) {
+	return true, nil
 }
 
 func (c *CommandExpose) Execute(b *Build) (s State, err error) {
@@ -646,6 +716,10 @@ func (c *CommandVolume) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandVolume) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandVolume) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -679,6 +753,10 @@ func (c *CommandUser) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandUser) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandUser) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -701,6 +779,10 @@ type CommandOnbuild struct {
 
 func (c *CommandOnbuild) String() string {
 	return c.cfg.original
+}
+
+func (c *CommandOnbuild) ShouldRun(b *Build) (bool, error) {
+	return true, nil
 }
 
 func (c *CommandOnbuild) Execute(b *Build) (s State, err error) {
@@ -736,6 +818,10 @@ func (c *CommandTag) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandTag) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandTag) Execute(b *Build) (State, error) {
 	if len(c.cfg.args) != 1 {
 		return b.state, fmt.Errorf("TAG requires exactly one argument")
@@ -761,6 +847,10 @@ func (c *CommandPush) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandPush) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandPush) Execute(b *Build) (State, error) {
 	if len(c.cfg.args) != 1 {
 		return b.state, fmt.Errorf("PUSH requires exactly one argument")
@@ -772,6 +862,11 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 
 	if err := b.client.TagImage(b.state.ImageID, c.cfg.args[0]); err != nil {
 		return b.state, err
+	}
+
+	if !b.cfg.Push {
+		log.Infof("| Don't push. Pass --push flag to actually push to the registry")
+		return b.state, nil
 	}
 
 	if err := b.client.PushImage(c.cfg.args[0]); err != nil {
@@ -788,6 +883,10 @@ type CommandCopy struct {
 
 func (c *CommandCopy) String() string {
 	return c.cfg.original
+}
+
+func (c *CommandCopy) ShouldRun(b *Build) (bool, error) {
+	return true, nil
 }
 
 func (c *CommandCopy) Execute(b *Build) (State, error) {
@@ -807,6 +906,10 @@ func (c *CommandAdd) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandAdd) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandAdd) Execute(b *Build) (State, error) {
 	if len(c.cfg.args) < 2 {
 		return b.state, fmt.Errorf("ADD requires at least two arguments")
@@ -821,6 +924,10 @@ type CommandMount struct {
 
 func (c *CommandMount) String() string {
 	return c.cfg.original
+}
+
+func (c *CommandMount) ShouldRun(b *Build) (bool, error) {
+	return true, nil
 }
 
 func (c *CommandMount) Execute(b *Build) (s State, err error) {
@@ -894,6 +1001,10 @@ func (c *CommandExport) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandExport) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandExport) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -909,6 +1020,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		args = []string{args[0], "/"}
 	}
 
+	src := args[0 : len(args)-1]
 	dest := args[len(args)-1] // last one is always the dest
 
 	// EXPORT /my/dir my_dir --> /EXPORT_VOLUME/my_dir
@@ -917,9 +1029,25 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	// EXPORT /my/dir /stuff/ --> /EXPORT_VOLUME/stuff/my_dir
 	// EXPORT /my/dir/* / --> /EXPORT_VOLUME/stuff/my_dir
 
-	exportsContainerName, err := b.getExportsContainer()
+	exportsContainerID, err := b.getExportsContainer()
 	if err != nil {
 		return s, err
+	}
+
+	// build the command
+	cmdDestPath, err := util.ResolvePath(ExportsPath, dest)
+	if err != nil {
+		return s, fmt.Errorf("Invalid EXPORT destination: %s", dest)
+	}
+
+	s.Commit("EXPORT %q to %.12s:%s", src, exportsContainerID, dest)
+
+	s, hit, err := b.probeCache(s)
+	if err != nil {
+		return s, err
+	}
+	if hit {
+		return s, nil
 	}
 
 	// Remember original stuff so we can restore it when we finished
@@ -932,13 +1060,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	}()
 
 	// Append exports container as a volume
-	s.HostConfig.VolumesFrom = []string{exportsContainerName}
-
-	// build the command
-	cmdDestPath, err := util.ResolvePath(ExportsPath, dest)
-	if err != nil {
-		return s, fmt.Errorf("Invalid EXPORT destination: %s", dest)
-	}
+	s.HostConfig.VolumesFrom = []string{exportsContainerID}
 
 	cmd := []string{"/opt/rsync/bin/rsync", "-a", "--delete-during"}
 
@@ -946,16 +1068,11 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		cmd = append(cmd, "--verbose")
 	}
 
-	cmd = append(cmd, args[0:len(args)-1]...)
+	cmd = append(cmd, src...)
 	cmd = append(cmd, cmdDestPath)
 
 	s.Config.Cmd = cmd
 	s.Config.Entrypoint = []string{}
-
-	// For caching
-	// builder.addLabels(map[string]string{
-	// 	"rocker-exportsContainerId": exportsContainerID,
-	// })
 
 	if exportsID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
@@ -980,6 +1097,10 @@ func (c *CommandImport) String() string {
 	return c.cfg.original
 }
 
+func (c *CommandImport) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
 func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	s = b.state
 	args := c.cfg.args
@@ -991,12 +1112,34 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 		return s, fmt.Errorf("You have to EXPORT something first in order to IMPORT")
 	}
 
+	log.Infof("| Import from %s", b.exportsContainerName())
+
 	// If only one argument was given to IMPORT, use the same path for destination
 	// IMPORT /my/dir/file.tar --> ADD ./EXPORT_VOLUME/my/dir/file.tar /my/dir/file.tar
 	if len(args) < 2 {
 		args = []string{args[0], "/"}
 	}
 	dest := args[len(args)-1] // last one is always the dest
+	src := []string{}
+
+	for _, arg := range args[0 : len(args)-1] {
+		argResolved, err := util.ResolvePath(ExportsPath, arg)
+		if err != nil {
+			return s, fmt.Errorf("Invalid IMPORT source: %s", arg)
+		}
+		src = append(src, argResolved)
+	}
+
+	s.Commit("IMPORT %.12s:%q %s", s.ExportsID, src, dest)
+
+	// Check cache
+	s, hit, err := b.probeCache(s)
+	if err != nil {
+		return s, err
+	}
+	if hit {
+		return s, nil
+	}
 
 	// Remember original stuff so we can restore it when we finished
 	origState := s
@@ -1005,11 +1148,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 
 	defer func() {
 		s = origState
-
-		if err == nil {
-			s.ContainerID = importID
-			s.Commit(fmt.Sprintf("IMPORT %s %q", s.ExportsID, args))
-		}
+		s.ContainerID = importID
 	}()
 
 	cmd := []string{"/opt/rsync/bin/rsync", "-a"}
@@ -1018,13 +1157,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 		cmd = append(cmd, "--verbose")
 	}
 
-	for _, arg := range args[0 : len(args)-1] {
-		argResolved, err := util.ResolvePath(ExportsPath, arg)
-		if err != nil {
-			return s, fmt.Errorf("Invalid IMPORT source: %s", arg)
-		}
-		cmd = append(cmd, argResolved)
-	}
+	cmd = append(cmd, src...)
 	cmd = append(cmd, dest)
 
 	s.Config.Cmd = cmd
@@ -1038,14 +1171,8 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	log.Infof("| Running in %.12s: %s", importID, strings.Join(cmd, " "))
 
 	if err = b.client.RunContainer(importID, false); err != nil {
-		b.client.RemoveContainer(importID)
 		return s, err
 	}
-
-	// For caching
-	// builder.addLabels(map[string]string{
-	// 	"rocker-lastExportImageId": builder.lastExportImageID,
-	// })
 
 	return s, nil
 }
@@ -1057,6 +1184,10 @@ type CommandOnbuildWrap struct {
 
 func (c *CommandOnbuildWrap) String() string {
 	return "ONBUILD " + c.cmd.String()
+}
+
+func (c *CommandOnbuildWrap) ShouldRun(b *Build) (bool, error) {
+	return true, nil
 }
 
 func (c *CommandOnbuildWrap) Execute(b *Build) (State, error) {

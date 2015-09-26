@@ -45,7 +45,7 @@ func makeBuild(t *testing.T, rockerfileContent string, cfg Config) (*Build, *Moc
 	}
 
 	c := &MockClient{}
-	b := New(c, r, cfg)
+	b := New(c, r, nil, cfg)
 
 	return b, c
 }
@@ -118,3 +118,15 @@ func (m *MockClient) EnsureContainer(containerName string, config *docker.Config
 	args := m.Called(containerName, config, purpose)
 	return args.String(0), args.Error(1)
 }
+
+// type MockCache struct {
+// 	mock.Mock
+// }
+
+// func (m *MockCache) Get(s State) (s2 *State, err error) {
+
+// }
+
+// func (m *MockCache) Put(s State) error {
+
+// }

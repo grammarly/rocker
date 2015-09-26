@@ -79,7 +79,6 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 	// skip COPY if no files matched
 	if len(u.files) == 0 {
 		log.Infof("| No files matched")
-		s.SkipCommit()
 		return s, nil
 	}
 
@@ -97,6 +96,15 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 
 	message := fmt.Sprintf("%s %s to %s", cmdName, tarSum.Sum(nil), dest)
 	s.Commit(message)
+
+	// Check cache
+	s, hit, err := b.probeCache(s)
+	if err != nil {
+		return s, err
+	}
+	if hit {
+		return s, nil
+	}
 
 	origCmd := s.Config.Cmd
 	s.Config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + message}

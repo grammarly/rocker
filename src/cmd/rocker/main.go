@@ -272,7 +272,13 @@ func buildCommand(c *cli.Context) {
 
 	client := build2.NewDockerClient(dockerClient, auth)
 
-	builder := build2.New(client, rockerfile, build2.Config{
+	var cache build2.Cache
+	if !c.Bool("no-cache") {
+		// TODO: configurable cache dir
+		cache = build2.NewCacheFS(os.Getenv("HOME") + "/.rocker_cache")
+	}
+
+	builder := build2.New(client, rockerfile, cache, build2.Config{
 		InStream:     os.Stdin,
 		OutStream:    os.Stdout,
 		ContextDir:   contextDir,
@@ -282,6 +288,8 @@ func buildCommand(c *cli.Context) {
 		Attach:       c.Bool("attach"),
 		Verbose:      c.GlobalBool("verbose"),
 		ID:           c.String("id"),
+		NoCache:      c.Bool("no-cache"),
+		Push:         c.Bool("push"),
 	})
 
 	plan, err := build2.NewPlan(rockerfile.Commands(), true)

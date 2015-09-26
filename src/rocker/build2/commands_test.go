@@ -160,10 +160,9 @@ func TestCommandCommit_Simple(t *testing.T) {
 	b, c := makeBuild(t, "", Config{})
 	cmd := &CommandCommit{}
 
-	origCommitMsg := []string{"a", "b"}
 	resultImage := &docker.Image{ID: "789"}
 	b.state.ContainerID = "456"
-	b.state.CommitMsg = origCommitMsg
+	b.state.Commit("a").Commit("b")
 
 	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return(resultImage, nil).Once()
 	c.On("RemoveContainer", "456").Return(nil).Once()
@@ -174,8 +173,8 @@ func TestCommandCommit_Simple(t *testing.T) {
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, origCommitMsg, b.state.CommitMsg)
-	assert.Equal(t, []string{}, state.CommitMsg)
+	assert.Equal(t, "a; b", b.state.GetCommits())
+	assert.Equal(t, "", state.GetCommits())
 	assert.Equal(t, []string(nil), state.Config.Cmd)
 	assert.Equal(t, "789", state.ImageID)
 	assert.Equal(t, "", state.ContainerID)
@@ -185,9 +184,8 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 	b, c := makeBuild(t, "", Config{})
 	cmd := &CommandCommit{}
 
-	origCommitMsg := []string{"a", "b"}
 	resultImage := &docker.Image{ID: "789"}
-	b.state.CommitMsg = origCommitMsg
+	b.state.Commit("a").Commit("b")
 
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
 		arg := args.Get(0).(State)
@@ -203,8 +201,8 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, origCommitMsg, b.state.CommitMsg)
-	assert.Equal(t, []string{}, state.CommitMsg)
+	assert.Equal(t, "a; b", b.state.GetCommits())
+	assert.Equal(t, "", state.GetCommits())
 	assert.Equal(t, "789", state.ImageID)
 	assert.Equal(t, "", state.ContainerID)
 }
@@ -232,7 +230,7 @@ func TestCommandEnv_Simple(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, []string{"ENV type=web env=prod"}, state.CommitMsg)
+	assert.Equal(t, "ENV type=web env=prod", state.GetCommits())
 	assert.Equal(t, []string{"type=web", "env=prod"}, state.Config.Env)
 }
 
@@ -249,7 +247,7 @@ func TestCommandEnv_Advanced(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, []string{"ENV type=web env=prod"}, state.CommitMsg)
+	assert.Equal(t, "ENV type=web env=prod", state.GetCommits())
 	assert.Equal(t, []string{"env=prod", "version=1.2.3", "type=web"}, state.Config.Env)
 }
 
@@ -273,7 +271,7 @@ func TestCommandLabel_Simple(t *testing.T) {
 
 	t.Logf("Result labels: %# v", pretty.Formatter(state.Config.Labels))
 
-	assert.Equal(t, []string{"LABEL type=web env=prod"}, state.CommitMsg)
+	assert.Equal(t, "LABEL type=web env=prod", state.GetCommits())
 	assert.True(t, reflect.DeepEqual(state.Config.Labels, expectedLabels), "bad result labels")
 }
 
@@ -301,7 +299,7 @@ func TestCommandLabel_Advanced(t *testing.T) {
 
 	t.Logf("Result labels: %# v", pretty.Formatter(state.Config.Labels))
 
-	assert.Equal(t, []string{"LABEL type=web env=prod"}, state.CommitMsg)
+	assert.Equal(t, "LABEL type=web env=prod", state.GetCommits())
 	assert.True(t, reflect.DeepEqual(state.Config.Labels, expectedLabels), "bad result labels")
 }
 
@@ -318,7 +316,7 @@ func TestCommandMaintainer_Simple(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Len(t, state.CommitMsg, 0)
+	assert.Equal(t, "", state.GetCommits())
 }
 
 // =========== Testing WORKDIR ===========
@@ -648,6 +646,7 @@ func TestCommandPush_Simple(t *testing.T) {
 		args: []string{"docker.io/grammarly/rocker:1.0"},
 	}}
 
+	b.cfg.Push = true
 	b.state.ImageID = "123"
 
 	c.On("TagImage", "123", "docker.io/grammarly/rocker:1.0").Return(nil).Once()
@@ -706,7 +705,7 @@ func TestCommandMount_Simple(t *testing.T) {
 
 	c.AssertExpectations(t)
 	assert.Equal(t, []string{"/resolved/src:/dest"}, state.HostConfig.Binds)
-	assert.Equal(t, []string{`MOUNT ["/src:/dest"]`}, state.CommitMsg)
+	assert.Equal(t, `MOUNT ["/src:/dest"]`, state.GetCommits())
 }
 
 func TestCommandMount_VolumeContainer(t *testing.T) {
@@ -735,7 +734,7 @@ func TestCommandMount_VolumeContainer(t *testing.T) {
 
 	c.AssertExpectations(t)
 	assert.Equal(t, []string{containerName}, state.HostConfig.VolumesFrom)
-	assert.Equal(t, []string{commitMsg}, state.CommitMsg)
+	assert.Equal(t, commitMsg, state.GetCommits())
 }
 
 // TODO: test Cleanup

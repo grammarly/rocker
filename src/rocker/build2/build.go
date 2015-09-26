@@ -17,8 +17,10 @@
 package build2
 
 import (
+	"fmt"
 	"io"
 
+	"github.com/docker/docker/pkg/units"
 	"github.com/fatih/color"
 
 	"github.com/fsouza/go-dockerclient"
@@ -44,45 +46,31 @@ type Config struct {
 	NoGarbage    bool
 	Attach       bool
 	Verbose      bool
-}
-
-type State struct {
-	Config         docker.Config
-	HostConfig     docker.HostConfig
-	ImageID        string
-	ContainerID    string
-	ExportsID      string
-	CommitMsg      []string
-	ProducedImage  bool
-	CmdSet         bool
-	InjectCommands []string
-	Dockerignore   []string
+	NoCache      bool
+	Push         bool
 }
 
 type Build struct {
 	ProducedSize int64
 	VirtualSize  int64
 
-	rockerfile *Rockerfile
-	cfg        Config
-	client     Client
-	state      State
+	rockerfile  *Rockerfile
+	cache       Cache
+	cfg         Config
+	client      Client
+	state       State
+	cacheBusted bool
 }
 
-func New(client Client, rockerfile *Rockerfile, cfg Config) *Build {
+func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build {
 	b := &Build{
 		rockerfile: rockerfile,
+		cache:      cache,
 		cfg:        cfg,
 		client:     client,
 	}
-	b.state = b.NewState()
+	b.state = NewState(b)
 	return b
-}
-
-func (b *Build) NewState() State {
-	return State{
-		Dockerignore: b.cfg.Dockerignore,
-	}
 }
 
 func (b *Build) Run(plan Plan) (err error) {
@@ -91,6 +79,15 @@ func (b *Build) Run(plan Plan) (err error) {
 		c := plan[k]
 
 		log.Debugf("Step %d: %# v", k+1, pretty.Formatter(c))
+
+		var doRun bool
+		if doRun, err = c.ShouldRun(b); err != nil {
+			return err
+		}
+		if !doRun {
+			continue
+		}
+
 		log.Infof("%s", color.New(color.FgWhite, color.Bold).SprintFunc()(c))
 
 		if b.state, err = c.Execute(b); err != nil {
@@ -128,6 +125,49 @@ func (b *Build) GetState() State {
 
 func (b *Build) GetImageID() string {
 	return b.state.ImageID
+}
+
+func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
+	if b.cache == nil || b.cacheBusted {
+		return s, false, nil
+	}
+
+	var s2 *State
+	if s2, err = b.cache.Get(s); err != nil {
+		return s, false, err
+	}
+	if s2 == nil {
+		b.cacheBusted = true
+		log.Info(color.New(color.FgYellow).SprintFunc()("| Not cached"))
+		return s, false, nil
+	}
+
+	var img *docker.Image
+	if img, err = b.client.InspectImage(s2.ImageID); err != nil {
+		return s, true, err
+	}
+	if img == nil {
+		log.Warnf("Cannot find the cached image %.12s, consider cleaning the cache", s2.ImageID)
+		return s, false, nil
+	}
+
+	size := fmt.Sprintf("%s (+%s)",
+		units.HumanSize(float64(img.VirtualSize)),
+		units.HumanSize(float64(img.Size)),
+	)
+
+	log.WithFields(log.Fields{
+		"size": size,
+	}).Infof(color.New(color.FgGreen).SprintfFunc()("| Take image %.12s from cache", s2.ImageID))
+
+	// Store some stuff to the build
+	b.ProducedSize += img.Size
+	b.VirtualSize = img.VirtualSize
+
+	// TODO: maybe move somewhere
+	s2.Commits = []string{}
+
+	return *s2, true, nil
 }
 
 func (b *Build) getVolumeContainer(path string) (name string, err error) {
@@ -173,12 +213,4 @@ func (b *Build) getExportsContainer() (name string, err error) {
 	log.Infof("| Using exports container %s", name)
 
 	return containerID, nil
-}
-
-func (s *State) Commit(msg string) {
-	s.CommitMsg = append(s.CommitMsg, msg)
-}
-
-func (s *State) SkipCommit() {
-	s.Commit(COMMIT_SKIP)
 }
