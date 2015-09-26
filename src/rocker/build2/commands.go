@@ -227,6 +227,8 @@ func (c *CommandCleanup) Execute(b *Build) (State, error) {
 	// For final cleanup we want to keep imageID
 	if c.final {
 		s.ImageID = dirtyState.ImageID
+	} else {
+		log.Infof("====================================")
 	}
 
 	return s, nil
