@@ -1047,16 +1047,19 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		return s, err
 	}
 	if hit {
+		b.exportsID = s.ExportsID
 		return s, nil
 	}
 
+	// Hack to support cross-FROM cache for EXPORTS
+	b.exportsCacheBusted = true
+
 	// Remember original stuff so we can restore it when we finished
-	var exportsID string
 	origState := s
 
 	defer func() {
 		s = origState
-		s.ExportsID = exportsID
+		s.ExportsID = b.exportsID
 	}()
 
 	// Append exports container as a volume
@@ -1074,14 +1077,14 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	s.Config.Cmd = cmd
 	s.Config.Entrypoint = []string{}
 
-	if exportsID, err = b.client.CreateContainer(s); err != nil {
+	if b.exportsID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
 	}
-	defer b.client.RemoveContainer(exportsID)
+	defer b.client.RemoveContainer(b.exportsID)
 
-	log.Infof("| Running in %.12s: %s", exportsID, strings.Join(cmd, " "))
+	log.Infof("| Running in %.12s: %s", b.exportsID, strings.Join(cmd, " "))
 
-	if err = b.client.RunContainer(exportsID, false); err != nil {
+	if err = b.client.RunContainer(b.exportsID, false); err != nil {
 		return s, err
 	}
 
@@ -1108,7 +1111,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	if len(args) == 0 {
 		return s, fmt.Errorf("IMPORT requires at least one argument")
 	}
-	if s.ExportsID == "" {
+	if b.exportsID == "" {
 		return s, fmt.Errorf("You have to EXPORT something first in order to IMPORT")
 	}
 
@@ -1130,14 +1133,14 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 		src = append(src, argResolved)
 	}
 
-	s.Commit("IMPORT %.12s:%q %s", s.ExportsID, src, dest)
+	s.Commit("IMPORT %.12s:%q %s", b.exportsID, src, dest)
 
 	// Check cache
 	s, hit, err := b.probeCache(s)
 	if err != nil {
 		return s, err
 	}
-	if hit {
+	if hit && !b.exportsCacheBusted {
 		return s, nil
 	}
 

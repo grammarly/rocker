@@ -54,12 +54,16 @@ type Build struct {
 	ProducedSize int64
 	VirtualSize  int64
 
-	rockerfile  *Rockerfile
-	cache       Cache
-	cfg         Config
-	client      Client
-	state       State
-	cacheBusted bool
+	rockerfile *Rockerfile
+	cache      Cache
+	cfg        Config
+	client     Client
+	state      State
+
+	// A little hack to support cross-FROM cache for EXPORTS
+	// maybe rethink it later
+	exportsID          string
+	exportsCacheBusted bool
 }
 
 func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build {
@@ -128,7 +132,7 @@ func (b *Build) GetImageID() string {
 }
 
 func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
-	if b.cache == nil || b.cacheBusted {
+	if b.cache == nil || s.CacheBusted {
 		return s, false, nil
 	}
 
@@ -137,7 +141,7 @@ func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
 		return s, false, err
 	}
 	if s2 == nil {
-		b.cacheBusted = true
+		s.CacheBusted = true
 		log.Info(color.New(color.FgYellow).SprintFunc()("| Not cached"))
 		return s, false, nil
 	}
@@ -166,6 +170,7 @@ func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
 
 	// TODO: maybe move somewhere
 	s2.Commits = []string{}
+	s2.CacheBusted = false
 
 	return *s2, true, nil
 }

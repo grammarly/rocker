@@ -34,6 +34,7 @@ type State struct {
 	Commits        []string
 	ProducedImage  bool
 	CmdSet         bool
+	CacheBusted    bool
 	InjectCommands []string
 	Dockerignore   []string
 }
