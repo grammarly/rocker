@@ -138,6 +138,11 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 		name = c.cfg.args[0]
 	)
 
+	if name == "scratch" {
+		s.NoBaseImage = true
+		return s, nil
+	}
+
 	// If Pull is true, then img will remain nil and it will be pulled below
 	if !b.cfg.Pull {
 		if img, err = b.client.InspectImage(name); err != nil {
@@ -268,19 +273,28 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 		return s, nil
 	}
 
+	if s.ImageID == "" && !s.NoBaseImage {
+		return s, fmt.Errorf("Please provide a source image with `from` prior to commit")
+	}
+
 	// TODO: ?
 	// if len(commits) == 0 && s.ContainerID == "" { log.Infof("| Skip")
 
-	// Check cache
-	s, hit, err := b.probeCache(s)
-	if err != nil {
-		return s, err
-	}
-	if hit {
-		return s, nil
-	}
+	// TODO: verify that we need to check cache in commit only for
+	//       a non-container actions
 
 	if s.ContainerID == "" {
+
+		// Check cache
+		var hit bool
+		s, hit, err = b.probeCache(s)
+		if err != nil {
+			return s, err
+		}
+		if hit {
+			return s, nil
+		}
+
 		origCmd := s.Config.Cmd
 		s.Config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + commits}
 
@@ -335,7 +349,7 @@ func (c *CommandRun) ShouldRun(b *Build) (bool, error) {
 func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	s = b.state
 
-	if s.ImageID == "" {
+	if s.ImageID == "" && !s.NoBaseImage {
 		return s, fmt.Errorf("Please provide a source image with `FROM` prior to run")
 	}
 
@@ -401,7 +415,7 @@ func (c *CommandAttach) Execute(b *Build) (s State, err error) {
 		return s, nil
 	}
 
-	if s.ImageID == "" {
+	if s.ImageID == "" && !s.NoBaseImage {
 		return s, fmt.Errorf("Please provide a source image with `FROM` prior to ATTACH")
 	}
 

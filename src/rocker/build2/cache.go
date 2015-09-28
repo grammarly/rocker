@@ -28,6 +28,7 @@ import (
 type Cache interface {
 	Get(s State) (s2 *State, err error)
 	Put(s State) error
+	Del(s State) error
 }
 
 type CacheFS struct {
@@ -88,4 +89,11 @@ func (c *CacheFS) Put(s State) error {
 		return err
 	}
 	return ioutil.WriteFile(fileName, data, 0644)
+}
+
+func (c *CacheFS) Del(s State) error {
+	log.Debugf("CACHE DELETE %s %s %q", s.ParentID, s.ImageID, s.Commits)
+
+	fileName := filepath.Join(c.root, s.ParentID, s.ImageID) + ".json"
+	return os.RemoveAll(fileName)
 }

@@ -7,8 +7,8 @@ In this branch we are developing the new experimental implementation of Rocker t
 
 ### v1 TODO
 
-- [ ] Cache
-- [ ] FROM scratch
+- [x] Cache
+- [x] FROM scratch
 - [ ] ADD urls and local archives
 
 ---

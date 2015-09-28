@@ -161,6 +161,7 @@ func TestCommandCommit_Simple(t *testing.T) {
 	cmd := &CommandCommit{}
 
 	resultImage := &docker.Image{ID: "789"}
+	b.state.ImageID = "123"
 	b.state.ContainerID = "456"
 	b.state.Commit("a").Commit("b")
 
@@ -185,6 +186,7 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 	cmd := &CommandCommit{}
 
 	resultImage := &docker.Image{ID: "789"}
+	b.state.ImageID = "123"
 	b.state.Commit("a").Commit("b")
 
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {

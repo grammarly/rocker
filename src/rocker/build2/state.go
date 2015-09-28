@@ -32,6 +32,7 @@ type State struct {
 	ContainerID    string
 	ExportsID      string
 	Commits        []string
+	NoBaseImage    bool
 	ProducedImage  bool
 	CmdSet         bool
 	CacheBusted    bool

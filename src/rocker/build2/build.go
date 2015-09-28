@@ -151,7 +151,9 @@ func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
 		return s, true, err
 	}
 	if img == nil {
-		log.Warnf("Cannot find the cached image %.12s, consider cleaning the cache", s2.ImageID)
+		defer b.cache.Del(*s2)
+		s.CacheBusted = true
+		log.Info(color.New(color.FgYellow).SprintFunc()("| Not cached"))
 		return s, false, nil
 	}
 

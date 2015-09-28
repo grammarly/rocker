@@ -137,7 +137,12 @@ func (c *DockerClient) CreateContainer(s State) (string, error) {
 		return "", err
 	}
 
-	log.Infof("| Created container %.12s (image %.12s)", container.ID, s.ImageID)
+	imageStr := fmt.Sprintf("(image %.12s)", s.ImageID)
+	if s.ImageID == "" {
+		imageStr = "(from scratch)"
+	}
+
+	log.Infof("| Created container %.12s %s", container.ID, imageStr)
 
 	return container.ID, nil
 }
