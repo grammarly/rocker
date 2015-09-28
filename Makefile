@@ -36,9 +36,18 @@ UPLOAD_CMD = $(GITHUB_RELEASE) upload \
 SRCS = $(shell find . -name '*.go' | grep -v '^./vendor/')
 PKGS := $(foreach pkg, $(sort $(dir $(SRCS))), $(pkg))
 
-GOPATH ?= $(shell pwd):$(shell pwd)/vendor
+GOPATH = $(shell pwd):$(shell pwd)/vendor
 
 TESTARGS ?=
+
+binary:
+	GOPATH=$(GOPATH) go build \
+		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
+		-v -o bin/rocker src/cmd/rocker/main.go 
+
+install:
+	cp bin/rocker /usr/local/bin/rocker
+	chmod +x /usr/local/bin/rocker
 
 all: $(ALL_BINARIES)
 	$(foreach BIN, $(BINARIES), $(shell cp dist/$(VERSION)/$(shell go env GOOS)/amd64/$(BIN) dist/$(BIN)))
@@ -75,17 +84,8 @@ build_image:
 docker_image:
 	rocker build -var Version=$(VERSION)
 
-install:
-	cp dist/$(VERSION)/$(shell go env GOOS)/amd64/rocker /usr/local/bin/rocker
-	chmod +x /usr/local/bin/rocker
-
 clean:
 	rm -Rf dist
-
-local_binary:
-	go build \
-		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
-		-v -o bin/rocker src/cmd/rocker/main.go 
 
 testdeps:
 	@ go get github.com/GeertJohan/fgt
