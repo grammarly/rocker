@@ -62,8 +62,7 @@ type Build struct {
 
 	// A little hack to support cross-FROM cache for EXPORTS
 	// maybe rethink it later
-	exportsID          string
-	exportsCacheBusted bool
+	exports []string
 }
 
 func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build {
@@ -72,6 +71,7 @@ func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build 
 		cache:      cache,
 		cfg:        cfg,
 		client:     client,
+		exports:    []string{},
 	}
 	b.state = NewState(b)
 	return b

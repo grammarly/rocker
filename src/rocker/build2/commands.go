@@ -1047,19 +1047,18 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		return s, err
 	}
 	if hit {
-		b.exportsID = s.ExportsID
+		b.exports = append(b.exports, s.ExportsID)
 		return s, nil
 	}
 
-	// Hack to support cross-FROM cache for EXPORTS
-	b.exportsCacheBusted = true
-
 	// Remember original stuff so we can restore it when we finished
+	var exportsId string
 	origState := s
 
 	defer func() {
 		s = origState
-		s.ExportsID = b.exportsID
+		s.ExportsID = exportsId
+		b.exports = append(b.exports, exportsId)
 	}()
 
 	// Append exports container as a volume
@@ -1077,14 +1076,14 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	s.Config.Cmd = cmd
 	s.Config.Entrypoint = []string{}
 
-	if b.exportsID, err = b.client.CreateContainer(s); err != nil {
+	if exportsId, err = b.client.CreateContainer(s); err != nil {
 		return s, err
 	}
-	defer b.client.RemoveContainer(b.exportsID)
+	defer b.client.RemoveContainer(exportsId)
 
-	log.Infof("| Running in %.12s: %s", b.exportsID, strings.Join(cmd, " "))
+	log.Infof("| Running in %.12s: %s", exportsId, strings.Join(cmd, " "))
 
-	if err = b.client.RunContainer(b.exportsID, false); err != nil {
+	if err = b.client.RunContainer(exportsId, false); err != nil {
 		return s, err
 	}
 
@@ -1111,9 +1110,15 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	if len(args) == 0 {
 		return s, fmt.Errorf("IMPORT requires at least one argument")
 	}
-	if b.exportsID == "" {
+	if len(b.exports) == 0 {
 		return s, fmt.Errorf("You have to EXPORT something first in order to IMPORT")
 	}
+
+	// TODO: EXPORT and IMPORT cache is not invalidated properly in between
+	// 			 different tracks of the same build. The EXPORT may be cached
+	// 			 because it was built earlier with the same prerequisites, but the actual
+	// 			 data in the exports container may be from the latest EXPORT of different
+	// 			 build. So we need to prefix ~/.rocker_exports dir with some id somehow.
 
 	log.Infof("| Import from %s", b.exportsContainerName())
 
@@ -1133,14 +1138,15 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 		src = append(src, argResolved)
 	}
 
-	s.Commit("IMPORT %.12s:%q %s", b.exportsID, src, dest)
+	sort.Strings(b.exports)
+	s.Commit("IMPORT %q : %q %s", b.exports, src, dest)
 
 	// Check cache
 	s, hit, err := b.probeCache(s)
 	if err != nil {
 		return s, err
 	}
-	if hit && !b.exportsCacheBusted {
+	if hit {
 		return s, nil
 	}
 
@@ -1176,6 +1182,9 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	if err = b.client.RunContainer(importID, false); err != nil {
 		return s, err
 	}
+
+	// TODO: if b.exportsCacheBusted and IMPORT cache was invalidated,
+	// 			 CommitCommand then caches it anyway.
 
 	return s, nil
 }
