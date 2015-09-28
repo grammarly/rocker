@@ -72,6 +72,10 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 		return s, fmt.Errorf("When using %s with more than one source file, the destination must be a directory and end with a /", cmdName)
 	}
 
+	if !filepath.IsAbs(dest) {
+		dest = filepath.Join(s.Config.WorkingDir, dest)
+	}
+
 	if u, err = makeTarStream(b.cfg.ContextDir, dest, cmdName, src, excludes); err != nil {
 		return s, err
 	}
