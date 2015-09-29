@@ -26,6 +26,8 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+
+	"github.com/go-yaml/yaml"
 )
 
 // Vars describes the data structure of the build variables
@@ -113,6 +115,45 @@ func VarsFromStrings(pairs []string) (vars Vars, err error) {
 	return vars, nil
 }
 
+// VarsFromFile reads variables from either JSON or YAML file
+func VarsFromFile(filename string) (vars Vars, err error) {
+
+	if filename, err = resolveFileName(filename); err != nil {
+		return nil, err
+	}
+
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	vars = Vars{}
+
+	switch filepath.Ext(filename) {
+	case ".yaml", ".yml", ".":
+		if err := yaml.Unmarshal(data, &vars); err != nil {
+			return nil, err
+		}
+	case ".json":
+		if err := json.Unmarshal(data, &vars); err != nil {
+			return nil, err
+		}
+	}
+
+	return vars, nil
+}
+
+// VarsFromFileMulti reads multiple files and merge vars
+func VarsFromFileMulti(files []string) (vars Vars, err error) {
+	varsList := make([]Vars, len(files))
+	for i, f := range files {
+		if varsList[i], err = VarsFromFile(f); err != nil {
+			return nil, err
+		}
+	}
+	return Vars{}.Merge(varsList...), nil
+}
+
 // ParseKvPairs parses Vars from a slice of strings e.g. []string{"KEY=VALUE"}
 func ParseKvPairs(pairs []string) (vars Vars) {
 	vars = make(Vars)
@@ -123,7 +164,18 @@ func ParseKvPairs(pairs []string) (vars Vars) {
 	return vars
 }
 
-func loadFileContent(f string) (string, error) {
+func loadFileContent(f string) (content string, err error) {
+	if f, err = resolveFileName(f); err != nil {
+		return "", err
+	}
+	data, err := ioutil.ReadFile(f)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
+func resolveFileName(f string) (string, error) {
 	if f == "~" || strings.HasPrefix(f, "~/") {
 		f = strings.Replace(f, "~", os.Getenv("HOME"), 1)
 	}
@@ -134,11 +186,7 @@ func loadFileContent(f string) (string, error) {
 		}
 		f = path.Join(wd, f)
 	}
-	data, err := ioutil.ReadFile(f)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
+	return f, nil
 }
 
 // Code borrowed from https://github.com/docker/docker/blob/df0e0c76831bed08cf5e08ac9a1abebf6739da23/builder/support.go

@@ -19,8 +19,10 @@ package template
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
+	"rocker/test"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -96,6 +98,41 @@ func TestVarsFromStrings(t *testing.T) {
 		}
 		assert.Equal(t, len(a.input), len(result), "resulting number of strings not match number of vars keys")
 	}
+}
+
+func TestVarsFromFile_Yaml(t *testing.T) {
+	tempDir, rm := tplMkFiles(t, map[string]string{
+		"vars.yml": `
+Foo: x
+Bar: yes
+`,
+	})
+	defer rm()
+
+	vars, err := VarsFromFile(tempDir + "/vars.yml")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "x", vars["Foo"])
+	assert.Equal(t, true, vars["Bar"])
+}
+
+func TestVarsFromFile_Json(t *testing.T) {
+	tempDir, rm := tplMkFiles(t, map[string]string{
+		"vars.json": `
+{"Foo": "x", "Bar": true}
+`,
+	})
+	defer rm()
+
+	vars, err := VarsFromFile(tempDir + "/vars.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "x", vars["Foo"])
+	assert.Equal(t, true, vars["Bar"])
 }
 
 func TestVarsReplaceString(t *testing.T) {
@@ -226,4 +263,20 @@ func TestVarsFileContent(t *testing.T) {
 	}
 
 	assert.Equal(t, "hello\n", result4["FOO"])
+}
+
+func tplMkFiles(t *testing.T, files map[string]string) (string, func()) {
+	tempDir, err := ioutil.TempDir("", "rocker-vars-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err = test.MakeFiles(tempDir, files); err != nil {
+		os.RemoveAll(tempDir)
+		t.Fatal(err)
+	}
+
+	return tempDir, func() {
+		os.RemoveAll(tempDir)
+	}
 }
