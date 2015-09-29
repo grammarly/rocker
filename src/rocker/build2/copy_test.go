@@ -665,6 +665,11 @@ func TestCopy_MakeTarStream_SingleFileDirRename(t *testing.T) {
 	assert.Equal(t, assertion, out, "bad tar content")
 }
 
+// TODO:
+// WORKDIR /app
+// COPY lib lib/
+// should copy to /app/lib
+
 // helper functions
 
 func makeTmpDir(t *testing.T, files map[string]string) string {
