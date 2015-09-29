@@ -24,6 +24,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/go-yaml/yaml"
 	"github.com/wmark/semver"
 )
 
@@ -175,6 +176,21 @@ func (img *ImageName) UnmarshalJSON(data []byte) error {
 // MarshalJSON serializes ImageName to JSON string
 func (img ImageName) MarshalJSON() ([]byte, error) {
 	return json.Marshal(img.String())
+}
+
+// UnmarshalYAML parses YAML string and returns ImageName
+func (img *ImageName) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var s string
+	if err := unmarshal(&s); err != nil {
+		return err
+	}
+	*img = *NewFromString(s)
+	return nil
+}
+
+// MarshalYAML serializes ImageName to YAML string
+func (img ImageName) MarshalYAML() ([]byte, error) {
+	return yaml.Marshal(img.String())
 }
 
 // Tags is a structure used for cleaning images
