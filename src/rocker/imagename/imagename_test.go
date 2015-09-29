@@ -186,6 +186,11 @@ func TestImageIpRegistry(t *testing.T) {
 	assert.Equal(t, "1.4", img.GetTag(), "bad image tag")
 }
 
+func TestImageAll(t *testing.T) {
+	img := NewFromString("golang:1.*")
+	assert.False(t, img.All())
+}
+
 func TestImageIsSameKind(t *testing.T) {
 	assert.True(t, NewFromString("rocker-build").IsSameKind(*NewFromString("rocker-build")))
 	assert.True(t, NewFromString("rocker-build:latest").IsSameKind(*NewFromString("rocker-build:latest")))
