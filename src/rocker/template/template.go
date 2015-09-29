@@ -64,7 +64,7 @@ func Process(name string, reader io.Reader, vars Vars, funcs map[string]interfac
 		"equalFold":    strings.EqualFold,
 		"hasPrefix":    strings.HasPrefix,
 		"hasSuffix":    strings.HasSuffix,
-		"index":        strings.Index,
+		"indexOf":      strings.Index,
 		"indexAny":     strings.IndexAny,
 		"join":         strings.Join,
 		"lastIndex":    strings.LastIndex,
