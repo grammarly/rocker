@@ -18,71 +18,76 @@ package build
 
 import (
 	"bytes"
-	"encoding/json"
+	"fmt"
 	"io"
-	"strings"
-
+	"io/ioutil"
+	"os"
 	"rocker/parser"
+	"rocker/template"
+	"strings"
 )
 
-// Parse parses a Rockerfile from an io.Reader and returns AST data structure
-func Parse(rockerfileContent io.Reader) (*parser.Node, error) {
-	node, err := parser.Parse(rockerfileContent)
+type Rockerfile struct {
+	Name    string
+	Source  string
+	Content string
+	Vars    template.Vars
+	Funs    template.Funs
+
+	rootNode *parser.Node
+}
+
+func NewRockerfileFromFile(name string, vars template.Vars, funs template.Funs) (r *Rockerfile, err error) {
+	fd, err := os.Open(name)
 	if err != nil {
 		return nil, err
 	}
+	defer fd.Close()
 
-	return node, nil
+	return NewRockerfile(name, fd, vars, funs)
 }
 
-// RockerfileAstToString returns printable AST of the node
-func RockerfileAstToString(node *parser.Node) (str string, err error) {
-	str += node.Value
-
-	isKeyVal := node.Value == "env" || node.Value == "label"
-
-	if len(node.Flags) > 0 {
-		str += " " + strings.Join(node.Flags, " ")
+func NewRockerfile(name string, in io.Reader, vars template.Vars, funs template.Funs) (r *Rockerfile, err error) {
+	r = &Rockerfile{
+		Name: name,
+		Vars: vars,
+		Funs: funs,
 	}
 
-	if node.Attributes["json"] {
-		args := []string{}
-		for n := node.Next; n != nil; n = n.Next {
-			args = append(args, n.Value)
-		}
-		var buf bytes.Buffer
-		if err := json.NewEncoder(&buf).Encode(args); err != nil {
-			return str, err
-		}
-		str += " " + strings.TrimSpace(buf.String())
-		return str, nil
+	var (
+		source  []byte
+		content *bytes.Buffer
+	)
+
+	if source, err = ioutil.ReadAll(in); err != nil {
+		return nil, fmt.Errorf("Failed to read Rockerfile %s, error: %s", name, err)
 	}
 
-	for _, n := range node.Children {
-		children, err := RockerfileAstToString(n)
-		if err != nil {
-			return str, err
-		}
-		str += children + "\n"
+	r.Source = string(source)
+
+	if content, err = template.Process(name, bytes.NewReader(source), vars, funs); err != nil {
+		return nil, err
 	}
 
-	if node.Next != nil {
-		for n, i := node.Next, 0; n != nil; n, i = n.Next, i+1 {
-			if len(n.Children) > 0 {
-				children, err := RockerfileAstToString(n)
-				if err != nil {
-					return str, err
-				}
-				str += " " + children
-			} else if isKeyVal && i%2 != 0 {
-				str += "=" + n.Value
-			} else {
-				str += " " + n.Value
-			}
-		}
+	r.Content = content.String()
+
+	// TODO: update parser from Docker
+
+	if r.rootNode, err = parser.Parse(content); err != nil {
+		return nil, err
 	}
 
-	return strings.TrimSpace(str), nil
+	return r, nil
+}
+
+func (r *Rockerfile) Commands() []ConfigCommand {
+	commands := []ConfigCommand{}
+
+	for i := 0; i < len(r.rootNode.Children); i++ {
+		commands = append(commands, parseCommand(r.rootNode.Children[i], false))
+	}
+
+	return commands
 }
 
 func handleJSONArgs(args []string, attributes map[string]bool) []string {
@@ -96,6 +101,49 @@ func handleJSONArgs(args []string, attributes map[string]bool) []string {
 
 	// literal string command, not an exec array
 	return []string{strings.Join(args, " ")}
+}
+
+func parseCommand(node *parser.Node, isOnbuild bool) ConfigCommand {
+	cfg := ConfigCommand{
+		name:      node.Value,
+		attrs:     node.Attributes,
+		original:  node.Original,
+		args:      []string{},
+		flags:     parseFlags(node.Flags),
+		isOnbuild: isOnbuild,
+	}
+
+	// fill in args and substitute vars
+	for n := node.Next; n != nil; n = n.Next {
+		cfg.args = append(cfg.args, n.Value)
+	}
+
+	return cfg
+}
+
+func parseOnbuildCommands(onBuildTriggers []string) ([]ConfigCommand, error) {
+	commands := []ConfigCommand{}
+
+	for _, step := range onBuildTriggers {
+
+		ast, err := parser.Parse(strings.NewReader(step))
+		if err != nil {
+			return commands, err
+		}
+
+		for _, n := range ast.Children {
+			switch strings.ToUpper(n.Value) {
+			case "ONBUILD":
+				return commands, fmt.Errorf("Chaining ONBUILD via `ONBUILD ONBUILD` isn't allowed")
+			case "MAINTAINER", "FROM":
+				return commands, fmt.Errorf("%s isn't allowed as an ONBUILD trigger", n.Value)
+			}
+
+			commands = append(commands, parseCommand(n, true))
+		}
+	}
+
+	return commands, nil
 }
 
 func parseFlags(flags []string) map[string]string {

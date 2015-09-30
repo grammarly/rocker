@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"rocker/build"
-	"rocker/build2"
 	"rocker/dockerclient"
 	"rocker/imagename"
 	"rocker/template"
@@ -177,7 +176,7 @@ func main() {
 func buildCommand(c *cli.Context) {
 
 	var (
-		rockerfile *build2.Rockerfile
+		rockerfile *build.Rockerfile
 		err        error
 	)
 
@@ -216,7 +215,7 @@ func buildCommand(c *cli.Context) {
 
 	if configFilename == "-" {
 
-		rockerfile, err = build2.NewRockerfile(filepath.Base(wd), os.Stdin, vars, template.Funs{})
+		rockerfile, err = build.NewRockerfile(filepath.Base(wd), os.Stdin, vars, template.Funs{})
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -227,7 +226,7 @@ func buildCommand(c *cli.Context) {
 			configFilename = filepath.Join(wd, configFilename)
 		}
 
-		rockerfile, err = build2.NewRockerfileFromFile(configFilename, vars, template.Funs{})
+		rockerfile, err = build.NewRockerfileFromFile(configFilename, vars, template.Funs{})
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -252,7 +251,7 @@ func buildCommand(c *cli.Context) {
 
 	dockerignoreFilename := filepath.Join(contextDir, ".dockerignore")
 	if _, err := os.Stat(dockerignoreFilename); err == nil {
-		if dockerignore, err = build2.ReadDockerignoreFile(dockerignoreFilename); err != nil {
+		if dockerignore, err = build.ReadDockerignoreFile(dockerignoreFilename); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -270,15 +269,15 @@ func buildCommand(c *cli.Context) {
 		auth.Password = userPass[1]
 	}
 
-	client := build2.NewDockerClient(dockerClient, auth)
+	client := build.NewDockerClient(dockerClient, auth)
 
-	var cache build2.Cache
+	var cache build.Cache
 	if !c.Bool("no-cache") {
 		// TODO: configurable cache dir
-		cache = build2.NewCacheFS(os.Getenv("HOME") + "/.rocker_cache")
+		cache = build.NewCacheFS(os.Getenv("HOME") + "/.rocker_cache")
 	}
 
-	builder := build2.New(client, rockerfile, cache, build2.Config{
+	builder := build.New(client, rockerfile, cache, build.Config{
 		InStream:     os.Stdin,
 		OutStream:    os.Stdout,
 		ContextDir:   contextDir,
@@ -292,7 +291,7 @@ func buildCommand(c *cli.Context) {
 		Push:         c.Bool("push"),
 	})
 
-	plan, err := build2.NewPlan(rockerfile.Commands(), true)
+	plan, err := build.NewPlan(rockerfile.Commands(), true)
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -20,7 +20,7 @@ import "github.com/fsouza/go-dockerclient"
 
 // CompareConfigs compares two Config struct. Does not compare the "Image" nor "Hostname" fields
 // If OpenStdin is set, then it differs
-func CompareConfigs(a, b *docker.Config) bool {
+func CompareConfigs(a, b docker.Config) bool {
 	// Experimental: do not consider rocker-data labels when comparing
 	if _, ok := a.Labels["rocker-data"]; ok {
 		tmp := a.Labels["rocker-data"]
@@ -33,8 +33,7 @@ func CompareConfigs(a, b *docker.Config) bool {
 		defer func() { b.Labels["rocker-data"] = tmp }()
 	}
 
-	if a == nil || b == nil ||
-		a.OpenStdin || b.OpenStdin {
+	if a.OpenStdin || b.OpenStdin {
 		return false
 	}
 

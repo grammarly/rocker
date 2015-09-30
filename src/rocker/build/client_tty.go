@@ -2,7 +2,7 @@
 // Licensed under the Apache License, Version 2.0; Copyright 2013-2015 Docker, Inc. See LICENSE.APACHE
 // NOTICE: no changes has been made to these functions code
 
-package build2
+package build
 
 import (
 	"io"

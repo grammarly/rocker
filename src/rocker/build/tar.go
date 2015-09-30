@@ -5,7 +5,7 @@
 //
 // Copyright 2013-2015 Docker, Inc.
 
-package build2
+package build
 
 import (
 	"archive/tar"

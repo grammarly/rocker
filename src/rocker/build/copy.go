@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package build2
+package build
 
 import (
 	"archive/tar"

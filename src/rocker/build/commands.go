@@ -17,145 +17,1024 @@
 package build
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"os/user"
 	"path"
 	"path/filepath"
+	"regexp"
+	"rocker/util"
 	"sort"
 	"strings"
 
-	"rocker/dockerclient"
-	"rocker/imagename"
-	"rocker/parser"
-	"rocker/template"
-	"rocker/util"
-
+	log "github.com/Sirupsen/logrus"
+	"github.com/docker/docker/pkg/nat"
+	"github.com/docker/docker/pkg/units"
 	"github.com/fsouza/go-dockerclient"
 )
 
-// cmdRun implements RUN command
-// If there were no MOUNTs before, rocker falls back to `docker build` to run it
-func (builder *Builder) cmdRun(args []string, attributes map[string]bool, flags map[string]string, original string) (err error) {
-	cmd := handleJSONArgs(args, attributes)
+const (
+	COMMIT_SKIP = "COMMIT_SKIP"
+)
 
-	if !attributes["json"] {
+type ConfigCommand struct {
+	name      string
+	args      []string
+	attrs     map[string]bool
+	flags     map[string]string
+	original  string
+	isOnbuild bool
+}
+
+type Command interface {
+	// Execute does the command execution and returns modified state.
+	// Note that here we use State not by reference because we want
+	// it to be immutable. In future, it may encoded/decoded from json
+	// and passed to the external command implementations.
+	Execute(b *Build) (State, error)
+
+	// Returns true if the command should be executed
+	ShouldRun(b *Build) (bool, error)
+
+	// String returns the human readable string representation of the command
+	String() string
+}
+
+func NewCommand(cfg ConfigCommand) (cmd Command, err error) {
+	// TODO: use reflection?
+	switch cfg.name {
+	case "from":
+		cmd = &CommandFrom{cfg}
+	case "maintainer":
+		cmd = &CommandMaintainer{cfg}
+	case "run":
+		cmd = &CommandRun{cfg}
+	case "attach":
+		cmd = &CommandAttach{cfg}
+	case "env":
+		cmd = &CommandEnv{cfg}
+	case "label":
+		cmd = &CommandLabel{cfg}
+	case "workdir":
+		cmd = &CommandWorkdir{cfg}
+	case "tag":
+		cmd = &CommandTag{cfg}
+	case "push":
+		cmd = &CommandPush{cfg}
+	case "copy":
+		cmd = &CommandCopy{cfg}
+	case "add":
+		cmd = &CommandAdd{cfg}
+	case "cmd":
+		cmd = &CommandCmd{cfg}
+	case "entrypoint":
+		cmd = &CommandEntrypoint{cfg}
+	case "expose":
+		cmd = &CommandExpose{cfg}
+	case "volume":
+		cmd = &CommandVolume{cfg}
+	case "user":
+		cmd = &CommandUser{cfg}
+	case "onbuild":
+		cmd = &CommandOnbuild{cfg}
+	case "mount":
+		cmd = &CommandMount{cfg}
+	case "export":
+		cmd = &CommandExport{cfg}
+	case "import":
+		cmd = &CommandImport{cfg}
+	default:
+		return nil, fmt.Errorf("Unknown command: %s", cfg.name)
+	}
+
+	if cfg.isOnbuild {
+		cmd = &CommandOnbuildWrap{cmd}
+	}
+
+	return cmd, nil
+}
+
+// CommandFrom implements FROM
+type CommandFrom struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandFrom) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandFrom) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandFrom) Execute(b *Build) (s State, err error) {
+	// TODO: for "scratch" image we may use /images/create
+
+	if len(c.cfg.args) != 1 {
+		return s, fmt.Errorf("FROM requires one argument")
+	}
+
+	var (
+		img  *docker.Image
+		name = c.cfg.args[0]
+	)
+
+	if name == "scratch" {
+		s.NoBaseImage = true
+		return s, nil
+	}
+
+	// If Pull is true, then img will remain nil and it will be pulled below
+	if !b.cfg.Pull {
+		if img, err = b.client.InspectImage(name); err != nil {
+			return s, err
+		}
+	}
+
+	if img == nil {
+		if err = b.client.PullImage(name); err != nil {
+			return s, err
+		}
+		if img, err = b.client.InspectImage(name); err != nil {
+			return s, err
+		}
+		if img == nil {
+			return s, fmt.Errorf("FROM: Failed to inspect image after pull: %s", name)
+		}
+	}
+
+	// We want to say the size of the FROM image. Better to do it
+	// from the client, but don't know how to do it better,
+	// without duplicating InspectImage calls and making unnecessary functions
+
+	log.WithFields(log.Fields{
+		"size": units.HumanSize(float64(img.VirtualSize)),
+	}).Infof("| Image %.12s", img.ID)
+
+	s = b.state
+	s.ImageID = img.ID
+	s.Config = *img.Config
+
+	b.ProducedSize = 0
+	b.VirtualSize = img.VirtualSize
+
+	// If we don't have OnBuild triggers, then we are done
+	if len(s.Config.OnBuild) == 0 {
+		return s, nil
+	}
+
+	log.Infof("| Found %d ONBUILD triggers", len(s.Config.OnBuild))
+
+	// Remove them from the config, since the config will be committed.
+	s.InjectCommands = s.Config.OnBuild
+	s.Config.OnBuild = []string{}
+
+	return s, nil
+}
+
+// CommandMaintainer implements CMD
+type CommandMaintainer struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandMaintainer) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandMaintainer) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandMaintainer) Execute(b *Build) (State, error) {
+	if len(c.cfg.args) != 1 {
+		return b.state, fmt.Errorf("MAINTAINER requires exactly one argument")
+	}
+
+	// Don't see any sense of doing a commit here, as Docker does
+
+	return b.state, nil
+}
+
+// CommandReset cleans the builder state before the next FROM
+type CommandCleanup struct {
+	final  bool
+	tagged bool
+}
+
+func (c *CommandCleanup) String() string {
+	return "Cleaning up"
+}
+
+func (c *CommandCleanup) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandCleanup) Execute(b *Build) (State, error) {
+	s := b.state
+
+	if b.cfg.NoGarbage && !c.tagged && s.ImageID != "" && s.ProducedImage {
+		if err := b.client.RemoveImage(s.ImageID); err != nil {
+			return s, err
+		}
+	}
+
+	// Cleanup state
+	dirtyState := s
+	s = NewState(b)
+
+	// Keep some stuff between froms
+	s.ExportsID = dirtyState.ExportsID
+
+	// For final cleanup we want to keep imageID
+	if c.final {
+		s.ImageID = dirtyState.ImageID
+	} else {
+		log.Infof("====================================")
+	}
+
+	return s, nil
+}
+
+// CommandCommit commits collected changes
+type CommandCommit struct{}
+
+func (c *CommandCommit) String() string {
+	return "Commit changes"
+}
+
+func (c *CommandCommit) ShouldRun(b *Build) (bool, error) {
+	return b.state.GetCommits() != "", nil
+}
+
+func (c *CommandCommit) Execute(b *Build) (s State, err error) {
+	s = b.state
+
+	commits := s.GetCommits()
+	if commits == "" {
+		return s, nil
+	}
+
+	if s.ImageID == "" && !s.NoBaseImage {
+		return s, fmt.Errorf("Please provide a source image with `from` prior to commit")
+	}
+
+	// TODO: ?
+	// if len(commits) == 0 && s.ContainerID == "" { log.Infof("| Skip")
+
+	// TODO: verify that we need to check cache in commit only for
+	//       a non-container actions
+
+	if s.ContainerID == "" {
+
+		// Check cache
+		var hit bool
+		s, hit, err = b.probeCache(s)
+		if err != nil {
+			return s, err
+		}
+		if hit {
+			return s, nil
+		}
+
+		origCmd := s.Config.Cmd
+		s.Config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + commits}
+
+		if s.ContainerID, err = b.client.CreateContainer(s); err != nil {
+			return s, err
+		}
+
+		s.Config.Cmd = origCmd
+	}
+
+	defer func(id string) {
+		s.Commits = []string{}
+		if err = b.client.RemoveContainer(id); err != nil {
+			log.Errorf("Failed to remove temporary container %.12s, error: %s", id, err)
+		}
+	}(s.ContainerID)
+
+	var img *docker.Image
+	if img, err = b.client.CommitContainer(s, commits); err != nil {
+		return s, err
+	}
+
+	s.ContainerID = ""
+	s.ParentID = s.ImageID
+	s.ImageID = img.ID
+	s.ProducedImage = true
+
+	if b.cache != nil {
+		b.cache.Put(s)
+	}
+
+	// Store some stuff to the build
+	b.ProducedSize += img.Size
+	b.VirtualSize = img.VirtualSize
+
+	return s, nil
+}
+
+// CommandRun implements RUN
+type CommandRun struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandRun) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandRun) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandRun) Execute(b *Build) (s State, err error) {
+	s = b.state
+
+	if s.ImageID == "" && !s.NoBaseImage {
+		return s, fmt.Errorf("Please provide a source image with `FROM` prior to run")
+	}
+
+	cmd := handleJSONArgs(c.cfg.args, c.cfg.attrs)
+
+	if !c.cfg.attrs["json"] {
 		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
 	}
 
-	return builder.runAndCommit(cmd, "run")
-}
+	s.Commit("RUN %q", cmd)
 
-// cmdMount implements MOUNT command
-// TODO: document behavior of cmdMount
-func (builder *Builder) cmdMount(args []string, attributes map[string]bool, flags map[string]string, original string) error {
-	if len(args) == 0 {
-		return fmt.Errorf("Command is missing value: %s", original)
+	// Check cache
+	s, hit, err := b.probeCache(s)
+	if err != nil {
+		return s, err
+	}
+	if hit {
+		return s, nil
 	}
 
-	// TODO: read flags
-	useCache := false
+	// TODO: test with ENTRYPOINT
 
-	newMounts := []*builderMount{}
-	newVolumeMounts := []*builderMount{}
+	// We run this command in the container using CMD
+	origCmd := s.Config.Cmd
+	s.Config.Cmd = cmd
 
-	for _, arg := range args {
-		var mount builderMount
-		if strings.Contains(arg, ":") {
-			pair := strings.SplitN(arg, ":", 2)
-			mount = builderMount{cache: useCache, src: pair[0], dest: pair[1]}
-		} else {
-			mount = builderMount{cache: useCache, dest: arg}
+	if s.ContainerID, err = b.client.CreateContainer(s); err != nil {
+		return s, err
+	}
+
+	if err = b.client.RunContainer(s.ContainerID, false); err != nil {
+		b.client.RemoveContainer(s.ContainerID)
+		return s, err
+	}
+
+	// Restore command after commit
+	s.Config.Cmd = origCmd
+
+	return s, nil
+}
+
+// CommandAttach implements ATTACH
+type CommandAttach struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandAttach) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandAttach) ShouldRun(b *Build) (bool, error) {
+	// TODO: skip attach?
+	return true, nil
+}
+
+func (c *CommandAttach) Execute(b *Build) (s State, err error) {
+	s = b.state
+
+	// simply ignore this command if we don't wanna attach
+	if !b.cfg.Attach {
+		log.Infof("Skip ATTACH; use --attach option to get inside")
+		// s.SkipCommit()
+		return s, nil
+	}
+
+	if s.ImageID == "" && !s.NoBaseImage {
+		return s, fmt.Errorf("Please provide a source image with `FROM` prior to ATTACH")
+	}
+
+	cmd := handleJSONArgs(c.cfg.args, c.cfg.attrs)
+
+	if len(cmd) == 0 {
+		cmd = []string{"/bin/sh"}
+	} else if !c.cfg.attrs["json"] {
+		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
+	}
+
+	// TODO: do s.commit unique
+
+	// We run this command in the container using CMD
+
+	// Backup the config so we can restore it later
+	origState := s
+	defer func() {
+		s = origState
+	}()
+
+	s.Config.Cmd = cmd
+	s.Config.Entrypoint = []string{}
+	s.Config.Tty = true
+	s.Config.OpenStdin = true
+	s.Config.StdinOnce = true
+	s.Config.AttachStdin = true
+	s.Config.AttachStderr = true
+	s.Config.AttachStdout = true
+
+	if s.ContainerID, err = b.client.CreateContainer(s); err != nil {
+		return s, err
+	}
+
+	if err = b.client.RunContainer(s.ContainerID, true); err != nil {
+		b.client.RemoveContainer(s.ContainerID)
+		return s, err
+	}
+
+	return s, nil
+}
+
+// CommandEnv implements ENV
+type CommandEnv struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandEnv) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandEnv) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandEnv) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+	args := c.cfg.args
+
+	if len(args) == 0 {
+		return s, fmt.Errorf("ENV requires at least one argument")
+	}
+
+	if len(args)%2 != 0 {
+		// should never get here, but just in case
+		return s, fmt.Errorf("Bad input to ENV, too many args")
+	}
+
+	commitStr := "ENV"
+
+	for j := 0; j < len(args); j += 2 {
+		// name  ==> args[j]
+		// value ==> args[j+1]
+		newVar := strings.Join(args[j:j+2], "=")
+		commitStr += " " + newVar
+
+		gotOne := false
+		for i, envVar := range s.Config.Env {
+			envParts := strings.SplitN(envVar, "=", 2)
+			if envParts[0] == args[j] {
+				s.Config.Env[i] = newVar
+				gotOne = true
+				break
+			}
 		}
+		if !gotOne {
+			s.Config.Env = append(s.Config.Env, newVar)
+		}
+	}
 
-		if mount.src == "" {
-			newVolumeMounts = append(newVolumeMounts, &mount)
-		} else {
+	s.Commit(commitStr)
+
+	return s, nil
+}
+
+// CommandLabel implements LABEL
+type CommandLabel struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandLabel) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandLabel) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandLabel) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+	args := c.cfg.args
+
+	if len(args) == 0 {
+		return s, fmt.Errorf("LABEL requires at least one argument")
+	}
+
+	if len(args)%2 != 0 {
+		// should never get here, but just in case
+		return s, fmt.Errorf("Bad input to LABEL, too many args")
+	}
+
+	commitStr := "LABEL"
+
+	if s.Config.Labels == nil {
+		s.Config.Labels = map[string]string{}
+	}
+
+	for j := 0; j < len(args); j++ {
+		// name  ==> args[j]
+		// value ==> args[j+1]
+		newVar := args[j] + "=" + args[j+1] + ""
+		commitStr += " " + newVar
+
+		s.Config.Labels[args[j]] = args[j+1]
+		j++
+	}
+
+	s.Commit(commitStr)
+
+	return s, nil
+}
+
+// CommandWorkdir implements WORKDIR
+type CommandWorkdir struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandWorkdir) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandWorkdir) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandWorkdir) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+
+	if len(c.cfg.args) != 1 {
+		return s, fmt.Errorf("WORKDIR requires exactly one argument")
+	}
+
+	workdir := c.cfg.args[0]
+
+	if !filepath.IsAbs(workdir) {
+		current := s.Config.WorkingDir
+		workdir = filepath.Join("/", current, workdir)
+	}
+
+	s.Config.WorkingDir = workdir
+
+	s.Commit(fmt.Sprintf("WORKDIR %v", workdir))
+
+	return s, nil
+}
+
+// CommandCmd implements CMD
+type CommandCmd struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandCmd) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandCmd) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandCmd) Execute(b *Build) (s State, err error) {
+	s = b.state
+
+	cmd := handleJSONArgs(c.cfg.args, c.cfg.attrs)
+
+	if !c.cfg.attrs["json"] {
+		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
+	}
+
+	s.Config.Cmd = cmd
+
+	s.Commit(fmt.Sprintf("CMD %q", cmd))
+
+	if len(c.cfg.args) != 0 {
+		s.CmdSet = true
+	}
+
+	return s, nil
+}
+
+// CommandEntrypoint implements ENTRYPOINT
+type CommandEntrypoint struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandEntrypoint) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandEntrypoint) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandEntrypoint) Execute(b *Build) (s State, err error) {
+	s = b.state
+
+	parsed := handleJSONArgs(c.cfg.args, c.cfg.attrs)
+
+	switch {
+	case c.cfg.attrs["json"]:
+		// ENTRYPOINT ["echo", "hi"]
+		s.Config.Entrypoint = parsed
+	case len(parsed) == 0:
+		// ENTRYPOINT []
+		s.Config.Entrypoint = nil
+	default:
+		// ENTRYPOINT echo hi
+		s.Config.Entrypoint = []string{"/bin/sh", "-c", parsed[0]}
+	}
+
+	s.Commit(fmt.Sprintf("ENTRYPOINT %q", s.Config.Entrypoint))
+
+	// TODO: test this
+	// when setting the entrypoint if a CMD was not explicitly set then
+	// set the command to nil
+	if !s.CmdSet {
+		s.Config.Cmd = nil
+	}
+
+	return s, nil
+}
+
+// CommandExpose implements EXPOSE
+type CommandExpose struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandExpose) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandExpose) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandExpose) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+
+	if len(c.cfg.args) == 0 {
+		return s, fmt.Errorf("EXPOSE requires at least one argument")
+	}
+
+	if s.Config.ExposedPorts == nil {
+		s.Config.ExposedPorts = map[docker.Port]struct{}{}
+	}
+
+	ports, _, err := nat.ParsePortSpecs(c.cfg.args)
+	if err != nil {
+		return s, err
+	}
+
+	// instead of using ports directly, we build a list of ports and sort it so
+	// the order is consistent. This prevents cache burst where map ordering
+	// changes between builds
+	portList := make([]string, len(ports))
+	var i int
+	for port := range ports {
+		dockerPort := docker.Port(port)
+		if _, exists := s.Config.ExposedPorts[dockerPort]; !exists {
+			s.Config.ExposedPorts[dockerPort] = struct{}{}
+		}
+		portList[i] = string(port)
+		i++
+	}
+	sort.Strings(portList)
+
+	message := fmt.Sprintf("EXPOSE %s", strings.Join(portList, " "))
+	s.Commit(message)
+
+	return s, nil
+}
+
+// CommandVolume implements VOLUME
+type CommandVolume struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandVolume) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandVolume) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandVolume) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+
+	if len(c.cfg.args) == 0 {
+		return s, fmt.Errorf("VOLUME requires at least one argument")
+	}
+
+	if s.Config.Volumes == nil {
+		s.Config.Volumes = map[string]struct{}{}
+	}
+	for _, v := range c.cfg.args {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			return s, fmt.Errorf("Volume specified can not be an empty string")
+		}
+		s.Config.Volumes[v] = struct{}{}
+	}
+
+	s.Commit(fmt.Sprintf("VOLUME %v", c.cfg.args))
+
+	return s, nil
+}
+
+// CommandUser implements USER
+type CommandUser struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandUser) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandUser) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandUser) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+
+	if len(c.cfg.args) != 1 {
+		return s, fmt.Errorf("USER requires exactly one argument")
+	}
+
+	s.Config.User = c.cfg.args[0]
+
+	s.Commit(fmt.Sprintf("USER %v", c.cfg.args))
+
+	return s, nil
+}
+
+// CommandOnbuild implements ONBUILD
+type CommandOnbuild struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandOnbuild) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandOnbuild) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandOnbuild) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+
+	if len(c.cfg.args) == 0 {
+		return s, fmt.Errorf("ONBUILD requires at least one argument")
+	}
+
+	command := strings.ToUpper(strings.TrimSpace(c.cfg.args[0]))
+	switch command {
+	case "ONBUILD":
+		return s, fmt.Errorf("Chaining ONBUILD via `ONBUILD ONBUILD` isn't allowed")
+	case "MAINTAINER", "FROM":
+		return s, fmt.Errorf("%s isn't allowed as an ONBUILD trigger", command)
+	}
+
+	orig := regexp.MustCompile(`(?i)^\s*ONBUILD\s*`).ReplaceAllString(c.cfg.original, "")
+
+	s.Config.OnBuild = append(s.Config.OnBuild, orig)
+	s.Commit(fmt.Sprintf("ONBUILD %s", orig))
+
+	return s, nil
+}
+
+// CommandTag implements TAG
+type CommandTag struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandTag) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandTag) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandTag) Execute(b *Build) (State, error) {
+	if len(c.cfg.args) != 1 {
+		return b.state, fmt.Errorf("TAG requires exactly one argument")
+	}
+
+	if b.state.ImageID == "" {
+		return b.state, fmt.Errorf("Cannot TAG on empty image")
+	}
+
+	if err := b.client.TagImage(b.state.ImageID, c.cfg.args[0]); err != nil {
+		return b.state, err
+	}
+
+	return b.state, nil
+}
+
+// CommandPush implements PUSH
+type CommandPush struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandPush) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandPush) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandPush) Execute(b *Build) (State, error) {
+	if len(c.cfg.args) != 1 {
+		return b.state, fmt.Errorf("PUSH requires exactly one argument")
+	}
+
+	if b.state.ImageID == "" {
+		return b.state, fmt.Errorf("Cannot PUSH empty image")
+	}
+
+	if err := b.client.TagImage(b.state.ImageID, c.cfg.args[0]); err != nil {
+		return b.state, err
+	}
+
+	if !b.cfg.Push {
+		log.Infof("| Don't push. Pass --push flag to actually push to the registry")
+		return b.state, nil
+	}
+
+	if err := b.client.PushImage(c.cfg.args[0]); err != nil {
+		return b.state, err
+	}
+
+	return b.state, nil
+}
+
+// CommandCopy implements COPY
+type CommandCopy struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandCopy) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandCopy) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandCopy) Execute(b *Build) (State, error) {
+	if len(c.cfg.args) < 2 {
+		return b.state, fmt.Errorf("COPY requires at least two arguments")
+	}
+	return copyFiles(b, c.cfg.args, "COPY")
+}
+
+// CommandAdd implements ADD
+// For now it is an alias of COPY, but later will add urls and archives to it
+type CommandAdd struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandAdd) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandAdd) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandAdd) Execute(b *Build) (State, error) {
+	if len(c.cfg.args) < 2 {
+		return b.state, fmt.Errorf("ADD requires at least two arguments")
+	}
+	return copyFiles(b, c.cfg.args, "ADD")
+}
+
+// CommandMount implements MOUNT
+type CommandMount struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandMount) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandMount) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandMount) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+
+	if len(c.cfg.args) == 0 {
+		return b.state, fmt.Errorf("MOUNT requires at least one argument")
+	}
+
+	commitIds := []string{}
+
+	for _, arg := range c.cfg.args {
+
+		switch strings.Contains(arg, ":") {
+		// MOUNT src:dest
+		case true:
+			var (
+				pair = strings.SplitN(arg, ":", 2)
+				src  = pair[0]
+				dest = pair[1]
+				err  error
+			)
+
 			// Process relative paths in volumes
-			if strings.HasPrefix(mount.src, "~") {
-				mount.src = strings.Replace(mount.src, "~", os.Getenv("HOME"), 1)
+			if strings.HasPrefix(src, "~") {
+				src = strings.Replace(src, "~", os.Getenv("HOME"), 1)
 			}
-			if !path.IsAbs(mount.src) {
-				mount.src = path.Join(builder.ContextDir, mount.src)
+			if !path.IsAbs(src) {
+				src = path.Join(b.cfg.ContextDir, src)
 			}
-			mount.origSrc = mount.src
 
-			var err error
-
-			if mount.src, err = dockerclient.ResolveHostPath(mount.src, builder.Docker); err != nil {
-				return err
+			if src, err = b.client.ResolveHostPath(src); err != nil {
+				return s, err
 			}
-		}
 
-		newMounts = append(newMounts, &mount)
-	}
+			if s.HostConfig.Binds == nil {
+				s.HostConfig.Binds = []string{}
+			}
 
-	// For volume mounts we need to create (or use existing) volume container
-	if len(newVolumeMounts) > 0 {
-		// Collect destinations and sort them alphabetically
-		// so changing the order on MOUNT commend does not have any effect
-		dests := make([]string, len(newVolumeMounts))
-		containerVolumes := make(map[string]struct{})
+			s.HostConfig.Binds = append(s.HostConfig.Binds, src+":"+dest)
+			commitIds = append(commitIds, arg)
 
-		for i, mount := range newVolumeMounts {
-			dests[i] = mount.dest
-			containerVolumes[mount.dest] = struct{}{}
-		}
-		sort.Strings(dests)
+		// MOUNT dir
+		case false:
+			name, err := b.getVolumeContainer(arg)
+			if err != nil {
+				return s, err
+			}
 
-		volumeContainerName := builder.mountsContainerName(dests)
+			if s.HostConfig.VolumesFrom == nil {
+				s.HostConfig.VolumesFrom = []string{}
+			}
 
-		containerConfig := &docker.Config{
-			Image:   busyboxImage,
-			Volumes: containerVolumes,
-			Labels: map[string]string{
-				"Volumes":    strings.Join(dests, ":"),
-				"Rockerfile": builder.Rockerfile,
-				"ImageId":    builder.imageID,
-			},
-		}
-
-		container, err := builder.ensureContainer(volumeContainerName, containerConfig, strings.Join(dests, ","))
-		if err != nil {
-			return err
-		}
-
-		// Assing volume container to the list of volume mounts
-		for _, mount := range newVolumeMounts {
-			mount.containerID = container.ID
+			s.HostConfig.VolumesFrom = append(s.HostConfig.VolumesFrom, name)
+			commitIds = append(commitIds, name+":"+arg)
 		}
 	}
 
-	mountIds := make([]string, len(newMounts))
+	s.Commit(fmt.Sprintf("MOUNT %q", commitIds))
 
-	for i, mount := range newMounts {
-		builder.addMount(*mount)
-		mountIds[i] = mount.String()
-	}
-
-	// TODO: check is useCache flag enabled, so we have to make checksum of the directory
-
-	if err := builder.commitContainer("", builder.Config.Cmd, fmt.Sprintf("MOUNT %q", mountIds)); err != nil {
-		return err
-	}
-
-	return nil
+	return s, nil
 }
 
-// cmdExport implements EXPORT command
-// TODO: document behavior of cmdExport
-func (builder *Builder) cmdExport(args []string, attributes map[string]bool, flags map[string]string, original string) error {
+// CommandExport implements EXPORT
+type CommandExport struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandExport) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandExport) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandExport) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+	args := c.cfg.args
+
 	if len(args) == 0 {
-		return fmt.Errorf("Command is missing value: %s", original)
+		return s, fmt.Errorf("EXPORT requires at least one argument")
 	}
+
 	// If only one argument was given to EXPORT, use basename of a file
 	// EXPORT /my/dir/file.tar --> /EXPORT_VOLUME/file.tar
 	if len(args) < 2 {
 		args = []string{args[0], "/"}
 	}
 
+	src := args[0 : len(args)-1]
 	dest := args[len(args)-1] // last one is always the dest
 
 	// EXPORT /my/dir my_dir --> /EXPORT_VOLUME/my_dir
@@ -164,405 +1043,179 @@ func (builder *Builder) cmdExport(args []string, attributes map[string]bool, fla
 	// EXPORT /my/dir /stuff/ --> /EXPORT_VOLUME/stuff/my_dir
 	// EXPORT /my/dir/* / --> /EXPORT_VOLUME/stuff/my_dir
 
-	exportsContainerID, err := builder.makeExportsContainer()
+	exportsContainerID, err := b.getExportsContainer()
 	if err != nil {
-		return err
+		return s, err
 	}
-
-	// prepare builder mount
-	builder.addMount(builderMount{
-		dest:        exportsVolume,
-		containerID: exportsContainerID,
-	})
-	defer builder.removeLastMount()
-
-	cmdDestPath, err := util.ResolvePath(exportsVolume, dest)
-	if err != nil {
-		return fmt.Errorf("Invalid EXPORT destination: %s", dest)
-	}
-
-	// TODO: rsync doesn't work as expected if ENTRYPOINT is inherited by parent image
-	//       STILL RELEVANT?
 
 	// build the command
+	cmdDestPath, err := util.ResolvePath(ExportsPath, dest)
+	if err != nil {
+		return s, fmt.Errorf("Invalid EXPORT destination: %s", dest)
+	}
+
+	s.Commit("EXPORT %q to %.12s:%s", src, exportsContainerID, dest)
+
+	s, hit, err := b.probeCache(s)
+	if err != nil {
+		return s, err
+	}
+	if hit {
+		b.exports = append(b.exports, s.ExportsID)
+		return s, nil
+	}
+
+	// Remember original stuff so we can restore it when we finished
+	var exportsId string
+	origState := s
+
+	defer func() {
+		s = origState
+		s.ExportsID = exportsId
+		b.exports = append(b.exports, exportsId)
+	}()
+
+	// Append exports container as a volume
+	s.HostConfig.VolumesFrom = []string{exportsContainerID}
+
 	cmd := []string{"/opt/rsync/bin/rsync", "-a", "--delete-during"}
-	cmd = append(cmd, args[0:len(args)-1]...)
+
+	if b.cfg.Verbose {
+		cmd = append(cmd, "--verbose")
+	}
+
+	cmd = append(cmd, src...)
 	cmd = append(cmd, cmdDestPath)
 
-	// For caching
-	builder.addLabels(map[string]string{
-		"rocker-exportsContainerId": exportsContainerID,
-	})
+	s.Config.Cmd = cmd
+	s.Config.Entrypoint = []string{}
 
-	// Configure container temporarily, only for this execution
-	resetFunc := builder.temporaryConfig(func() {
-		builder.Config.Entrypoint = []string{}
-	})
-	defer resetFunc()
+	if exportsId, err = b.client.CreateContainer(s); err != nil {
+		return s, err
+	}
+	defer b.client.RemoveContainer(exportsId)
 
-	fmt.Fprintf(builder.OutStream, "[Rocker]  run: %s\n", strings.Join(cmd, " "))
+	log.Infof("| Running in %.12s: %s", exportsId, strings.Join(cmd, " "))
 
-	if err := builder.runAndCommit(cmd, "import"); err != nil {
-		return err
+	if err = b.client.RunContainer(exportsId, false); err != nil {
+		return s, err
 	}
 
-	builder.lastExportImageID = builder.imageID
-
-	return nil
+	return s, nil
 }
 
-// cmdImport implements IMPORT command
-// TODO: document behavior of cmdImport
-func (builder *Builder) cmdImport(args []string, attributes map[string]bool, flags map[string]string, original string) (err error) {
+// CommandImport implements IMPORT
+type CommandImport struct {
+	cfg ConfigCommand
+}
+
+func (c *CommandImport) String() string {
+	return c.cfg.original
+}
+
+func (c *CommandImport) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandImport) Execute(b *Build) (s State, err error) {
+	s = b.state
+	args := c.cfg.args
+
 	if len(args) == 0 {
-		return fmt.Errorf("Command is missing value: %s", original)
+		return s, fmt.Errorf("IMPORT requires at least one argument")
 	}
-	if builder.lastExportImageID == "" {
-		return fmt.Errorf("You have to EXPORT something first in order to: %s", original)
+	if len(b.exports) == 0 {
+		return s, fmt.Errorf("You have to EXPORT something first in order to IMPORT")
 	}
-	if builder.exportsContainerID == "" {
-		return fmt.Errorf("Something went wrong, missing exports container: %s", original)
-	}
+
+	// TODO: EXPORT and IMPORT cache is not invalidated properly in between
+	// 			 different tracks of the same build. The EXPORT may be cached
+	// 			 because it was built earlier with the same prerequisites, but the actual
+	// 			 data in the exports container may be from the latest EXPORT of different
+	// 			 build. So we need to prefix ~/.rocker_exports dir with some id somehow.
+
+	log.Infof("| Import from %s", b.exportsContainerName())
+
 	// If only one argument was given to IMPORT, use the same path for destination
 	// IMPORT /my/dir/file.tar --> ADD ./EXPORT_VOLUME/my/dir/file.tar /my/dir/file.tar
 	if len(args) < 2 {
 		args = []string{args[0], "/"}
 	}
 	dest := args[len(args)-1] // last one is always the dest
+	src := []string{}
 
-	// prepare builder mount
-	builder.addMount(builderMount{
-		dest:        exportsVolume,
-		containerID: builder.exportsContainerID,
-	})
-	defer builder.removeLastMount()
-
-	// TODO: rsync doesn't work as expected if ENTRYPOINT is inherited by parent image
-	//       STILL RELEVANT?
-
-	cmd := []string{"/opt/rsync/bin/rsync", "-a"}
 	for _, arg := range args[0 : len(args)-1] {
-		argResolved, err := util.ResolvePath(exportsVolume, arg)
+		argResolved, err := util.ResolvePath(ExportsPath, arg)
 		if err != nil {
-			return fmt.Errorf("Invalid IMPORT source: %s", arg)
+			return s, fmt.Errorf("Invalid IMPORT source: %s", arg)
 		}
-		cmd = append(cmd, argResolved)
-	}
-	cmd = append(cmd, dest)
-
-	// For caching
-	builder.addLabels(map[string]string{
-		"rocker-lastExportImageId": builder.lastExportImageID,
-	})
-
-	// Configure container temporarily, only for this execution
-	resetFunc := builder.temporaryConfig(func() {
-		builder.Config.Entrypoint = []string{}
-	})
-	defer resetFunc()
-
-	fmt.Fprintf(builder.OutStream, "[Rocker]  run: %s\n", strings.Join(cmd, " "))
-
-	return builder.runAndCommit(cmd, "import")
-}
-
-// cmdTag implements TAG command
-// TODO: document behavior of cmdTag
-func (builder *Builder) cmdTag(args []string, attributes map[string]bool, flags map[string]string, original string) (err error) {
-	builder.recentTags = []*imagename.ImageName{}
-	if len(args) == 0 {
-		return fmt.Errorf("Command is missing value: %s", original)
-	}
-	image := imagename.NewFromString(args[0])
-
-	// Save rockerfile to label, sot it can be inspected later
-	if builder.AddMeta && !builder.metaAdded {
-		data := &RockerImageData{
-			ImageName:  image,
-			Rockerfile: builder.RockerfileContent,
-			Vars:       builder.CliVars,
-			Properties: template.Vars{},
-		}
-
-		if hostname, _ := os.Hostname(); hostname != "" {
-			data.Properties["hostname"] = hostname
-		}
-		if user, _ := user.Current(); user != nil {
-			data.Properties["system_login"] = user.Username
-			data.Properties["system_user"] = user.Name
-		}
-
-		json, err := json.Marshal(data)
-		if err != nil {
-			return fmt.Errorf("Failed to marshal rocker data, error: %s", err)
-		}
-
-		builder.addLabels(map[string]string{
-			"rocker-data": string(json),
-		})
-
-		fmt.Fprintf(builder.OutStream, "[Rocker]  add rocker-data label\n")
-
-		if err := builder.commitContainer("", builder.Config.Cmd, "LABEL rocker-data"); err != nil {
-			return err
-		}
-
-		builder.metaAdded = true
+		src = append(src, argResolved)
 	}
 
-	doTag := func(tag string) error {
-		img := &imagename.ImageName{
-			Registry: image.Registry,
-			Name:     image.Name,
-			Tag:      tag,
-		}
-		builder.recentTags = append(builder.recentTags, img)
+	sort.Strings(b.exports)
+	s.Commit("IMPORT %q : %q %s", b.exports, src, dest)
 
-		fmt.Fprintf(builder.OutStream, "[Rocker]  Tag %.12s -> %s\n", builder.imageID, img)
-
-		err := builder.Docker.TagImage(builder.imageID, docker.TagImageOptions{
-			Repo:  img.NameWithRegistry(),
-			Tag:   img.GetTag(),
-			Force: true,
-		})
-		if err != nil {
-			return fmt.Errorf("Failed to set tag %s to image %s", img, builder.imageID)
-		}
-		return nil
-	}
-
-	// By default, tag with current branch name if tag is not specified
-	// do not use :latest unless it was set explicitly
-	if !image.HasTag() {
-		if builder.Vars.IsSet("branch") && builder.Vars["branch"].(string) != "" {
-			image.Tag = builder.Vars["branch"].(string)
-		}
-		// Additionally, tag image with current git sha
-		if builder.Vars.IsSet("commit") && builder.Vars["commit"] != "" {
-			if err := doTag(fmt.Sprintf("%.7s", builder.Vars["commit"])); err != nil {
-				return err
-			}
-		}
-	}
-
-	// Do the asked tag
-	if err := doTag(image.GetTag()); err != nil {
-		return err
-	}
-
-	// Optionally make a semver aliases
-	if _, ok := flags["semver"]; ok && image.HasTag() {
-		ver, err := NewSemver(image.GetTag())
-		if err != nil {
-			return fmt.Errorf("--semver flag expects tag to be in semver format, error: %s", err)
-		}
-		// If the version is like 1.2.3-build512 we also want to alias 1.2.3
-		if ver.HasSuffix() {
-			if err := doTag(fmt.Sprintf("%d.%d.%d", ver.Major, ver.Minor, ver.Patch)); err != nil {
-				return err
-			}
-		}
-		if err := doTag(fmt.Sprintf("%d.%d.x", ver.Major, ver.Minor)); err != nil {
-			return err
-		}
-		if err := doTag(fmt.Sprintf("%d.x", ver.Major)); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// cmdPush implements PUSH command
-// TODO: document behavior of cmdPush
-func (builder *Builder) cmdPush(args []string, attributes map[string]bool, flags map[string]string, original string) (err error) {
-	if err := builder.cmdTag(args, attributes, flags, original); err != nil {
-		return fmt.Errorf("Failed to tag image, error: %s", err)
-	}
-
-	if !builder.Push {
-		fmt.Fprintf(builder.OutStream, "[Rocker] *** just tagged; pass --push flag to actually push to a registry\n")
-		return nil
-	}
-
-	for _, image := range builder.recentTags {
-		fmt.Fprintf(builder.OutStream, "[Rocker]  Push %.12s -> %s\n", builder.imageID, image)
-
-		digest, err := builder.pushImage(*image)
-		if err != nil {
-			return err
-		}
-
-		if builder.ArtifactsPath != "" {
-			if err := os.MkdirAll(builder.ArtifactsPath, 0755); err != nil {
-				return fmt.Errorf("Failed to create directory %s for the artifacts, error: %s", builder.ArtifactsPath, err)
-			}
-			filePath := filepath.Join(builder.ArtifactsPath, image.GetTag())
-			lines := []string{
-				fmt.Sprintf("Name: %s", image),
-				fmt.Sprintf("Tag: %s", image.GetTag()),
-				fmt.Sprintf("ImageID: %s", builder.imageID),
-				fmt.Sprintf("Digest: %s", digest),
-				fmt.Sprintf("Addressable: %s@%s", image.NameWithRegistry(), digest),
-			}
-			content := []byte(strings.Join(lines, "\n") + "\n")
-
-			if err := ioutil.WriteFile(filePath, content, 0644); err != nil {
-				return fmt.Errorf("Failed to write artifact file %s, error: %s", filePath, err)
-			}
-
-			fmt.Fprintf(builder.OutStream, "[Rocker]  Save artifact file %s\n", filePath)
-		}
-	}
-
-	return nil
-}
-
-// cmdRequire implements REQUIRE command
-// TODO: document behavior of cmdRequire
-func (builder *Builder) cmdRequire(args []string, attributes map[string]bool, flags map[string]string, original string) (err error) {
-	if len(args) == 0 {
-		return fmt.Errorf("Command is missing value: %s", original)
-	}
-	for _, requireVar := range args {
-		if !builder.Vars.IsSet(requireVar) {
-			return fmt.Errorf("Var $%s is required but not set", requireVar)
-		}
-	}
-	return nil
-}
-
-// cmdVar implements VAR command
-// it is deprecated due to templating functionality, see: https://github.com/grammarly/rocker#templating
-func (builder *Builder) cmdVar(args []string, attributes map[string]bool, flags map[string]string, original string) (err error) {
-	if len(args) == 0 {
-		return fmt.Errorf("Command is missing value: %s", original)
-	}
-	for i := 0; i < len(args); i += 2 {
-		key := args[i]
-		value := args[i+1]
-		if !builder.Vars.IsSet(key) {
-			builder.Vars[key] = value
-		}
-	}
-	return nil
-}
-
-// cmdInclude implements INCLUDE command
-// TODO: document behavior of cmdInclude
-func (builder *Builder) cmdInclude(args []string, attributes map[string]bool, flags map[string]string, original string) (err error) {
-	if len(args) == 0 {
-		return fmt.Errorf("Command is missing value: %s", original)
-	}
-
-	module := args[0]
-	contextDir := filepath.Dir(builder.Rockerfile)
-	resultPath := filepath.Clean(path.Join(contextDir, module))
-
-	// TODO: protect against going out of working directory?
-
-	stat, err := os.Stat(resultPath)
+	// Check cache
+	s, hit, err := b.probeCache(s)
 	if err != nil {
-		return err
+		return s, err
 	}
-	if !stat.Mode().IsRegular() {
-		return fmt.Errorf("Expected included resource to be a regular file: %s (%s)", module, original)
-	}
-
-	fd, err := os.Open(resultPath)
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-
-	includedNode, err := parser.Parse(fd)
-	if err != nil {
-		return err
+	if hit {
+		return s, nil
 	}
 
-	for _, node := range includedNode.Children {
-		if node.Value == "include" {
-			return fmt.Errorf("Nesting includes is not allowed: \"%s\" in %s", original, resultPath)
-		}
-	}
+	// Remember original stuff so we can restore it when we finished
+	origState := s
 
-	// inject included commands info root node at current execution position
-	after := append(includedNode.Children, builder.rootNode.Children[builder.i+1:]...)
-	builder.rootNode.Children = append(builder.rootNode.Children[:builder.i], after...)
-	builder.i--
+	var importID string
 
-	return nil
-}
-
-// cmdAttach implements ATTACH command
-// TODO: document behavior of cmdAttach
-func (builder *Builder) cmdAttach(args []string, attributes map[string]bool, flags map[string]string, original string) (err error) {
-	// simply ignore this command if we don't wanna attach
-	if !builder.Attach {
-		fmt.Fprintf(builder.OutStream, "[Rocker] Skipping ATTACH; use --attach option to get inside\n")
-		return nil
-	}
-
-	cmd := handleJSONArgs(args, attributes)
-
-	if len(cmd) > 0 {
-		if !attributes["json"] {
-			cmd = append([]string{"/bin/sh", "-c"}, cmd...)
-		}
-	} else {
-		cmd = builder.Config.Cmd
-	}
-
-	// Mount exports container if there is one
-	if builder.exportsContainerID != "" {
-		builder.addMount(builderMount{
-			dest:        exportsVolume,
-			containerID: builder.exportsContainerID,
-		})
-		defer builder.removeLastMount()
-	}
-
-	var name string
-	if _, ok := flags["name"]; ok {
-		if flags["name"] == "" {
-			return fmt.Errorf("flag --name needs a value: %s", original)
-		}
-		name = flags["name"]
-	}
-
-	if _, ok := flags["hostname"]; ok && flags["hostname"] == "" {
-		return fmt.Errorf("flag --hostname needs a value: %s", original)
-	}
-
-	// Configure container temporarily, only for this execution
-	resetFunc := builder.temporaryConfig(func() {
-		if _, ok := flags["hostname"]; ok {
-			builder.Config.Hostname = flags["hostname"]
-		}
-		builder.Config.Cmd = cmd
-		builder.Config.Entrypoint = []string{}
-		builder.Config.Tty = true
-		builder.Config.OpenStdin = true
-		builder.Config.StdinOnce = true
-		builder.Config.AttachStdin = true
-		builder.Config.AttachStderr = true
-		builder.Config.AttachStdout = true
-	})
-	defer resetFunc()
-
-	containerID, err := builder.createContainer(name)
-	if err != nil {
-		return fmt.Errorf("Failed to create container, error: %s", err)
-	}
 	defer func() {
-		if err2 := builder.removeContainer(containerID); err2 != nil && err == nil {
-			err = err2
-		}
+		s = origState
+		s.ContainerID = importID
 	}()
 
-	if err := builder.runContainerAttachStdin(containerID, true); err != nil {
-		return fmt.Errorf("Failed to run attached container %s, error: %s", containerID, err)
+	cmd := []string{"/opt/rsync/bin/rsync", "-a"}
+
+	if b.cfg.Verbose {
+		cmd = append(cmd, "--verbose")
 	}
 
-	return nil
+	cmd = append(cmd, src...)
+	cmd = append(cmd, dest)
+
+	s.Config.Cmd = cmd
+	s.Config.Entrypoint = []string{}
+	s.HostConfig.VolumesFrom = []string{b.exportsContainerName()}
+
+	if importID, err = b.client.CreateContainer(s); err != nil {
+		return s, err
+	}
+
+	log.Infof("| Running in %.12s: %s", importID, strings.Join(cmd, " "))
+
+	if err = b.client.RunContainer(importID, false); err != nil {
+		return s, err
+	}
+
+	// TODO: if b.exportsCacheBusted and IMPORT cache was invalidated,
+	// 			 CommitCommand then caches it anyway.
+
+	return s, nil
+}
+
+// CommandOnbuildWrap wraps ONBUILD command
+type CommandOnbuildWrap struct {
+	cmd Command
+}
+
+func (c *CommandOnbuildWrap) String() string {
+	return "ONBUILD " + c.cmd.String()
+}
+
+func (c *CommandOnbuildWrap) ShouldRun(b *Build) (bool, error) {
+	return true, nil
+}
+
+func (c *CommandOnbuildWrap) Execute(b *Build) (State, error) {
+	return c.cmd.Execute(b)
 }

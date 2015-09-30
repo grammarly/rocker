@@ -14,55 +14,42 @@
  * limitations under the License.
  */
 
-package build2
+package build
 
 import (
-	"io/ioutil"
-	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCache_Basic(t *testing.T) {
-	tmpDir := cacheTestTmpDir(t)
-	defer os.RemoveAll(tmpDir)
+func TestDockerignore_Read(t *testing.T) {
+	content := `
+  # commend
+README.md
+**/*.o
+!result.o
 
-	c := NewCacheFS(tmpDir)
+# Some comment
+   .idea
+.git
 
-	s := State{
-		ParentID: "123",
-		ImageID:  "456",
-	}
-	if err := c.Put(s); err != nil {
-		t.Fatal(err)
-	}
+a/b/../c  # inline commend
+`
 
-	s2 := State{
-		ImageID: "123",
-	}
-	res, err := c.Get(s2)
+	result, err := ReadDockerignore(strings.NewReader(content))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, "456", res.ImageID)
-
-	s3 := State{
-		ImageID: "789",
+	expected := []string{
+		"README.md",
+		"**/*.o",
+		"!result.o",
+		".idea",
+		".git",
+		"a/c",
 	}
-	res2, err := c.Get(s3)
-	if err != nil {
-		t.Fatal(err)
-	}
 
-	assert.Nil(t, res2)
-}
-
-func cacheTestTmpDir(t *testing.T) string {
-	tmpDir, err := ioutil.TempDir("", "rocker-cache-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return tmpDir
+	assert.Equal(t, expected, result)
 }
