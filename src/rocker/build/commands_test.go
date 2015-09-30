@@ -652,7 +652,7 @@ func TestCommandPush_Simple(t *testing.T) {
 	b.state.ImageID = "123"
 
 	c.On("TagImage", "123", "docker.io/grammarly/rocker:1.0").Return(nil).Once()
-	c.On("PushImage", "docker.io/grammarly/rocker:1.0").Return(nil).Once()
+	c.On("PushImage", "docker.io/grammarly/rocker:1.0").Return("sha256:fafa", nil).Once()
 
 	_, err := cmd.Execute(b)
 	if err != nil {

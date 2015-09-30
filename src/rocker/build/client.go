@@ -17,11 +17,13 @@
 package build
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"os/signal"
 
+	"regexp"
 	"rocker/dockerclient"
 	"rocker/imagename"
 
@@ -41,7 +43,7 @@ type Client interface {
 	PullImage(name string) error
 	RemoveImage(imageID string) error
 	TagImage(imageID, imageName string) error
-	PushImage(imageName string) error
+	PushImage(imageName string) (digest string, err error)
 	EnsureImage(imageName string) error
 	CreateContainer(state State) (id string, err error)
 	RunContainer(containerID string, attachStdin bool) error
@@ -57,6 +59,10 @@ type DockerClient struct {
 	client *docker.Client
 	auth   docker.AuthConfiguration
 }
+
+var (
+	captureDigest = regexp.MustCompile("digest:\\s*(sha256:[a-f0-9]{64})")
+)
 
 // NewDockerClient makes a new client that works with a docker socket
 func NewDockerClient(dockerClient *docker.Client, auth docker.AuthConfiguration) *DockerClient {
@@ -366,12 +372,13 @@ func (c *DockerClient) TagImage(imageID, imageName string) error {
 }
 
 // PushImage pushes the image
-func (c *DockerClient) PushImage(imageName string) error {
+func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
 	var (
-		img   = imagename.NewFromString(imageName)
-		errch = make(chan error)
+		img = imagename.NewFromString(imageName)
 
+		buf                    bytes.Buffer
 		pipeReader, pipeWriter = io.Pipe()
+		outStream              = io.MultiWriter(pipeWriter, &buf)
 		def                    = log.StandardLogger()
 		fdOut, isTerminalOut   = term.GetFdInfo(def.Out)
 		out                    = def.Out
@@ -380,7 +387,7 @@ func (c *DockerClient) PushImage(imageName string) error {
 			Name:          img.NameWithRegistry(),
 			Tag:           img.GetTag(),
 			Registry:      img.Registry,
-			OutputStream:  pipeWriter,
+			OutputStream:  outStream,
 			RawJSONStream: true,
 		}
 	)
@@ -394,14 +401,23 @@ func (c *DockerClient) PushImage(imageName string) error {
 	log.Debugf("Push with options: %# v", opts)
 
 	go func() {
-		errch <- jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut)
+		if err := jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut); err != nil {
+			log.Errorf("Failed to process json stream, error %s", err)
+		}
 	}()
 
 	if err := c.client.PushImage(opts, c.auth); err != nil {
-		return err
+		return "", err
+	}
+	pipeWriter.Close()
+
+	// It is the best way to have pushed image digest so far
+	matches := captureDigest.FindStringSubmatch(buf.String())
+	if len(matches) > 0 {
+		digest = matches[1]
 	}
 
-	return <-errch
+	return digest, nil
 }
 
 // ResolveHostPath proxy for the dockerclient.ResolveHostPath

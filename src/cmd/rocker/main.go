@@ -265,17 +265,18 @@ func buildCommand(c *cli.Context) {
 	}
 
 	builder := build.New(client, rockerfile, cache, build.Config{
-		InStream:     os.Stdin,
-		OutStream:    os.Stdout,
-		ContextDir:   contextDir,
-		Dockerignore: dockerignore,
-		Pull:         c.Bool("pull"),
-		NoGarbage:    c.Bool("no-garbage"),
-		Attach:       c.Bool("attach"),
-		Verbose:      c.GlobalBool("verbose"),
-		ID:           c.String("id"),
-		NoCache:      c.Bool("no-cache"),
-		Push:         c.Bool("push"),
+		InStream:      os.Stdin,
+		OutStream:     os.Stdout,
+		ContextDir:    contextDir,
+		Dockerignore:  dockerignore,
+		ArtifactsPath: c.String("artifacts-path"),
+		Pull:          c.Bool("pull"),
+		NoGarbage:     c.Bool("no-garbage"),
+		Attach:        c.Bool("attach"),
+		Verbose:       c.GlobalBool("verbose"),
+		ID:            c.String("id"),
+		NoCache:       c.Bool("no-cache"),
+		Push:          c.Bool("push"),
 	})
 
 	plan, err := build.NewPlan(rockerfile.Commands(), true)

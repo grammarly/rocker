@@ -45,17 +45,18 @@ var (
 
 // Config used specify parameters for the builder in New()
 type Config struct {
-	OutStream    io.Writer
-	InStream     io.ReadCloser
-	ContextDir   string
-	ID           string
-	Dockerignore []string
-	Pull         bool
-	NoGarbage    bool
-	Attach       bool
-	Verbose      bool
-	NoCache      bool
-	Push         bool
+	OutStream     io.Writer
+	InStream      io.ReadCloser
+	ContextDir    string
+	ID            string
+	Dockerignore  []string
+	ArtifactsPath string
+	Pull          bool
+	NoGarbage     bool
+	Attach        bool
+	Verbose       bool
+	NoCache       bool
+	Push          bool
 }
 
 // Build is the main object that processes build
