@@ -1,8 +1,8 @@
 FROM golang:1.5.1
 
 {{ assert .Version }}
-{{ $stable := "0.2." }}
-{{ $beta := "0.3." }}
+{{ $stable := "0.2.3" }}
+{{ $beta := "0.2.4" }}
 {{ $v1 := "1.0." }}
 
 ADD . /src
