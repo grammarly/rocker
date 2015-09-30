@@ -35,6 +35,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+// Client interface
 type Client interface {
 	InspectImage(name string) (*docker.Image, error)
 	PullImage(name string) error
@@ -51,11 +52,13 @@ type Client interface {
 	ResolveHostPath(path string) (resultPath string, err error)
 }
 
+// DockerClient implements the client that works with a docker socket
 type DockerClient struct {
 	client *docker.Client
 	auth   docker.AuthConfiguration
 }
 
+// NewDockerClient makes a new client that works with a docker socket
 func NewDockerClient(dockerClient *docker.Client, auth docker.AuthConfiguration) *DockerClient {
 	return &DockerClient{
 		client: dockerClient,
@@ -63,6 +66,8 @@ func NewDockerClient(dockerClient *docker.Client, auth docker.AuthConfiguration)
 	}
 }
 
+// InspectImage inspects docker image
+// it does not give an error when image not found, but returns nil instead
 func (c *DockerClient) InspectImage(name string) (*docker.Image, error) {
 	img, err := c.client.InspectImage(name)
 	// We simply return nil in case image not found
@@ -72,6 +77,7 @@ func (c *DockerClient) InspectImage(name string) (*docker.Image, error) {
 	return img, err
 }
 
+// PullImage pulls docker image
 func (c *DockerClient) PullImage(name string) error {
 
 	var (
@@ -109,6 +115,7 @@ func (c *DockerClient) PullImage(name string) error {
 	return <-errch
 }
 
+// RemoveImage removes docker image
 func (c *DockerClient) RemoveImage(imageID string) error {
 	log.Infof("| Remove image %.12s", imageID)
 
@@ -119,6 +126,7 @@ func (c *DockerClient) RemoveImage(imageID string) error {
 	return c.client.RemoveImageExtended(imageID, opts)
 }
 
+// CreateContainer creates docker container
 func (c *DockerClient) CreateContainer(s State) (string, error) {
 
 	s.Config.Image = s.ImageID
@@ -147,6 +155,7 @@ func (c *DockerClient) CreateContainer(s State) (string, error) {
 	return container.ID, nil
 }
 
+// RunContainer runs docker container and optionally attaches stdin
 func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error {
 
 	var (
@@ -279,6 +288,7 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 	return nil
 }
 
+// CommitContainer commits docker container
 func (c *DockerClient) CommitContainer(s State, message string) (*docker.Image, error) {
 	commitOpts := docker.CommitContainerOptions{
 		Container: s.ContainerID,
@@ -312,6 +322,7 @@ func (c *DockerClient) CommitContainer(s State, message string) (*docker.Image, 
 	return image, nil
 }
 
+// RemoveContainer removes docker container
 func (c *DockerClient) RemoveContainer(containerID string) error {
 	log.Infof("| Removing container %.12s", containerID)
 
@@ -324,6 +335,7 @@ func (c *DockerClient) RemoveContainer(containerID string) error {
 	return c.client.RemoveContainer(opts)
 }
 
+// UploadToContainer uploads files to a docker container
 func (c *DockerClient) UploadToContainer(containerID string, stream io.Reader, path string) error {
 	log.Infof("| Uploading files to container %.12s", containerID)
 
@@ -336,6 +348,7 @@ func (c *DockerClient) UploadToContainer(containerID string, stream io.Reader, p
 	return c.client.UploadToContainer(containerID, opts)
 }
 
+// TagImage adds tag to the image
 func (c *DockerClient) TagImage(imageID, imageName string) error {
 	img := imagename.NewFromString(imageName)
 
@@ -352,6 +365,7 @@ func (c *DockerClient) TagImage(imageID, imageName string) error {
 	return c.client.TagImage(imageID, opts)
 }
 
+// PushImage pushes the image
 func (c *DockerClient) PushImage(imageName string) error {
 	var (
 		img   = imagename.NewFromString(imageName)
@@ -390,10 +404,12 @@ func (c *DockerClient) PushImage(imageName string) error {
 	return <-errch
 }
 
+// ResolveHostPath proxy for the dockerclient.ResolveHostPath
 func (c *DockerClient) ResolveHostPath(path string) (resultPath string, err error) {
 	return dockerclient.ResolveHostPath(path, c.client)
 }
 
+// EnsureImage checks if the image exists and pulls if not
 func (c *DockerClient) EnsureImage(imageName string) (err error) {
 
 	var img *docker.Image
@@ -407,6 +423,8 @@ func (c *DockerClient) EnsureImage(imageName string) (err error) {
 	return c.PullImage(imageName)
 }
 
+// EnsureContainer checks if container with specified name exists
+// and creates it otherwise
 func (c *DockerClient) EnsureContainer(containerName string, config *docker.Config, purpose string) (containerID string, err error) {
 
 	// Check if container exists

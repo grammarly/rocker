@@ -25,22 +25,26 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+// Cache interface describes a cache backend
 type Cache interface {
 	Get(s State) (s2 *State, err error)
 	Put(s State) error
 	Del(s State) error
 }
 
+// CacheFS implements file based cache backend
 type CacheFS struct {
 	root string
 }
 
+// NewCacheFS creates a file based cache backend
 func NewCacheFS(root string) *CacheFS {
 	return &CacheFS{
 		root: root,
 	}
 }
 
+// Get fetches cache
 func (c *CacheFS) Get(s State) (res *State, err error) {
 	match := filepath.Join(c.root, s.ImageID)
 
@@ -77,6 +81,7 @@ func (c *CacheFS) Get(s State) (res *State, err error) {
 	return
 }
 
+// Put stores cache
 func (c *CacheFS) Put(s State) error {
 	log.Debugf("CACHE PUT %s %s %q", s.ParentID, s.ImageID, s.Commits)
 
@@ -91,6 +96,7 @@ func (c *CacheFS) Put(s State) error {
 	return ioutil.WriteFile(fileName, data, 0644)
 }
 
+// Del deletes cache
 func (c *CacheFS) Del(s State) error {
 	log.Debugf("CACHE DELETE %s %s %q", s.ParentID, s.ImageID, s.Commits)
 

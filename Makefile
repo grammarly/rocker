@@ -36,12 +36,10 @@ UPLOAD_CMD = $(GITHUB_RELEASE) upload \
 SRCS = $(shell find . -name '*.go' | grep -v '^./vendor/')
 PKGS := $(foreach pkg, $(sort $(dir $(SRCS))), $(pkg))
 
-GOPATH = $(shell pwd):$(shell pwd)/vendor
-
 TESTARGS ?=
 
 binary:
-	GOPATH=$(GOPATH) go build \
+	GOPATH=$(shell pwd):$(shell pwd)/vendor go build \
 		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
 		-v -o bin/rocker src/cmd/rocker/main.go 
 

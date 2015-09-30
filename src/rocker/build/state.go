@@ -24,6 +24,8 @@ import (
 	"github.com/fsouza/go-dockerclient"
 )
 
+// State is the build state
+// TODO: document
 type State struct {
 	Config         docker.Config
 	HostConfig     docker.HostConfig
@@ -40,22 +42,27 @@ type State struct {
 	Dockerignore   []string
 }
 
+// NewState makes a fresh state
 func NewState(b *Build) State {
 	return State{
 		Dockerignore: b.cfg.Dockerignore,
 	}
 }
 
+// Commit adds a commit to the current state
 func (s *State) Commit(msg string, args ...interface{}) *State {
 	s.Commits = append(s.Commits, fmt.Sprintf(msg, args...))
 	sort.Strings(s.Commits)
 	return s
 }
 
+// GetCommits returns merged commits string
 func (s State) GetCommits() string {
 	return strings.Join(s.Commits, "; ")
 }
 
+// Equals returns true if the two states are equal
+// NOTE: we identify unique commands by commits, so state uniqueness is simply a commit
 func (s State) Equals(s2 State) bool {
 	// TODO: compare other properties?
 	return s.GetCommits() == s2.GetCommits()

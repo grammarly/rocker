@@ -18,8 +18,10 @@ package build
 
 import "strings"
 
+// Plan is the list of commands to be executed sequentially by a build process
 type Plan []Command
 
+// NewPlan makes a new plan out of the list of commands from a Rockerfile
 func NewPlan(commands []ConfigCommand, finalCleanup bool) (plan Plan, err error) {
 	plan = Plan{}
 

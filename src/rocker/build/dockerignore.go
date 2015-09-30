@@ -28,9 +28,10 @@ import (
 // TODO: maybe move some stuff from copy.go here
 
 var (
-	DockerignoreCommendRegexp = regexp.MustCompile("\\s*#.*")
+	dockerignoreCommentRegexp = regexp.MustCompile("\\s*#.*")
 )
 
+// ReadDockerignoreFile reads and parses .dockerignore file
 func ReadDockerignoreFile(file string) ([]string, error) {
 	fd, err := os.Open(file)
 	if err != nil {
@@ -41,6 +42,7 @@ func ReadDockerignoreFile(file string) ([]string, error) {
 	return ReadDockerignore(fd)
 }
 
+// ReadDockerignore reads and parses .dockerignore file from io.Reader
 func ReadDockerignore(r io.Reader) ([]string, error) {
 	var (
 		scanner = bufio.NewScanner(r)
@@ -50,7 +52,7 @@ func ReadDockerignore(r io.Reader) ([]string, error) {
 	for scanner.Scan() {
 		// Strip comments
 		line := scanner.Text()
-		line = DockerignoreCommendRegexp.ReplaceAllString(line, "")
+		line = dockerignoreCommentRegexp.ReplaceAllString(line, "")
 		// Eliminate leading and trailing whitespace.
 		pattern := strings.TrimSpace(line)
 		if pattern == "" {

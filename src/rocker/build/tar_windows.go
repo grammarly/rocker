@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-// canonicalTarNameForPath returns platform-specific filepath
+// CanonicalTarNameForPath returns platform-specific filepath
 // to canonical posix-style path for tar archival. p is relative
 // path.
 func CanonicalTarNameForPath(p string) (string, error) {

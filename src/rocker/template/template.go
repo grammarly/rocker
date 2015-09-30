@@ -32,6 +32,7 @@ import (
 	"github.com/kr/pretty"
 )
 
+// Funs is the list of additional helpers that may be given to the template
 type Funs map[string]interface{}
 
 // Process renders config through the template processor.

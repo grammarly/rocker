@@ -30,12 +30,20 @@ import (
 )
 
 var (
+	// NoBaseImageSpecifier defines the empty image name, used in the FROM instruction
 	NoBaseImageSpecifier = "scratch"
-	MountVolumeImage     = "grammarly/scratch:latest"
-	RsyncImage           = "grammarly/rsync-static:1"
-	ExportsPath          = "/.rocker_exports"
+
+	// MountVolumeImage used for MOUNT volume containers
+	MountVolumeImage = "grammarly/scratch:latest"
+
+	// RsyncImage used for EXPORT volume containers
+	RsyncImage = "grammarly/rsync-static:1"
+
+	// ExportsPath is the path within EXPORT volume containers
+	ExportsPath = "/.rocker_exports"
 )
 
+// Config used specify parameters for the builder in New()
 type Config struct {
 	OutStream    io.Writer
 	InStream     io.ReadCloser
@@ -50,6 +58,7 @@ type Config struct {
 	Push         bool
 }
 
+// Build is the main object that processes build
 type Build struct {
 	ProducedSize int64
 	VirtualSize  int64
@@ -65,6 +74,7 @@ type Build struct {
 	exports []string
 }
 
+// New creates the new build object
 func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build {
 	b := &Build{
 		rockerfile: rockerfile,
@@ -77,6 +87,7 @@ func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build 
 	return b
 }
 
+// Run runs the build following the given Plan
 func (b *Build) Run(plan Plan) (err error) {
 
 	for k := 0; k < len(plan); k++ {
@@ -123,10 +134,12 @@ func (b *Build) Run(plan Plan) (err error) {
 	return nil
 }
 
+// GetState returns current build state object
 func (b *Build) GetState() State {
 	return b.state
 }
 
+// GetImageID returns last image ID produced by the build
 func (b *Build) GetImageID() string {
 	return b.state.ImageID
 }

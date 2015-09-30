@@ -32,10 +32,7 @@ import (
 	"github.com/fsouza/go-dockerclient"
 )
 
-const (
-	COMMIT_SKIP = "COMMIT_SKIP"
-)
-
+// ConfigCommand configuration parameters for any command
 type ConfigCommand struct {
 	name      string
 	args      []string
@@ -45,6 +42,7 @@ type ConfigCommand struct {
 	isOnbuild bool
 }
 
+// Command interface describes and command that is executed by build
 type Command interface {
 	// Execute does the command execution and returns modified state.
 	// Note that here we use State not by reference because we want
@@ -59,6 +57,7 @@ type Command interface {
 	String() string
 }
 
+// NewCommand make a new command according to the configuration given
 func NewCommand(cfg ConfigCommand) (cmd Command, err error) {
 	// TODO: use reflection?
 	switch cfg.name {
@@ -118,14 +117,17 @@ type CommandFrom struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandFrom) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandFrom) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 	// TODO: for "scratch" image we may use /images/create
 
@@ -196,14 +198,17 @@ type CommandMaintainer struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandMaintainer) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandMaintainer) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandMaintainer) Execute(b *Build) (State, error) {
 	if len(c.cfg.args) != 1 {
 		return b.state, fmt.Errorf("MAINTAINER requires exactly one argument")
@@ -214,20 +219,23 @@ func (c *CommandMaintainer) Execute(b *Build) (State, error) {
 	return b.state, nil
 }
 
-// CommandReset cleans the builder state before the next FROM
+// CommandCleanup cleans the builder state before the next FROM
 type CommandCleanup struct {
 	final  bool
 	tagged bool
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandCleanup) String() string {
 	return "Cleaning up"
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandCleanup) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandCleanup) Execute(b *Build) (State, error) {
 	s := b.state
 
@@ -257,14 +265,17 @@ func (c *CommandCleanup) Execute(b *Build) (State, error) {
 // CommandCommit commits collected changes
 type CommandCommit struct{}
 
+// String returns the human readable string representation of the command
 func (c *CommandCommit) String() string {
 	return "Commit changes"
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandCommit) ShouldRun(b *Build) (bool, error) {
 	return b.state.GetCommits() != "", nil
 }
 
+// Execute runs the command
 func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	s = b.state
 
@@ -338,14 +349,17 @@ type CommandRun struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandRun) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandRun) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	s = b.state
 
@@ -396,15 +410,18 @@ type CommandAttach struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandAttach) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandAttach) ShouldRun(b *Build) (bool, error) {
 	// TODO: skip attach?
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandAttach) Execute(b *Build) (s State, err error) {
 	s = b.state
 
@@ -463,14 +480,17 @@ type CommandEnv struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandEnv) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandEnv) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandEnv) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -517,14 +537,17 @@ type CommandLabel struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandLabel) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandLabel) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandLabel) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -565,14 +588,17 @@ type CommandWorkdir struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandWorkdir) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandWorkdir) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandWorkdir) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -600,14 +626,17 @@ type CommandCmd struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandCmd) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandCmd) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandCmd) Execute(b *Build) (s State, err error) {
 	s = b.state
 
@@ -633,14 +662,17 @@ type CommandEntrypoint struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandEntrypoint) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandEntrypoint) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandEntrypoint) Execute(b *Build) (s State, err error) {
 	s = b.state
 
@@ -675,14 +707,17 @@ type CommandExpose struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandExpose) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandExpose) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandExpose) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -726,14 +761,17 @@ type CommandVolume struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandVolume) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandVolume) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandVolume) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -763,14 +801,17 @@ type CommandUser struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandUser) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandUser) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandUser) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -791,14 +832,17 @@ type CommandOnbuild struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandOnbuild) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandOnbuild) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandOnbuild) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -828,14 +872,17 @@ type CommandTag struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandTag) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandTag) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandTag) Execute(b *Build) (State, error) {
 	if len(c.cfg.args) != 1 {
 		return b.state, fmt.Errorf("TAG requires exactly one argument")
@@ -857,14 +904,17 @@ type CommandPush struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandPush) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandPush) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandPush) Execute(b *Build) (State, error) {
 	if len(c.cfg.args) != 1 {
 		return b.state, fmt.Errorf("PUSH requires exactly one argument")
@@ -895,14 +945,17 @@ type CommandCopy struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandCopy) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandCopy) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandCopy) Execute(b *Build) (State, error) {
 	if len(c.cfg.args) < 2 {
 		return b.state, fmt.Errorf("COPY requires at least two arguments")
@@ -916,14 +969,17 @@ type CommandAdd struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandAdd) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandAdd) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandAdd) Execute(b *Build) (State, error) {
 	if len(c.cfg.args) < 2 {
 		return b.state, fmt.Errorf("ADD requires at least two arguments")
@@ -936,14 +992,17 @@ type CommandMount struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandMount) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandMount) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandMount) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -1011,14 +1070,17 @@ type CommandExport struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandExport) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandExport) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandExport) Execute(b *Build) (s State, err error) {
 
 	s = b.state
@@ -1066,13 +1128,13 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	}
 
 	// Remember original stuff so we can restore it when we finished
-	var exportsId string
+	var exportsID string
 	origState := s
 
 	defer func() {
 		s = origState
-		s.ExportsID = exportsId
-		b.exports = append(b.exports, exportsId)
+		s.ExportsID = exportsID
+		b.exports = append(b.exports, exportsID)
 	}()
 
 	// Append exports container as a volume
@@ -1090,14 +1152,14 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	s.Config.Cmd = cmd
 	s.Config.Entrypoint = []string{}
 
-	if exportsId, err = b.client.CreateContainer(s); err != nil {
+	if exportsID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
 	}
-	defer b.client.RemoveContainer(exportsId)
+	defer b.client.RemoveContainer(exportsID)
 
-	log.Infof("| Running in %.12s: %s", exportsId, strings.Join(cmd, " "))
+	log.Infof("| Running in %.12s: %s", exportsID, strings.Join(cmd, " "))
 
-	if err = b.client.RunContainer(exportsId, false); err != nil {
+	if err = b.client.RunContainer(exportsID, false); err != nil {
 		return s, err
 	}
 
@@ -1109,14 +1171,17 @@ type CommandImport struct {
 	cfg ConfigCommand
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandImport) String() string {
 	return c.cfg.original
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandImport) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	s = b.state
 	args := c.cfg.args
@@ -1208,14 +1273,17 @@ type CommandOnbuildWrap struct {
 	cmd Command
 }
 
+// String returns the human readable string representation of the command
 func (c *CommandOnbuildWrap) String() string {
 	return "ONBUILD " + c.cmd.String()
 }
 
+// ShouldRun returns true if the command should be executed
 func (c *CommandOnbuildWrap) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// Execute runs the command
 func (c *CommandOnbuildWrap) Execute(b *Build) (State, error) {
 	return c.cmd.Execute(b)
 }

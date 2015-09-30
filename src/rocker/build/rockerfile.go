@@ -27,6 +27,7 @@ import (
 	"strings"
 )
 
+// Rockerfile represents the data structure of a Rockerfile
 type Rockerfile struct {
 	Name    string
 	Source  string
@@ -37,6 +38,7 @@ type Rockerfile struct {
 	rootNode *parser.Node
 }
 
+// NewRockerfileFromFile reads and parses Rockerfile from a file
 func NewRockerfileFromFile(name string, vars template.Vars, funs template.Funs) (r *Rockerfile, err error) {
 	fd, err := os.Open(name)
 	if err != nil {
@@ -47,6 +49,7 @@ func NewRockerfileFromFile(name string, vars template.Vars, funs template.Funs) 
 	return NewRockerfile(name, fd, vars, funs)
 }
 
+// NewRockerfile reads parses Rockerfile from an io.Reader
 func NewRockerfile(name string, in io.Reader, vars template.Vars, funs template.Funs) (r *Rockerfile, err error) {
 	r = &Rockerfile{
 		Name: name,
@@ -80,6 +83,7 @@ func NewRockerfile(name string, in io.Reader, vars template.Vars, funs template.
 	return r, nil
 }
 
+// Commands returns the list of command configurations from the Rockerfile
 func (r *Rockerfile) Commands() []ConfigCommand {
 	commands := []ConfigCommand{}
 
