@@ -67,10 +67,7 @@ func New(image string, tag string) *ImageName {
 		dockerImage.Name = image
 	}
 	if tag != "" {
-		if rng, err := semver.NewRange(tag); err == nil && rng != nil {
-			dockerImage.Version = rng
-		}
-		dockerImage.Tag = tag
+		dockerImage.SetTag(tag)
 	}
 	return dockerImage
 }
@@ -91,6 +88,15 @@ func (img ImageName) GetTag() string {
 		return img.Tag
 	}
 	return Latest
+}
+
+// SetTag sets the new tag for the imagename
+func (img *ImageName) SetTag(tag string) {
+	img.Version = nil
+	if rng, err := semver.NewRange(tag); err == nil && rng != nil {
+		img.Version = rng
+	}
+	img.Tag = tag
 }
 
 // IsStrict returns true if tag of the current image is specified and contains no fuzzy rules
