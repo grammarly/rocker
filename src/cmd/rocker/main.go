@@ -17,7 +17,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,7 +24,6 @@ import (
 
 	"rocker/build"
 	"rocker/dockerclient"
-	"rocker/imagename"
 	"rocker/template"
 
 	"github.com/codegangsta/cli"
@@ -142,17 +140,6 @@ func main() {
 			Usage:  "launches a build for the specified Rockerfile",
 			Action: buildCommand,
 			Flags:  buildFlags,
-		},
-		{
-			Name:   "show",
-			Usage:  "shows information about any image",
-			Action: showCommand,
-			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:  "json",
-					Usage: "print output in json",
-				},
-			},
 		},
 		{
 			Name:   "clean",
@@ -330,96 +317,6 @@ func buildCommand(c *cli.Context) {
 	// if _, err := builder.Build(); err != nil {
 	// 	log.Fatal(err)
 	// }
-}
-
-func showCommand(c *cli.Context) {
-	dockerClient, err := dockerclient.NewFromCli(c)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Initialize context dir
-	args := c.Args()
-	if len(args) == 0 {
-		log.Fatal("Missing image argument")
-	}
-	//parse parameter to name
-	imageName := imagename.NewFromString(args[0])
-	infos := []*build.RockerImageData{}
-
-	if imageName.IsStrict() {
-		image, err := dockerClient.InspectImage(args[0])
-		if err != nil && err.Error() == "no such image" {
-			image, err = imagename.RegistryGet(imageName)
-			if err != nil {
-				log.Fatal(err)
-			}
-		} else if err != nil {
-			log.Fatal(err)
-		}
-		info, err := toInfo(imageName, image)
-		if err != nil {
-			log.Fatal(err)
-		}
-		infos = append(infos, info)
-	} else {
-		images, err := imagename.RegistryListTags(imageName)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		type resp struct {
-			name  *imagename.ImageName
-			image *docker.Image
-			err   error
-		}
-		chResp := make(chan resp, len(images))
-
-		for _, img := range images {
-			go func(img *imagename.ImageName) {
-				r := resp{name: img}
-				r.image, r.err = imagename.RegistryGet(img)
-				chResp <- r
-			}(img)
-		}
-
-		for _ = range images {
-			r := <-chResp
-			if r.err != nil {
-				log.Println(r.err)
-			} else if info, err := toInfo(r.name, r.image); err == nil {
-				infos = append(infos, info)
-			}
-		}
-	}
-
-	if c.Bool("json") {
-		res, err := json.Marshal(infos)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(string(res))
-	} else {
-		for _, res := range infos {
-			fmt.Println(res.PrettyString())
-		}
-	}
-}
-
-func toInfo(name *imagename.ImageName, image *docker.Image) (*build.RockerImageData, error) {
-	data := &build.RockerImageData{}
-
-	if image.Config != nil {
-		if _, ok := image.Config.Labels["rocker-data"]; ok {
-			if err := json.Unmarshal([]byte(image.Config.Labels["rocker-data"]), data); err != nil {
-				return nil, err
-			}
-		}
-		data.Created = image.Created
-	}
-
-	data.ImageName = name
-	return data, nil
 }
 
 func cleanCommand(c *cli.Context) {
