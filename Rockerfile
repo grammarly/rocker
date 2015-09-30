@@ -1,6 +1,9 @@
 FROM golang:1.5.1
 
 {{ assert .Version }}
+{{ $stable := "0.2." }}
+{{ $beta := "0.3." }}
+{{ $v1 := "1.0." }}
 
 ADD . /src
 WORKDIR /src
@@ -44,4 +47,12 @@ ENV PATH=/opt/rocker/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin
 
 CMD ["/opt/rocker/bin/rocker"]
 
-PUSH --semver dockerhub.grammarly.io/rocker:{{ .Version }}
+PUSH dockerhub.grammarly.io/rocker:{{ .Version }}
+
+{{ if hasPrefix .Version $stable }}
+  PUSH dockerhub.grammarly.io/rocker:stable
+{{ else if hasPrefix .Version $beta }}
+  PUSH dockerhub.grammarly.io/rocker:beta
+{{ else if hasPrefix .Version $v1 }}
+  PUSH dockerhub.grammarly.io/rocker:v1
+{{ end }}
