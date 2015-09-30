@@ -36,7 +36,8 @@ import (
 )
 
 var (
-	captureImageID = regexp.MustCompile("Successfully built ([a-z0-9]{12})")
+	captureImageID = regexp.MustCompile("Successfully built ([a-f0-9]{12})")
+	captureDigest  = regexp.MustCompile("digest:\\s*(sha256:[a-f0-9]{64})")
 )
 
 func (builder *Builder) checkDockerignore() (err error) {
@@ -366,16 +367,22 @@ func (builder *Builder) ensureImage(imageName string, purpose string) error {
 	return nil
 }
 
-func (builder *Builder) pushImage(image imagename.ImageName) error {
-	pipeReader, pipeWriter := io.Pipe()
-	errch := make(chan error)
+func (builder *Builder) pushImage(image imagename.ImageName) (digest string, err error) {
+
+	var (
+		pipeReader, pipeWriter = io.Pipe()
+		errch                  = make(chan error)
+
+		buf       bytes.Buffer
+		outStream = io.MultiWriter(pipeWriter, &buf)
+	)
 
 	go func() {
 		err := builder.Docker.PushImage(docker.PushImageOptions{
 			Name:          image.NameWithRegistry(),
 			Tag:           image.GetTag(),
 			Registry:      image.Registry,
-			OutputStream:  pipeWriter,
+			OutputStream:  outStream,
 			RawJSONStream: true,
 		}, *builder.Auth)
 
@@ -387,14 +394,20 @@ func (builder *Builder) pushImage(image imagename.ImageName) error {
 	}()
 
 	if err := jsonmessage.DisplayJSONMessagesStream(pipeReader, builder.OutStream, builder.fdOut, builder.isTerminalOut); err != nil {
-		return fmt.Errorf("Failed to process json stream for image: %s, error: %s", image, err)
+		return "", fmt.Errorf("Failed to process json stream for image: %s, error: %s", image, err)
 	}
 
 	if err := <-errch; err != nil {
-		return fmt.Errorf("Failed to push image: %s, error: %s", image, err)
+		return "", fmt.Errorf("Failed to push image: %s, error: %s", image, err)
 	}
 
-	return nil
+	// It is the best way to have pushed image digest so far
+	matches := captureDigest.FindStringSubmatch(buf.String())
+	if len(matches) > 0 {
+		digest = matches[1]
+	}
+
+	return digest, nil
 }
 
 func (builder *Builder) makeExportsContainer() (string, error) {

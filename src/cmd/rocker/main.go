@@ -119,6 +119,10 @@ func main() {
 			Name:  "id",
 			Usage: "override the default id generation strategy for current build",
 		},
+		cli.StringFlag{
+			Name:  "artifacts-path",
+			Usage: "put artifacts (files with pushed images description) to the directory",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -224,23 +228,24 @@ func buildCommand(c *cli.Context) {
 	}
 
 	builder := build.Builder{
-		Rockerfile:   configFilename,
-		ContextDir:   contextDir,
-		UtilizeCache: !c.Bool("no-cache"),
-		Push:         c.Bool("push"),
-		NoReuse:      c.Bool("no-reuse"),
-		Verbose:      c.Bool("verbose"),
-		Attach:       c.Bool("attach"),
-		Print:        c.Bool("print"),
-		Auth:         auth,
-		Vars:         vars,
-		CliVars:      cliVars,
-		InStream:     os.Stdin,
-		OutStream:    os.Stdout,
-		Docker:       dockerClient,
-		AddMeta:      c.Bool("meta"),
-		Pull:         c.Bool("pull"),
-		ID:           c.String("id"),
+		Rockerfile:    configFilename,
+		ContextDir:    contextDir,
+		UtilizeCache:  !c.Bool("no-cache"),
+		Push:          c.Bool("push"),
+		NoReuse:       c.Bool("no-reuse"),
+		Verbose:       c.Bool("verbose"),
+		Attach:        c.Bool("attach"),
+		Print:         c.Bool("print"),
+		Auth:          auth,
+		Vars:          vars,
+		CliVars:       cliVars,
+		InStream:      os.Stdin,
+		OutStream:     os.Stdout,
+		Docker:        dockerClient,
+		AddMeta:       c.Bool("meta"),
+		Pull:          c.Bool("pull"),
+		ID:            c.String("id"),
+		ArtifactsPath: c.String("artifacts-path"),
 	}
 
 	if _, err := builder.Build(); err != nil {

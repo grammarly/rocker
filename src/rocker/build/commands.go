@@ -19,6 +19,7 @@ package build
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/user"
 	"path"
@@ -386,8 +387,29 @@ func (builder *Builder) cmdPush(args []string, attributes map[string]bool, flags
 
 	for _, image := range builder.recentTags {
 		fmt.Fprintf(builder.OutStream, "[Rocker]  Push %.12s -> %s\n", builder.imageID, image)
-		if err := builder.pushImage(*image); err != nil {
+
+		digest, err := builder.pushImage(*image)
+		if err != nil {
 			return err
+		}
+
+		if builder.ArtifactsPath != "" {
+			if err := os.MkdirAll(builder.ArtifactsPath, 0755); err != nil {
+				return fmt.Errorf("Failed to create directory %s for the artifacts, error: %s", builder.ArtifactsPath, err)
+			}
+			fileName := filepath.Join(builder.ArtifactsPath, image.GetTag())
+			lines := []string{
+				fmt.Sprintf("Name: %s", image),
+				fmt.Sprintf("Tag: %s", image.GetTag()),
+				fmt.Sprintf("ImageID: %s", builder.imageID),
+				fmt.Sprintf("Digest: %s", digest),
+				fmt.Sprintf("Addressable: %s@%s", image.NameWithRegistry(), digest),
+			}
+			content := []byte(strings.Join(lines, "\n") + "\n")
+
+			if err := ioutil.WriteFile(fileName, content, 0644); err != nil {
+				return fmt.Errorf("Failed to write artifact file %s, error: %s", fileName, err)
+			}
 		}
 	}
 

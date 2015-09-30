@@ -69,6 +69,7 @@ type Builder struct {
 	AddMeta           bool
 	Print             bool
 	Pull              bool
+	ArtifactsPath     string
 
 	rootNode           *parser.Node
 	i                  int
