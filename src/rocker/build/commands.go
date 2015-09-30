@@ -397,8 +397,7 @@ func (builder *Builder) cmdPush(args []string, attributes map[string]bool, flags
 			if err := os.MkdirAll(builder.ArtifactsPath, 0755); err != nil {
 				return fmt.Errorf("Failed to create directory %s for the artifacts, error: %s", builder.ArtifactsPath, err)
 			}
-			fileName := fmt.Sprintf("%s.yml", image.GetTag())
-			filePath := filepath.Join(builder.ArtifactsPath, fileName)
+			filePath := filepath.Join(builder.ArtifactsPath, image.GetTag())
 			lines := []string{
 				fmt.Sprintf("Name: %s", image),
 				fmt.Sprintf("Tag: %s", image.GetTag()),
