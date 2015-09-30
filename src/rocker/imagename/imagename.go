@@ -94,6 +94,13 @@ func (img ImageName) GetTag() string {
 }
 
 // IsStrict returns true if tag of the current image is specified and contains no fuzzy rules
+// Example:
+// golang:latest == true
+// golang:stable == true
+// golang:1.5.1  == true
+// golang:1.5.*  == false
+// golang        == false
+//
 func (img ImageName) IsStrict() bool {
 	if img.HasVersionRange() {
 		return img.TagAsVersion() != nil
@@ -102,16 +109,32 @@ func (img ImageName) IsStrict() bool {
 }
 
 // All returns true if tag of the current image refers to any version
+// Example:
+// golang:*      == true
+// golang        == true
+// golang:latest == false
 func (img ImageName) All() bool {
 	return strings.Contains(Wildcards, img.Tag)
 }
 
 // HasVersion returns true if tag of the current image refers to a semver format
+// Example:
+// golang:1.5.1  == true
+// golang:1.5.*  == false
+// golang:stable == false
+// golang:latest == false
 func (img ImageName) HasVersion() bool {
 	return img.TagAsVersion() != nil
 }
 
 // HasVersionRange returns true if tag of the current image refers to a semver format and is fuzzy
+// Example:
+// golang:1.5.1  == true
+// golang:1.5.*  == true
+// golang:*      == true
+// golang:stable == false
+// golang:latest == false
+// golang        == false
 func (img ImageName) HasVersionRange() bool {
 	return img.Version != nil
 }
@@ -161,6 +184,44 @@ func (img ImageName) Contains(b *ImageName) bool {
 	}
 
 	return img.Tag == "" && !img.HasVersionRange()
+}
+
+// ResolveVersion finds an applicable tag for current image among the list of available tags
+func (img *ImageName) ResolveVersion(list []*ImageName) (result *ImageName) {
+	for _, candidate := range list {
+		// If we have a strict equality
+		if img.HasTag() && candidate.HasTag() && img.Tag == candidate.Tag {
+			return candidate
+		}
+
+		// If image is without tag, latest will be fine
+		if !img.HasTag() && candidate.GetTag() == Latest {
+			return candidate
+		}
+
+		if !img.Contains(candidate) {
+			//this image is from the same name/registry but tag is not applicable
+			// e.g. ~1.2.3 contains 1.2.5, but it's not true for 1.3.0
+			continue
+		}
+
+		if result == nil {
+			result = candidate
+			continue
+		}
+
+		// uncomparable candidate... skipping
+		if !candidate.HasVersion() {
+			continue
+		}
+
+		// if both names has versions to compare, we cat safely compare them
+		if result.HasVersion() && candidate.HasVersion() && result.TagAsVersion().Less(candidate.TagAsVersion()) {
+			result = candidate
+		}
+	}
+
+	return
 }
 
 // UnmarshalJSON parses JSON string and returns ImageName

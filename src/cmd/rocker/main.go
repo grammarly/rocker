@@ -249,8 +249,6 @@ func buildCommand(c *cli.Context) {
 }
 
 func showCommand(c *cli.Context) {
-	hub := imagename.NewDockerHub()
-
 	dockerClient, err := dockerclient.NewFromCli(c)
 	if err != nil {
 		log.Fatal(err)
@@ -268,7 +266,7 @@ func showCommand(c *cli.Context) {
 	if imageName.IsStrict() {
 		image, err := dockerClient.InspectImage(args[0])
 		if err != nil && err.Error() == "no such image" {
-			image, err = hub.Get(imageName)
+			image, err = imagename.RegistryGet(imageName)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -281,7 +279,7 @@ func showCommand(c *cli.Context) {
 		}
 		infos = append(infos, info)
 	} else {
-		images, err := hub.List(imageName)
+		images, err := imagename.RegistryListTags(imageName)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -296,7 +294,7 @@ func showCommand(c *cli.Context) {
 		for _, img := range images {
 			go func(img *imagename.ImageName) {
 				r := resp{name: img}
-				r.image, r.err = hub.Get(img)
+				r.image, r.err = imagename.RegistryGet(img)
 				chResp <- r
 			}(img)
 		}

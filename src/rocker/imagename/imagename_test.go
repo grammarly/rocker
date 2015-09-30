@@ -17,8 +17,11 @@
 package imagename
 
 import (
+	"fmt"
 	"testing"
 	"time"
+
+	"github.com/kr/pretty"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/wmark/semver"
@@ -189,6 +192,202 @@ func TestImageIpRegistry(t *testing.T) {
 func TestImageAll(t *testing.T) {
 	img := NewFromString("golang:1.*")
 	assert.False(t, img.All())
+}
+
+func TestImageTest(t *testing.T) {
+	t.Skip()
+	names := []string{
+		"golang:latest",
+		"golang:stable",
+		"golang:1.5.1",
+		"golang:1.5.*",
+		"golang:*",
+		"golang",
+	}
+	for _, n := range names {
+		img := NewFromString(n)
+		m := [][2]interface{}{
+			{"IsStrict()", img.IsStrict()},
+			{"HasVersion()", img.HasVersion()},
+			{"HasVersionRange()", img.HasVersionRange()},
+			{"All()", img.All()},
+			{"GetTag()", img.GetTag()},
+		}
+		fmt.Printf("%s\t%# v\n", n, pretty.Formatter(m))
+	}
+}
+
+func TestImageResolveVersion_Strict(t *testing.T) {
+	img := NewFromString("golang:1.5.2")
+	list := []*ImageName{
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:1.5.2"),
+		NewFromString("golang:1.5.3"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:1.5.2", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_Wildcard(t *testing.T) {
+	img := NewFromString("golang:1.5.*")
+	list := []*ImageName{
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:1.5.2"),
+		NewFromString("golang:1.5.3"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:1.5.3", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_WildcardMulti(t *testing.T) {
+	img := NewFromString("golang:1.4.*")
+	list := []*ImageName{
+		NewFromString("golang:1.4.1"),
+		NewFromString("golang:1.4.2"),
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:1.5.2"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:1.4.2", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_WildcardMatchX(t *testing.T) {
+	img := NewFromString("golang:1.4.x")
+	list := []*ImageName{
+		NewFromString("golang:1.4.1"),
+		NewFromString("golang:1.4.x"),
+		NewFromString("golang:1.4.2"),
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:1.5.2"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:1.4.x", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_WildcardMatchX2(t *testing.T) {
+	img := NewFromString("golang:1.x")
+	list := []*ImageName{
+		NewFromString("golang:1.4.1"),
+		NewFromString("golang:1.4.x"),
+		NewFromString("golang:1.4.2"),
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:1.5.2"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:1.5.2", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_WildcardMatchX3(t *testing.T) {
+	img := NewFromString("golang:1.x")
+	list := []*ImageName{
+		NewFromString("golang:1.x"),
+		NewFromString("golang:1.4.1"),
+		NewFromString("golang:1.4.x"),
+		NewFromString("golang:1.4.2"),
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:1.5.2"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:1.x", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_All(t *testing.T) {
+	img := NewFromString("golang:*")
+	list := []*ImageName{
+		NewFromString("golang:1.4.1"),
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:1.5.1", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_Latest(t *testing.T) {
+	img := NewFromString("golang:latest")
+	list := []*ImageName{
+		NewFromString("golang:1.4.1"),
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:latest", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_OtherTag(t *testing.T) {
+	img := NewFromString("golang:stable")
+	list := []*ImageName{
+		NewFromString("golang:1.4.1"),
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:stable"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:stable", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_NoTag(t *testing.T) {
+	img := NewFromString("golang")
+	list := []*ImageName{
+		NewFromString("golang:1.4.1"),
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:stable"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:latest", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_NoTagOnlyLatest(t *testing.T) {
+	img := NewFromString("golang")
+	list := []*ImageName{
+		NewFromString("golang:stable"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:latest", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_PatchExact(t *testing.T) {
+	img := NewFromString("golang:1.4.1")
+	list := []*ImageName{
+		NewFromString("golang:1.4.1"),
+		NewFromString("golang:1.4.1-p2"),
+		NewFromString("golang:1.4.1-p1"),
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:1.5.2"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:1.4.1", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_PatchMatch(t *testing.T) {
+	img := NewFromString("golang:1.4.1")
+	list := []*ImageName{
+		NewFromString("golang:1.4.1-p1"),
+		NewFromString("golang:1.4.1-p2"),
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:1.5.2"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:1.4.1-p2", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_PatchStrict(t *testing.T) {
+	img := NewFromString("golang:1.4.1-p1")
+	list := []*ImageName{
+		NewFromString("golang:1.4.1"),
+		NewFromString("golang:1.4.1-p2"),
+		NewFromString("golang:1.4.1-p1"),
+		NewFromString("golang:1.5.1"),
+		NewFromString("golang:1.5.2"),
+		NewFromString("golang:latest"),
+	}
+	assert.Equal(t, "golang:1.4.1-p1", img.ResolveVersion(list).String())
+}
+
+func TestImageResolveVersion_NotFound(t *testing.T) {
+	img := NewFromString("golang:1.5.1")
+	list := []*ImageName{
+		NewFromString("golang:1.4.1"),
+		NewFromString("golang:stable"),
+		NewFromString("golang:latest"),
+	}
+	assert.Nil(t, img.ResolveVersion(list))
 }
 
 func TestImageIsSameKind(t *testing.T) {

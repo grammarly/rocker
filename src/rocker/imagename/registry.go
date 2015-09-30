@@ -42,14 +42,14 @@ type manifests struct {
 	SchemaVersion int        `json:"schemaVersion,omitempty"`
 }
 
-type hubTags struct {
-	Count    int       `json:"count,omitempty"`
-	Next     string    `json:"next,omitempty"`
-	Previous string    `json:"previous,omitempty"`
-	Results  []*hubTag `json:"results,omitempty"`
+type registryTags struct {
+	Count    int            `json:"count,omitempty"`
+	Next     string         `json:"next,omitempty"`
+	Previous string         `json:"previous,omitempty"`
+	Results  []*registryTag `json:"results,omitempty"`
 }
 
-type hubTag struct {
+type registryTag struct {
 	Name        string `json:"name,omitempty"`
 	FullSize    int    `json:"full_size,omitempty"`
 	ID          int    `json:"id,omitempty"`
@@ -60,17 +60,8 @@ type hubTag struct {
 	V2          bool   `json:"v2,omitempty"`
 }
 
-// DockerHub is an facade for communicating with registries
-// It is used for getting tag manifests and the list of image tags
-type DockerHub struct{}
-
-// NewDockerHub returns new DockerHub instance
-func NewDockerHub() *DockerHub {
-	return &DockerHub{}
-}
-
-// Get returns docker.Image instance from the information stored in the registry
-func (h *DockerHub) Get(image *ImageName) (img *docker.Image, err error) {
+// RegistryGet returns docker.Image instance from the information stored in the registry
+func RegistryGet(image *ImageName) (img *docker.Image, err error) {
 	manifest := manifests{}
 	img = &docker.Image{}
 
@@ -79,7 +70,7 @@ func (h *DockerHub) Get(image *ImageName) (img *docker.Image, err error) {
 		return
 	}
 
-	if err = h.doGet(fmt.Sprintf("https://%s/v2/%s/manifests/%s", image.Registry, image.Name, image.Tag), &manifest); err != nil {
+	if err = registryGet(fmt.Sprintf("https://%s/v2/%s/manifests/%s", image.Registry, image.Name, image.Tag), &manifest); err != nil {
 		return
 	}
 
@@ -93,49 +84,49 @@ func (h *DockerHub) Get(image *ImageName) (img *docker.Image, err error) {
 	return
 }
 
-// List returns the list of images instances obtained from all tags existing in the registry
-func (h *DockerHub) List(image *ImageName) (images []*ImageName, err error) {
+// RegistryListTags returns the list of images instances obtained from all tags existing in the registry
+func RegistryListTags(image *ImageName) (images []*ImageName, err error) {
 	if image.Registry != "" {
-		return h.listRegistry(image)
+		return registryListTags(image)
 	}
 
-	return h.listHub(image)
+	return registryListTagsDockerHub(image)
 }
 
-// listHub lists image tags from hub.docker.com
-func (h *DockerHub) listHub(image *ImageName) (images []*ImageName, err error) {
-	tg := hubTags{}
-	if err = h.doGet(fmt.Sprintf("https://hub.docker.com/v2/repositories/library/%s/tags/?page_size=9999&page=1", image.Name), &tg); err != nil {
+// registryListTagsDockerHub lists image tags from hub.docker.com
+func registryListTagsDockerHub(image *ImageName) (images []*ImageName, err error) {
+	tg := registryTags{}
+	if err = registryGet(fmt.Sprintf("https://hub.docker.com/v2/repositories/library/%s/tags/?page_size=9999&page=1", image.Name), &tg); err != nil {
 		return
 	}
 
 	for _, t := range tg.Results {
 		candidate := New(image.NameWithRegistry(), t.Name)
-		if image.Contains(candidate) {
+		if image.Contains(candidate) || image.Tag == candidate.Tag {
 			images = append(images, candidate)
 		}
 	}
 	return
 }
 
-// listRegistry lists image tags from a private docker registry
-func (h *DockerHub) listRegistry(image *ImageName) (images []*ImageName, err error) {
+// registryListTags lists image tags from a private docker registry
+func registryListTags(image *ImageName) (images []*ImageName, err error) {
 	tg := tags{}
-	if err = h.doGet(fmt.Sprintf("https://%s/v2/%s/tags/list", image.Registry, image.Name), &tg); err != nil {
+	if err = registryGet(fmt.Sprintf("https://%s/v2/%s/tags/list", image.Registry, image.Name), &tg); err != nil {
 		return
 	}
 
 	for _, t := range tg.Tags {
 		candidate := New(image.NameWithRegistry(), t)
-		if image.Contains(candidate) {
+		if image.Contains(candidate) || image.Tag == candidate.Tag {
 			images = append(images, candidate)
 		}
 	}
 	return
 }
 
-// doGet executes HTTP get to a given registry
-func (h *DockerHub) doGet(url string, obj interface{}) (err error) {
+// registryGet executes HTTP get to a given registry
+func registryGet(url string, obj interface{}) (err error) {
 	var res *http.Response
 	var body []byte
 
