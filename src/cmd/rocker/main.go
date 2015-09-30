@@ -69,7 +69,7 @@ func main() {
 
 	app.Flags = append([]cli.Flag{
 		cli.BoolFlag{
-			Name: "verbose, vv",
+			Name: "verbose, vv, D",
 		},
 		cli.BoolFlag{
 			Name: "json",
