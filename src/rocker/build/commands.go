@@ -397,7 +397,8 @@ func (builder *Builder) cmdPush(args []string, attributes map[string]bool, flags
 			if err := os.MkdirAll(builder.ArtifactsPath, 0755); err != nil {
 				return fmt.Errorf("Failed to create directory %s for the artifacts, error: %s", builder.ArtifactsPath, err)
 			}
-			fileName := filepath.Join(builder.ArtifactsPath, image.GetTag())
+			fileName := fmt.Sprintf("%s.yml", image.GetTag())
+			filePath := filepath.Join(builder.ArtifactsPath, fileName)
 			lines := []string{
 				fmt.Sprintf("Name: %s", image),
 				fmt.Sprintf("Tag: %s", image.GetTag()),
@@ -407,9 +408,11 @@ func (builder *Builder) cmdPush(args []string, attributes map[string]bool, flags
 			}
 			content := []byte(strings.Join(lines, "\n") + "\n")
 
-			if err := ioutil.WriteFile(fileName, content, 0644); err != nil {
-				return fmt.Errorf("Failed to write artifact file %s, error: %s", fileName, err)
+			if err := ioutil.WriteFile(filePath, content, 0644); err != nil {
+				return fmt.Errorf("Failed to write artifact file %s, error: %s", filePath, err)
 			}
+
+			fmt.Fprintf(builder.OutStream, "[Rocker]  Save artifact file %s\n", filePath)
 		}
 	}
 
