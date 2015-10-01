@@ -25,6 +25,7 @@ import (
 	"rocker/build"
 	"rocker/dockerclient"
 	"rocker/template"
+	"rocker/textformatter"
 	"rocker/util"
 
 	"github.com/codegangsta/cli"
@@ -366,7 +367,7 @@ func initLogs(ctx *cli.Context) {
 	if json {
 		logger.Formatter = &log.JSONFormatter{}
 	} else {
-		formatter := &build.TextFormatter{}
+		formatter := &textformatter.TextFormatter{}
 		formatter.DisableColors = !useColors
 
 		logger.Formatter = formatter

@@ -2,7 +2,7 @@
 // Copyright (c) 2014 Simon Eskildsen
 // NOTE: modified to support no-color mode that is more human readable
 
-package build
+package textformatter
 
 import (
 	"bytes"
