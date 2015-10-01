@@ -321,7 +321,7 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 
 	defer func(id string) {
 		s.Commits = []string{}
-		if err = b.client.RemoveContainer(id); err != nil {
+		if err := b.client.RemoveContainer(id); err != nil {
 			log.Errorf("Failed to remove temporary container %.12s, error: %s", id, err)
 		}
 	}(s.ContainerID)
