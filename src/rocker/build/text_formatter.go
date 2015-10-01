@@ -38,6 +38,7 @@ func miniTS() int {
 	return int(time.Since(baseTimestamp) / time.Second)
 }
 
+// TextFormatter is a formatter for logrus that can print colored and uncolored human readable log messages
 type TextFormatter struct {
 	// Set to true to bypass checking for a TTY before outputting colors.
 	ForceColors bool
@@ -62,8 +63,10 @@ type TextFormatter struct {
 	DisableSorting bool
 }
 
+// Format formats log message string, it checks if the output should be colored
+// and doest a particular formatting
 func (f *TextFormatter) Format(entry *log.Entry) ([]byte, error) {
-	var keys []string = make([]string, 0, len(entry.Data))
+	var keys = make([]string, 0, len(entry.Data))
 	for k := range entry.Data {
 		keys = append(keys, k)
 	}
