@@ -934,6 +934,7 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 	image := imagename.NewFromString(c.cfg.args[0])
 	artifactProps := []string{
 		fmt.Sprintf("Name: %s", image),
+		fmt.Sprintf("Pushed: %t", b.cfg.Push),
 		fmt.Sprintf("Tag: %s", image.GetTag()),
 		fmt.Sprintf("ImageID: %s", b.state.ImageID),
 	}
@@ -955,10 +956,6 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 
 	// Publish artifact files
 	if b.cfg.ArtifactsPath != "" {
-		artifactProps = append(
-			artifactProps,
-			fmt.Sprintf("Pushed: %t", b.cfg.Push),
-		)
 		if err := os.MkdirAll(b.cfg.ArtifactsPath, 0755); err != nil {
 			return b.state, fmt.Errorf("Failed to create directory %s for the artifacts, error: %s", b.cfg.ArtifactsPath, err)
 		}
