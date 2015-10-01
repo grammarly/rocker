@@ -28,31 +28,43 @@ import (
 // TODO: document
 type State struct {
 	Config         docker.Config
-	HostConfig     docker.HostConfig
+	HostConfig     docker.HostConfig // TODO: move to NoCache?
 	ImageID        string
 	ParentID       string
-	ContainerID    string
-	ExportsID      string
-	Commits        []string
 	NoBaseImage    bool
 	ProducedImage  bool
-	CmdSet         bool
-	CacheBusted    bool
 	InjectCommands []string
-	Dockerignore   []string
+	Commits        []string
+
+	NoCache StateNoCache
+}
+
+// StateNoCache is a struct that cannot be overridden by a cached item
+type StateNoCache struct {
+	Dockerignore []string
+	CacheBusted  bool
+	CmdSet       bool
+	ExportsID    string
+	ContainerID  string
 }
 
 // NewState makes a fresh state
 func NewState(b *Build) State {
-	return State{
-		Dockerignore: b.cfg.Dockerignore,
-	}
+	s := State{}
+	s.NoCache.Dockerignore = b.cfg.Dockerignore
+	return s
 }
 
 // Commit adds a commit to the current state
 func (s *State) Commit(msg string, args ...interface{}) *State {
 	s.Commits = append(s.Commits, fmt.Sprintf(msg, args...))
 	sort.Strings(s.Commits)
+	return s
+}
+
+// CleanCommits resets the commits struct
+func (s *State) CleanCommits() *State {
+	s.Commits = []string{}
 	return s
 }
 

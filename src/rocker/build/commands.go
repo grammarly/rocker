@@ -253,7 +253,7 @@ func (c *CommandCleanup) Execute(b *Build) (State, error) {
 	s = NewState(b)
 
 	// Keep some stuff between froms
-	s.ExportsID = dirtyState.ExportsID
+	s.NoCache.ExportsID = dirtyState.NoCache.ExportsID
 
 	// For final cleanup we want to keep imageID
 	if c.final {
@@ -292,12 +292,12 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	}
 
 	// TODO: ?
-	// if len(commits) == 0 && s.ContainerID == "" { log.Infof("| Skip")
+	// if len(commits) == 0 && s.NoCache.ContainerID == "" { log.Infof("| Skip")
 
 	// TODO: verify that we need to check cache in commit only for
 	//       a non-container actions
 
-	if s.ContainerID == "" {
+	if s.NoCache.ContainerID == "" {
 
 		// Check cache
 		var hit bool
@@ -312,7 +312,7 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 		origCmd := s.Config.Cmd
 		s.Config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + commits}
 
-		if s.ContainerID, err = b.client.CreateContainer(s); err != nil {
+		if s.NoCache.ContainerID, err = b.client.CreateContainer(s); err != nil {
 			return s, err
 		}
 
@@ -320,18 +320,18 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	}
 
 	defer func(id string) {
-		s.Commits = []string{}
+		s.CleanCommits()
 		if err := b.client.RemoveContainer(id); err != nil {
 			log.Errorf("Failed to remove temporary container %.12s, error: %s", id, err)
 		}
-	}(s.ContainerID)
+	}(s.NoCache.ContainerID)
 
 	var img *docker.Image
 	if img, err = b.client.CommitContainer(s, commits); err != nil {
 		return s, err
 	}
 
-	s.ContainerID = ""
+	s.NoCache.ContainerID = ""
 	s.ParentID = s.ImageID
 	s.ImageID = img.ID
 	s.ProducedImage = true
@@ -395,12 +395,12 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	origCmd := s.Config.Cmd
 	s.Config.Cmd = cmd
 
-	if s.ContainerID, err = b.client.CreateContainer(s); err != nil {
+	if s.NoCache.ContainerID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
 	}
 
-	if err = b.client.RunContainer(s.ContainerID, false); err != nil {
-		b.client.RemoveContainer(s.ContainerID)
+	if err = b.client.RunContainer(s.NoCache.ContainerID, false); err != nil {
+		b.client.RemoveContainer(s.NoCache.ContainerID)
 		return s, err
 	}
 
@@ -468,12 +468,12 @@ func (c *CommandAttach) Execute(b *Build) (s State, err error) {
 	s.Config.AttachStderr = true
 	s.Config.AttachStdout = true
 
-	if s.ContainerID, err = b.client.CreateContainer(s); err != nil {
+	if s.NoCache.ContainerID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
 	}
 
-	if err = b.client.RunContainer(s.ContainerID, true); err != nil {
-		b.client.RemoveContainer(s.ContainerID)
+	if err = b.client.RunContainer(s.NoCache.ContainerID, true); err != nil {
+		b.client.RemoveContainer(s.NoCache.ContainerID)
 		return s, err
 	}
 
@@ -656,7 +656,7 @@ func (c *CommandCmd) Execute(b *Build) (s State, err error) {
 	s.Commit(fmt.Sprintf("CMD %q", cmd))
 
 	if len(c.cfg.args) != 0 {
-		s.CmdSet = true
+		s.NoCache.CmdSet = true
 	}
 
 	return s, nil
@@ -700,7 +700,7 @@ func (c *CommandEntrypoint) Execute(b *Build) (s State, err error) {
 	// TODO: test this
 	// when setting the entrypoint if a CMD was not explicitly set then
 	// set the command to nil
-	if !s.CmdSet {
+	if !s.NoCache.CmdSet {
 		s.Config.Cmd = nil
 	}
 
@@ -1158,7 +1158,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		return s, err
 	}
 	if hit {
-		b.exports = append(b.exports, s.ExportsID)
+		b.exports = append(b.exports, s.NoCache.ExportsID)
 		return s, nil
 	}
 
@@ -1168,7 +1168,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 
 	defer func() {
 		s = origState
-		s.ExportsID = exportsID
+		s.NoCache.ExportsID = exportsID
 		b.exports = append(b.exports, exportsID)
 	}()
 
@@ -1271,7 +1271,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 
 	defer func() {
 		s = origState
-		s.ContainerID = importID
+		s.NoCache.ContainerID = importID
 	}()
 
 	cmd := []string{"/opt/rsync/bin/rsync", "-a"}

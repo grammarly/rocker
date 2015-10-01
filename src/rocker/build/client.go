@@ -297,7 +297,7 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 // CommitContainer commits docker container
 func (c *DockerClient) CommitContainer(s State, message string) (*docker.Image, error) {
 	commitOpts := docker.CommitContainerOptions{
-		Container: s.ContainerID,
+		Container: s.NoCache.ContainerID,
 		Message:   message,
 		Run:       &s.Config,
 	}

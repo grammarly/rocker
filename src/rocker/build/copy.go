@@ -64,7 +64,7 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 		src      = args[0 : len(args)-1]
 		dest     = filepath.FromSlash(args[len(args)-1]) // last one is always the dest
 		u        *upload
-		excludes = s.Dockerignore
+		excludes = s.NoCache.Dockerignore
 	)
 
 	// If destination is not a directory (no leading slash)
@@ -117,7 +117,7 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 	origCmd := s.Config.Cmd
 	s.Config.Cmd = []string{"/bin/sh", "-c", "#(nop) " + message}
 
-	if s.ContainerID, err = b.client.CreateContainer(s); err != nil {
+	if s.NoCache.ContainerID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
 	}
 
@@ -131,7 +131,7 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 
 	// Copy to "/" because we made the prefix inside the tar archive
 	// Do that because we are not able to reliably create directories inside the container
-	if err = b.client.UploadToContainer(s.ContainerID, u.tar, "/"); err != nil {
+	if err = b.client.UploadToContainer(s.NoCache.ContainerID, u.tar, "/"); err != nil {
 		return s, err
 	}
 

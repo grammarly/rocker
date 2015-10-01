@@ -146,7 +146,7 @@ func (b *Build) GetImageID() string {
 }
 
 func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
-	if b.cache == nil || s.CacheBusted {
+	if b.cache == nil || s.NoCache.CacheBusted {
 		return s, false, nil
 	}
 
@@ -155,7 +155,7 @@ func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
 		return s, false, err
 	}
 	if s2 == nil {
-		s.CacheBusted = true
+		s.NoCache.CacheBusted = true
 		log.Info(color.New(color.FgYellow).SprintFunc()("| Not cached"))
 		return s, false, nil
 	}
@@ -166,7 +166,7 @@ func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
 	}
 	if img == nil {
 		defer b.cache.Del(*s2)
-		s.CacheBusted = true
+		s.NoCache.CacheBusted = true
 		log.Info(color.New(color.FgYellow).SprintFunc()("| Not cached"))
 		return s, false, nil
 	}
@@ -184,9 +184,10 @@ func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
 	b.ProducedSize += img.Size
 	b.VirtualSize = img.VirtualSize
 
-	// TODO: maybe move somewhere
-	s2.Commits = []string{}
-	s2.CacheBusted = false
+	// Keep items that should not be cached from the previous state
+	s2.NoCache = s.NoCache
+	// We don't want commits to go through the cache
+	s2.CleanCommits()
 
 	return *s2, true, nil
 }

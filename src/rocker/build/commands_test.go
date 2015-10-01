@@ -151,7 +151,7 @@ func TestCommandRun_Simple(t *testing.T) {
 	assert.Equal(t, origCmd, b.state.Config.Cmd)
 	assert.Equal(t, origCmd, state.Config.Cmd)
 	assert.Equal(t, "123", state.ImageID)
-	assert.Equal(t, "456", state.ContainerID)
+	assert.Equal(t, "456", state.NoCache.ContainerID)
 }
 
 // =========== Testing COMMIT ===========
@@ -162,7 +162,7 @@ func TestCommandCommit_Simple(t *testing.T) {
 
 	resultImage := &docker.Image{ID: "789"}
 	b.state.ImageID = "123"
-	b.state.ContainerID = "456"
+	b.state.NoCache.ContainerID = "456"
 	b.state.Commit("a").Commit("b")
 
 	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return(resultImage, nil).Once()
@@ -178,7 +178,7 @@ func TestCommandCommit_Simple(t *testing.T) {
 	assert.Equal(t, "", state.GetCommits())
 	assert.Equal(t, []string(nil), state.Config.Cmd)
 	assert.Equal(t, "789", state.ImageID)
-	assert.Equal(t, "", state.ContainerID)
+	assert.Equal(t, "", state.NoCache.ContainerID)
 }
 
 func TestCommandCommit_NoContainer(t *testing.T) {
@@ -206,7 +206,7 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 	assert.Equal(t, "a; b", b.state.GetCommits())
 	assert.Equal(t, "", state.GetCommits())
 	assert.Equal(t, "789", state.ImageID)
-	assert.Equal(t, "", state.ContainerID)
+	assert.Equal(t, "", state.NoCache.ContainerID)
 }
 
 func TestCommandCommit_NoCommitMsgs(t *testing.T) {
@@ -589,7 +589,7 @@ func TestCommandCopy_Simple(t *testing.T) {
 	t.Logf("state: %# v", pretty.Formatter(state))
 
 	c.AssertExpectations(t)
-	assert.Equal(t, "456", state.ContainerID)
+	assert.Equal(t, "456", state.NoCache.ContainerID)
 }
 
 // =========== Testing TAG ===========
