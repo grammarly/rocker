@@ -28,6 +28,7 @@ import (
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/docker/pkg/units"
+	"github.com/fatih/color"
 	"github.com/fsouza/go-dockerclient"
 
 	log "github.com/Sirupsen/logrus"
@@ -73,6 +74,9 @@ func main() {
 		},
 		cli.BoolFlag{
 			Name: "json",
+		},
+		cli.BoolTFlag{
+			Name: "colors",
 		},
 	}, dockerclient.GlobalCliParams()...)
 
@@ -327,12 +331,31 @@ func cleanCommand(c *cli.Context) {
 }
 
 func initLogs(ctx *cli.Context) {
+	logger := log.StandardLogger()
+
 	if ctx.GlobalBool("verbose") {
-		log.SetLevel(log.DebugLevel)
+		logger.Level = log.DebugLevel
 	}
 
-	if ctx.GlobalBool("json") {
-		log.SetFormatter(&log.JSONFormatter{})
+	var (
+		isTerm    = log.IsTerminal()
+		json      = ctx.GlobalBool("json")
+		useColors = isTerm && !json
+	)
+
+	if ctx.GlobalIsSet("colors") {
+		useColors = ctx.GlobalBool("colors")
+	}
+
+	color.NoColor = !useColors
+
+	if json {
+		logger.Formatter = &log.JSONFormatter{}
+	} else {
+		formatter := &build.TextFormatter{}
+		formatter.DisableColors = !useColors
+
+		logger.Formatter = formatter
 	}
 }
 
