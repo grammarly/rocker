@@ -18,7 +18,10 @@ package util
 
 import (
 	"fmt"
+	"os"
+	"os/user"
 	"path"
+	"path/filepath"
 	"strings"
 )
 
@@ -42,4 +45,34 @@ func ResolvePath(baseDir, subPath string) (resultPath string, err error) {
 	}
 
 	return resultPath, nil
+}
+
+// MakeAbsolute makes any path absolute, either according to a HOME or from a working directory
+func MakeAbsolute(path string) (result string, err error) {
+	result = filepath.Clean(path)
+	if filepath.IsAbs(result) {
+		return result, nil
+	}
+
+	if strings.HasPrefix(result, "~/") || result == "~" {
+		home := os.Getenv("HOME")
+
+		// fallback to system user info
+		if home == "" {
+			usr, err := user.Current()
+			if err != nil {
+				return "", err
+			}
+			home = usr.HomeDir
+		}
+
+		return home + result[1:], nil
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(wd, path), nil
 }

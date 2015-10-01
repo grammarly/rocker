@@ -25,6 +25,7 @@ import (
 	"rocker/build"
 	"rocker/dockerclient"
 	"rocker/template"
+	"rocker/util"
 
 	"github.com/codegangsta/cli"
 	"github.com/docker/docker/pkg/units"
@@ -99,6 +100,11 @@ func main() {
 		cli.BoolFlag{
 			Name:  "no-cache",
 			Usage: "supresses cache for docker builds",
+		},
+		cli.StringFlag{
+			Name:  "cache-dir",
+			Value: "~/.rocker_cache",
+			Usage: "Set the directory where the cache will be stored",
 		},
 		cli.BoolFlag{
 			Name:  "no-reuse",
@@ -264,8 +270,11 @@ func buildCommand(c *cli.Context) {
 
 	var cache build.Cache
 	if !c.Bool("no-cache") {
-		// TODO: configurable cache dir
-		cache = build.NewCacheFS(os.Getenv("HOME") + "/.rocker_cache")
+		cacheDir, err := util.MakeAbsolute(c.String("cache-dir"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		cache = build.NewCacheFS(cacheDir)
 	}
 
 	builder := build.New(client, rockerfile, cache, build.Config{
