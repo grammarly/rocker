@@ -101,6 +101,10 @@ func main() {
 			Name:  "no-cache",
 			Usage: "supresses cache for docker builds",
 		},
+		cli.BoolFlag{
+			Name:  "reload-cache",
+			Usage: "removes any cache that hit and save the new one",
+		},
 		cli.StringFlag{
 			Name:  "cache-dir",
 			Value: "~/.rocker_cache",
@@ -289,6 +293,7 @@ func buildCommand(c *cli.Context) {
 		Verbose:       c.GlobalBool("verbose"),
 		ID:            c.String("id"),
 		NoCache:       c.Bool("no-cache"),
+		ReloadCache:   c.Bool("reload-cache"),
 		Push:          c.Bool("push"),
 	})
 

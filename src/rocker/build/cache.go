@@ -21,6 +21,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -48,6 +49,8 @@ func NewCacheFS(root string) *CacheFS {
 func (c *CacheFS) Get(s State) (res *State, err error) {
 	match := filepath.Join(c.root, s.ImageID)
 
+	latestTime := time.Unix(0, 0)
+
 	err = filepath.Walk(match, func(path string, info os.FileInfo, err error) error {
 		if err != nil && os.IsNotExist(err) {
 			return nil
@@ -67,16 +70,13 @@ func (c *CacheFS) Get(s State) (res *State, err error) {
 
 		log.Debugf("CACHE COMPARE %s %s %q %q", s.ImageID, s2.ImageID, s.Commits, s2.Commits)
 
-		if s.Equals(s2) {
+		if s.Equals(s2) && info.ModTime().After(latestTime) {
+			latestTime = info.ModTime()
 			res = &s2
-			return filepath.SkipDir
 		}
+
 		return nil
 	})
-
-	if err == filepath.SkipDir {
-		return res, nil
-	}
 
 	return
 }

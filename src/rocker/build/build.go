@@ -56,6 +56,7 @@ type Config struct {
 	Attach        bool
 	Verbose       bool
 	NoCache       bool
+	ReloadCache   bool
 	Push          bool
 }
 
@@ -157,6 +158,13 @@ func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
 	if s2 == nil {
 		s.NoCache.CacheBusted = true
 		log.Info(color.New(color.FgYellow).SprintFunc()("| Not cached"))
+		return s, false, nil
+	}
+
+	if b.cfg.ReloadCache {
+		defer b.cache.Del(*s2)
+		s.NoCache.CacheBusted = true
+		log.Info(color.New(color.FgYellow).SprintFunc()("| Reload cache"))
 		return s, false, nil
 	}
 
