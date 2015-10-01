@@ -337,7 +337,9 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	s.ProducedImage = true
 
 	if b.cache != nil {
-		b.cache.Put(s)
+		if err := b.cache.Put(s); err != nil {
+			return s, err
+		}
 	}
 
 	// Store some stuff to the build
