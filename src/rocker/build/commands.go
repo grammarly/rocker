@@ -689,7 +689,7 @@ func (c *CommandEntrypoint) Execute(b *Build) (s State, err error) {
 		s.Config.Entrypoint = parsed
 	case len(parsed) == 0:
 		// ENTRYPOINT []
-		s.Config.Entrypoint = nil
+		s.Config.Entrypoint = []string{}
 	default:
 		// ENTRYPOINT echo hi
 		s.Config.Entrypoint = []string{"/bin/sh", "-c", parsed[0]}

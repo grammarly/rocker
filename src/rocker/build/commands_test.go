@@ -442,7 +442,7 @@ func TestCommandEntrypoint_Remove(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, []string(nil), state.Config.Entrypoint)
+	assert.Equal(t, []string{}, state.Config.Entrypoint)
 }
 
 // =========== Testing EXPOSE ===========
