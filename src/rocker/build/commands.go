@@ -931,44 +931,48 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 		return b.state, err
 	}
 
-	if !b.cfg.Push {
+	var image *imagename.ImageName
+	var lines []string
+
+	if b.cfg.Push || b.cfg.ArtifactsPath != "" {
+		image = imagename.NewFromString(c.cfg.args[0])
+		lines = []string{
+			fmt.Sprintf("Name: %s", image),
+			fmt.Sprintf("Tag: %s", image.GetTag()),
+			fmt.Sprintf("ImageID: %s", b.state.ImageID),
+		}
+	}
+
+	// push image and add some lines to artifacts
+	if b.cfg.Push {
+		digest, err := b.client.PushImage(image.String())
+		if err != nil {
+			return b.state, err
+		}
+		lines = append(
+			lines,
+			fmt.Sprintf("Digest: %s", digest),
+			fmt.Sprintf("Addressable: %s@%s", image.NameWithRegistry(), digest),
+		)
+	} else {
 		log.Infof("| Don't push. Pass --push flag to actually push to the registry")
-		return b.state, nil
-	}
-
-	image := imagename.NewFromString(c.cfg.args[0])
-
-	digest, err := b.client.PushImage(image.String())
-	if err != nil {
-		return b.state, err
-	}
-
-	if b.cfg.ArtifactsPath == "" {
-		return b.state, nil
 	}
 
 	// Publish artifact files
+	if b.cfg.ArtifactsPath != "" {
+		if err := os.MkdirAll(b.cfg.ArtifactsPath, 0755); err != nil {
+			return b.state, fmt.Errorf("Failed to create directory %s for the artifacts, error: %s", b.cfg.ArtifactsPath, err)
+		}
+		filePath := filepath.Join(b.cfg.ArtifactsPath, image.GetTag())
 
-	if err := os.MkdirAll(b.cfg.ArtifactsPath, 0755); err != nil {
-		return b.state, fmt.Errorf("Failed to create directory %s for the artifacts, error: %s", b.cfg.ArtifactsPath, err)
+		content := []byte(strings.Join(lines, "\n") + "\n")
+
+		if err := ioutil.WriteFile(filePath, content, 0644); err != nil {
+			return b.state, fmt.Errorf("Failed to write artifact file %s, error: %s", filePath, err)
+		}
+		log.Infof("| Saved artifact file %s", filePath)
+		log.Debugf("Artifact properties: %# v", pretty.Formatter(lines))
 	}
-	filePath := filepath.Join(b.cfg.ArtifactsPath, image.GetTag())
-	lines := []string{
-		fmt.Sprintf("Name: %s", image),
-		fmt.Sprintf("Tag: %s", image.GetTag()),
-		fmt.Sprintf("ImageID: %s", b.state.ImageID),
-		fmt.Sprintf("Digest: %s", digest),
-		fmt.Sprintf("Addressable: %s@%s", image.NameWithRegistry(), digest),
-	}
-
-	content := []byte(strings.Join(lines, "\n") + "\n")
-
-	if err := ioutil.WriteFile(filePath, content, 0644); err != nil {
-		return b.state, fmt.Errorf("Failed to write artifact file %s, error: %s", filePath, err)
-	}
-
-	log.Infof("| Saved artifact file %s", filePath)
-	log.Debugf("Artifact properties: %# v", pretty.Formatter(lines))
 
 	return b.state, nil
 }
