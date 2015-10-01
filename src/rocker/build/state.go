@@ -31,6 +31,7 @@ type State struct {
 	HostConfig     docker.HostConfig // TODO: move to NoCache?
 	ImageID        string
 	ParentID       string
+	ExportsID      string
 	NoBaseImage    bool
 	ProducedImage  bool
 	InjectCommands []string
@@ -44,7 +45,6 @@ type StateNoCache struct {
 	Dockerignore []string
 	CacheBusted  bool
 	CmdSet       bool
-	ExportsID    string
 	ContainerID  string
 }
 

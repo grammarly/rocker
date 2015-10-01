@@ -253,7 +253,7 @@ func (c *CommandCleanup) Execute(b *Build) (State, error) {
 	s = NewState(b)
 
 	// Keep some stuff between froms
-	s.NoCache.ExportsID = dirtyState.NoCache.ExportsID
+	s.ExportsID = dirtyState.ExportsID
 
 	// For final cleanup we want to keep imageID
 	if c.final {
@@ -1158,7 +1158,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		return s, err
 	}
 	if hit {
-		b.exports = append(b.exports, s.NoCache.ExportsID)
+		b.exports = append(b.exports, s.ExportsID)
 		return s, nil
 	}
 
@@ -1168,7 +1168,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 
 	defer func() {
 		s = origState
-		s.NoCache.ExportsID = exportsID
+		s.ExportsID = exportsID
 		b.exports = append(b.exports, exportsID)
 	}()
 
