@@ -566,8 +566,7 @@ func TestCopy_MakeTarStream_DirRenameLeadingSlash(t *testing.T) {
 	})
 	defer os.RemoveAll(tmpDir)
 
-	// ADD ./c /src --> /src
-	// ADD ./a/b[/1,2] /src -> /src[/1,2]
+	// ADD ./c/ /src --> /src
 
 	includes := []string{
 		"./c/",
@@ -595,6 +594,96 @@ func TestCopy_MakeTarStream_DirRenameLeadingSlash(t *testing.T) {
 	assert.Equal(t, assertion, out, "bad tar content")
 }
 
+func TestCopy_MakeTarStream_SingleFileToDir(t *testing.T) {
+	tmpDir := makeTmpDir(t, map[string]string{
+		"foo.txt": "hello",
+	})
+	defer os.RemoveAll(tmpDir)
+
+	assertions := [][3]string{
+		{"foo.txt", "foo", "foo"},
+		{"foo.txt", "foo/", "foo/foo.txt"},
+	}
+
+	for _, a := range assertions {
+		includes := []string{a[0]}
+		excludes := []string{}
+		dest := a[1]
+
+		t.Logf("includes: %# v", pretty.Formatter(includes))
+		t.Logf("excludes: %# v", pretty.Formatter(excludes))
+		t.Logf("dest: %# v", pretty.Formatter(dest))
+
+		stream, err := makeTarStream(tmpDir, dest, "COPY", includes, excludes)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		out := writeReadTar(t, tmpDir, stream.tar)
+
+		assertion := strings.Join([]string{a[2]}, "\n") + "\n"
+
+		assert.Equal(t, assertion, out, "bad tar content for COPY %s %s", a[0], a[1])
+	}
+}
+
+// TODO:
+// WORKDIR /app
+// COPY lib lib/
+// should copy to /app/lib
+
+func TestCopy_MakeTarStream_DirRenameDestLeadingSlash(t *testing.T) {
+	tmpDir := makeTmpDir(t, map[string]string{
+		"lib/foo.txt": "hello",
+		"lib/x/1.txt": "hello",
+		"lib/x/2.txt": "hello",
+	})
+	defer os.RemoveAll(tmpDir)
+
+	// WORKDIR /app
+	// COPY lib lib
+	// COPY lib lib/
+	// COPY lib/ lib
+	// COPY lib/ lib/
+	// /app
+	// /app/lib
+	// /app/lib/foo.txt
+	// /app/lib/x/1.txt
+	// /app/lib/x/2.txt
+
+	assertions := [][2]string{
+		{"lib", "lib"},
+		{"lib", "lib/"},
+		{"lib/", "lib"},
+		{"lib/", "lib/"},
+	}
+
+	for _, a := range assertions {
+		includes := []string{a[0]}
+		excludes := []string{}
+		dest := a[1]
+
+		t.Logf("includes: %# v", pretty.Formatter(includes))
+		t.Logf("excludes: %# v", pretty.Formatter(excludes))
+		t.Logf("dest: %# v", pretty.Formatter(dest))
+
+		stream, err := makeTarStream(tmpDir, dest, "COPY", includes, excludes)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		out := writeReadTar(t, tmpDir, stream.tar)
+
+		assertion := strings.Join([]string{
+			"lib/foo.txt",
+			"lib/x/1.txt",
+			"lib/x/2.txt",
+		}, "\n") + "\n"
+
+		assert.Equal(t, assertion, out, "bad tar content for COPY %s %s", a[0], a[1])
+	}
+}
+
 func TestCopy_MakeTarStream_DirRenameWildcard(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"c/foo.txt": "hello",
@@ -608,6 +697,40 @@ func TestCopy_MakeTarStream_DirRenameWildcard(t *testing.T) {
 
 	includes := []string{
 		"*",
+	}
+	excludes := []string{}
+	dest := "/src"
+
+	t.Logf("includes: %# v", pretty.Formatter(includes))
+	t.Logf("excludes: %# v", pretty.Formatter(excludes))
+	t.Logf("dest: %# v", pretty.Formatter(dest))
+
+	stream, err := makeTarStream(tmpDir, dest, "COPY", includes, excludes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out := writeReadTar(t, tmpDir, stream.tar)
+
+	assertion := strings.Join([]string{
+		"src/c/foo.txt",
+		"src/c/x/1.txt",
+		"src/c/x/2.txt",
+	}, "\n") + "\n"
+
+	assert.Equal(t, assertion, out, "bad tar content")
+}
+
+func TestCopy_MakeTarStream_SubDirRenameWildcard(t *testing.T) {
+	tmpDir := makeTmpDir(t, map[string]string{
+		"a/c/foo.txt": "hello",
+		"a/c/x/1.txt": "hello",
+		"a/c/x/2.txt": "hello",
+	})
+	defer os.RemoveAll(tmpDir)
+
+	includes := []string{
+		"a/*",
 	}
 	excludes := []string{}
 	dest := "/src"
@@ -664,11 +787,6 @@ func TestCopy_MakeTarStream_SingleFileDirRename(t *testing.T) {
 
 	assert.Equal(t, assertion, out, "bad tar content")
 }
-
-// TODO:
-// WORKDIR /app
-// COPY lib lib/
-// should copy to /app/lib
 
 // helper functions
 

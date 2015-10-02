@@ -75,6 +75,7 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 
 	if !filepath.IsAbs(dest) {
 		dest = filepath.Join(s.Config.WorkingDir, dest)
+		// Add the leading slash back if we had it before
 		if hasLeadingSlash {
 			dest += string(os.PathSeparator)
 		}
@@ -160,18 +161,41 @@ func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string) (
 		return u, nil
 	}
 
-	// If we transfer a single item and the destination is not a directory (no leading slash)
-	if !strings.HasSuffix(u.dest, sep) && len(includes) == 1 {
-		item := filepath.Clean(includes[0])
-		// If we've got a single file that was explicitly pointed in the source item
-		// we need to replace its name with the destination
-		// e.g. COPY src/foo.txt /app/bar.txt
-		if len(u.files) == 1 && filepath.Clean(u.files[0].relDest) == item {
+	// If we transfer a single item
+	if len(includes) == 1 {
+		var (
+			item            = filepath.Clean(includes[0])
+			itemPath        = filepath.Join(srcPath, item)
+			hasLeadingSlash = strings.HasSuffix(u.dest, sep)
+			hasWildcards    = containsWildcards(item)
+			itemIsDir       = false
+			addSep          = false
+			stripDir        = false
+		)
+
+		if stat, err := os.Stat(itemPath); err == nil && stat.IsDir() {
+			itemIsDir = true
+		}
+
+		// The destination is not a directory (no leading slash) add it to the end
+		if !hasLeadingSlash {
+			addSep = true
+		}
+
+		// If the item copied is a directory, we have to strip its name
+		// e.g. COPY asd[/1,2] /lib  -->  /lib[/1,2]  but not /lib/asd[/1,2]
+		if itemIsDir {
+			stripDir = true
+		} else if !hasWildcards && !hasLeadingSlash {
+			// If we've got a single file that was explicitly pointed in the source item
+			// we need to replace its name with the destination
+			// e.g. COPY src/foo.txt /app/bar.txt
 			u.files[0].dest = strings.TrimLeft(u.dest, sep)
 			u.dest = ""
-		} else if !containsWildcards(item) {
-			// The source item is a directory but not a wildcard, so we need to rename only
-			// the first bit e.g. COPY foo /src
+			addSep = false
+		}
+
+		if stripDir {
 			for i := range u.files {
 				relDest, err := filepath.Rel(item, u.files[i].dest)
 				if err != nil {
@@ -179,8 +203,9 @@ func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string) (
 				}
 				u.files[i].dest = relDest
 			}
-			u.dest += sep
-		} else {
+		}
+
+		if addSep {
 			u.dest += sep
 		}
 	}
