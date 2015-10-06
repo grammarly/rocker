@@ -235,14 +235,17 @@ func buildCommand(c *cli.Context) {
 
 		// Initialize context dir
 		contextDir = filepath.Dir(configFilename)
-		args := c.Args()
-		if len(args) > 0 {
-			contextDir = args[0]
-			if !filepath.IsAbs(contextDir) {
-				contextDir = filepath.Join(wd, args[0])
-			}
+	}
+
+	args := c.Args()
+	if len(args) > 0 {
+		contextDir = args[0]
+		if !filepath.IsAbs(contextDir) {
+			contextDir = filepath.Join(wd, args[0])
 		}
 	}
+
+	log.Debugf("Context directory: %s", contextDir)
 
 	if c.Bool("print") {
 		fmt.Print(rockerfile.Content)
