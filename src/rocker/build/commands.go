@@ -1072,11 +1072,11 @@ func (c *CommandMount) Execute(b *Build) (s State, err error) {
 				return s, err
 			}
 
-			if s.HostConfig.Binds == nil {
-				s.HostConfig.Binds = []string{}
+			if s.NoCache.HostConfig.Binds == nil {
+				s.NoCache.HostConfig.Binds = []string{}
 			}
 
-			s.HostConfig.Binds = append(s.HostConfig.Binds, src+":"+dest)
+			s.NoCache.HostConfig.Binds = append(s.NoCache.HostConfig.Binds, src+":"+dest)
 			commitIds = append(commitIds, arg)
 
 		// MOUNT dir
@@ -1086,11 +1086,11 @@ func (c *CommandMount) Execute(b *Build) (s State, err error) {
 				return s, err
 			}
 
-			if s.HostConfig.VolumesFrom == nil {
-				s.HostConfig.VolumesFrom = []string{}
+			if s.NoCache.HostConfig.VolumesFrom == nil {
+				s.NoCache.HostConfig.VolumesFrom = []string{}
 			}
 
-			s.HostConfig.VolumesFrom = append(s.HostConfig.VolumesFrom, name)
+			s.NoCache.HostConfig.VolumesFrom = append(s.NoCache.HostConfig.VolumesFrom, name)
 			commitIds = append(commitIds, name+":"+arg)
 		}
 	}
@@ -1173,7 +1173,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	}()
 
 	// Append exports container as a volume
-	s.HostConfig.VolumesFrom = []string{exportsContainerID}
+	s.NoCache.HostConfig.VolumesFrom = []string{exportsContainerID}
 
 	cmd := []string{"/opt/rsync/bin/rsync", "-a", "--delete-during"}
 
@@ -1285,7 +1285,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 
 	s.Config.Cmd = cmd
 	s.Config.Entrypoint = []string{}
-	s.HostConfig.VolumesFrom = []string{b.exportsContainerName()}
+	s.NoCache.HostConfig.VolumesFrom = []string{b.exportsContainerName()}
 
 	if importID, err = b.client.CreateContainer(s); err != nil {
 		return s, err

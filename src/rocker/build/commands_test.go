@@ -706,7 +706,7 @@ func TestCommandMount_Simple(t *testing.T) {
 	}
 
 	c.AssertExpectations(t)
-	assert.Equal(t, []string{"/resolved/src:/dest"}, state.HostConfig.Binds)
+	assert.Equal(t, []string{"/resolved/src:/dest"}, state.NoCache.HostConfig.Binds)
 	assert.Equal(t, `MOUNT ["/src:/dest"]`, state.GetCommits())
 }
 
@@ -735,7 +735,7 @@ func TestCommandMount_VolumeContainer(t *testing.T) {
 	commitMsg := fmt.Sprintf("MOUNT [\"%s:/cache\"]", containerName)
 
 	c.AssertExpectations(t)
-	assert.Equal(t, []string{containerName}, state.HostConfig.VolumesFrom)
+	assert.Equal(t, []string{containerName}, state.NoCache.HostConfig.VolumesFrom)
 	assert.Equal(t, commitMsg, state.GetCommits())
 }
 

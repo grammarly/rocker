@@ -141,7 +141,7 @@ func (c *DockerClient) CreateContainer(s State) (string, error) {
 
 	opts := docker.CreateContainerOptions{
 		Config:     &s.Config,
-		HostConfig: &s.HostConfig,
+		HostConfig: &s.NoCache.HostConfig,
 	}
 
 	log.Debugf("Create container: %# v", pretty.Formatter(opts))

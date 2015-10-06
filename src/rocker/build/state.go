@@ -28,7 +28,6 @@ import (
 // TODO: document
 type State struct {
 	Config         docker.Config
-	HostConfig     docker.HostConfig // TODO: move to NoCache?
 	ImageID        string
 	ParentID       string
 	ExportsID      string
@@ -46,6 +45,7 @@ type StateNoCache struct {
 	CacheBusted  bool
 	CmdSet       bool
 	ContainerID  string
+	HostConfig   docker.HostConfig
 }
 
 // NewState makes a fresh state
