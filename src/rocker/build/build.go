@@ -186,7 +186,7 @@ func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
 
 	log.WithFields(log.Fields{
 		"size": size,
-	}).Infof(color.New(color.FgGreen).SprintfFunc()("| Take image %.12s from cache", s2.ImageID))
+	}).Infof(color.New(color.FgGreen).SprintfFunc()("| Cached! Take image %.12s", s2.ImageID))
 
 	// Store some stuff to the build
 	b.ProducedSize += img.Size
