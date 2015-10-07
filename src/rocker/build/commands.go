@@ -393,7 +393,9 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 
 	// We run this command in the container using CMD
 	origCmd := s.Config.Cmd
+	origEntrypoint := s.Config.Entrypoint
 	s.Config.Cmd = cmd
+	s.Config.Entrypoint = []string{}
 
 	if s.NoCache.ContainerID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
@@ -406,6 +408,7 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 
 	// Restore command after commit
 	s.Config.Cmd = origCmd
+	s.Config.Entrypoint = origEntrypoint
 
 	return s, nil
 }
