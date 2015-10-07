@@ -25,6 +25,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/codegangsta/cli"
 	"github.com/fsouza/go-dockerclient"
@@ -93,6 +94,26 @@ func NewFromConfig(config *Config) (*docker.Client, error) {
 // NewFromCli returns a new docker client connection with config built from cli params
 func NewFromCli(c *cli.Context) (*docker.Client, error) {
 	return NewFromConfig(NewConfigFromCli(c))
+}
+
+// Ping pings docker client but with timeout
+// The problem is that for some reason it's impossible to set the
+// default timeout for the go-dockerclient Dialer, need to investigate
+func Ping(client *docker.Client, timeoutMs int) error {
+	var (
+		chErr   = make(chan error)
+		timeout = time.Duration(timeoutMs) * time.Millisecond
+	)
+	go func() {
+		chErr <- client.Ping()
+	}()
+	select {
+	case err := <-chErr:
+		return err
+	case <-time.After(timeout):
+		// TODO: can we kill the ping goroutine?
+		return fmt.Errorf("Failed to reach docker server, timeout %s", timeout)
+	}
 }
 
 // GlobalCliParams returns global params that configures docker client connection

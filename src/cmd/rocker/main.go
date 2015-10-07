@@ -306,6 +306,11 @@ func buildCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
+	// Check the docker connection before we actually run
+	if err := dockerclient.Ping(dockerClient, 5000); err != nil {
+		log.Fatal(err)
+	}
+
 	if err := builder.Run(plan); err != nil {
 		log.Fatal(err)
 	}
