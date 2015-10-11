@@ -161,8 +161,8 @@ func TestImageRealLifeNamingExampleWithCapi(t *testing.T) {
 
 func TestImageParsingWithNamespace(t *testing.T) {
 	img := NewFromString("hub/ns/name:1")
-	assert.Equal(t, "hub", img.Registry)
-	assert.Equal(t, "ns/name", img.Name)
+	assert.Equal(t, "", img.Registry)
+	assert.Equal(t, "hub/ns/name", img.Name)
 	assert.Equal(t, "1", img.Tag)
 }
 
@@ -173,6 +173,24 @@ func TestImageParsingWithoutTag(t *testing.T) {
 	assert.Equal(t, "latest", img.GetTag())
 	assert.Equal(t, false, img.HasTag())
 	assert.Equal(t, "repo/name:latest", img.String())
+}
+
+func TestImageWithDotsWithoutTag(t *testing.T) {
+	img := NewFromString("a.b.c.d")
+	assert.Equal(t, "", img.Registry)
+	assert.Equal(t, "a.b.c.d", img.Name)
+	assert.Equal(t, "latest", img.GetTag())
+	assert.Equal(t, false, img.HasTag())
+	assert.Equal(t, "a.b.c.d:latest", img.String())
+}
+
+func TestImageWithDotsWithTag(t *testing.T) {
+	img := NewFromString("a.b.c.d:snapshot")
+	assert.Equal(t, "", img.Registry)
+	assert.Equal(t, "a.b.c.d", img.Name)
+	assert.Equal(t, "snapshot", img.GetTag())
+	assert.Equal(t, true, img.HasTag())
+	assert.Equal(t, "a.b.c.d:snapshot", img.String())
 }
 
 func TestImageLatest(t *testing.T) {
