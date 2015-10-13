@@ -59,12 +59,13 @@ func NewFromString(image string) *ImageName {
 // New parses a given 'image' and 'tag' strings and returns ImageName
 func New(image string, tag string) *ImageName {
 	dockerImage := &ImageName{}
-	if strings.Contains(image, ".") || len(strings.SplitN(image, "/", 3)) > 2 {
-		registryAndName := strings.SplitN(image, "/", 2)
-		dockerImage.Registry = registryAndName[0]
-		dockerImage.Name = registryAndName[1]
-	} else {
+	nameParts := strings.SplitN(image, "/", 2)
+	if len(nameParts) == 1 || (!strings.Contains(nameParts[0], ".") &&
+		!strings.Contains(nameParts[0], ":") && nameParts[0] != "localhost") {
 		dockerImage.Name = image
+	} else {
+		dockerImage.Registry = nameParts[0]
+		dockerImage.Name = nameParts[1]
 	}
 	if tag != "" {
 		dockerImage.SetTag(tag)
