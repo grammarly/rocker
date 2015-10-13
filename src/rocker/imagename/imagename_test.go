@@ -161,8 +161,8 @@ func TestImageRealLifeNamingExampleWithCapi(t *testing.T) {
 
 func TestImageParsingWithNamespace(t *testing.T) {
 	img := NewFromString("hub/ns/name:1")
-	assert.Equal(t, "hub", img.Registry)
-	assert.Equal(t, "ns/name", img.Name)
+	assert.Equal(t, "", img.Registry)
+	assert.Equal(t, "hub/ns/name", img.Name)
 	assert.Equal(t, "1", img.Tag)
 }
 
@@ -173,6 +173,42 @@ func TestImageParsingWithoutTag(t *testing.T) {
 	assert.Equal(t, "latest", img.GetTag())
 	assert.Equal(t, false, img.HasTag())
 	assert.Equal(t, "repo/name:latest", img.String())
+}
+
+func TestImageWithDotsWithoutTag(t *testing.T) {
+	img := NewFromString("a.b.c.d")
+	assert.Equal(t, "", img.Registry)
+	assert.Equal(t, "a.b.c.d", img.Name)
+	assert.Equal(t, "latest", img.GetTag())
+	assert.Equal(t, false, img.HasTag())
+	assert.Equal(t, "a.b.c.d:latest", img.String())
+}
+
+func TestImageWithDotsWithTag(t *testing.T) {
+	img := NewFromString("a.b.c.d:snapshot")
+	assert.Equal(t, "", img.Registry)
+	assert.Equal(t, "a.b.c.d", img.Name)
+	assert.Equal(t, "snapshot", img.GetTag())
+	assert.Equal(t, true, img.HasTag())
+	assert.Equal(t, "a.b.c.d:snapshot", img.String())
+}
+
+func TestImageWithRegistryAndDotsAndTag(t *testing.T) {
+	img := NewFromString("hub.com/a.b.c.d:snapshot")
+	assert.Equal(t, "hub.com", img.Registry)
+	assert.Equal(t, "a.b.c.d", img.Name)
+	assert.Equal(t, "snapshot", img.GetTag())
+	assert.Equal(t, true, img.HasTag())
+	assert.Equal(t, "hub.com/a.b.c.d:snapshot", img.String())
+}
+
+func TestImageWithRegistryAndSlashAndDotsAndTag(t *testing.T) {
+	img := NewFromString("hub.com/a.b/c.d:snapshot")
+	assert.Equal(t, "hub.com", img.Registry)
+	assert.Equal(t, "a.b/c.d", img.Name)
+	assert.Equal(t, "snapshot", img.GetTag())
+	assert.Equal(t, true, img.HasTag())
+	assert.Equal(t, "hub.com/a.b/c.d:snapshot", img.String())
 }
 
 func TestImageLatest(t *testing.T) {
@@ -187,6 +223,14 @@ func TestImageIpRegistry(t *testing.T) {
 	assert.Equal(t, "127.0.0.1:5000", img.Registry, "bag registry value")
 	assert.Equal(t, "golang", img.Name, "bad image name")
 	assert.Equal(t, "1.4", img.GetTag(), "bad image tag")
+}
+
+func TestImageTagSha(t *testing.T) {
+	img := NewFromString("golang@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11")
+	assert.Equal(t, "", img.Registry, "bag registry value")
+	assert.Equal(t, "golang", img.Name, "bad image name")
+	assert.Equal(t, "sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.GetTag(), "bad image tag")
+	assert.Equal(t, "golang@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.String())
 }
 
 func TestImageAll(t *testing.T) {
