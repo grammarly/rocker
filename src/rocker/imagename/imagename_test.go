@@ -225,6 +225,13 @@ func TestImageIpRegistry(t *testing.T) {
 	assert.Equal(t, "1.4", img.GetTag(), "bad image tag")
 }
 
+func TestImageTagSha(t *testing.T) {
+	img := NewFromString("golang@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11")
+	assert.Equal(t, "", img.Registry, "bag registry value")
+	assert.Equal(t, "golang", img.Name, "bad image name")
+	assert.Equal(t, "sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.GetTag(), "bad image tag")
+}
+
 func TestImageAll(t *testing.T) {
 	img := NewFromString("golang:1.*")
 	assert.False(t, img.All())
