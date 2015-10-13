@@ -46,40 +46,71 @@ type ImageName struct {
 
 // NewFromString parses a given string and returns ImageName
 func NewFromString(image string) *ImageName {
-	n := strings.LastIndex(image, ":")
-	if n < 0 {
-		return New(image, "")
-	}
-	if tag := image[n+1:]; !strings.Contains(tag, "/") {
-		return New(image[:n], tag)
-	}
-	return New(image, "")
+	name, tag := ParseRepositoryTag(image)
+	return New(name, tag)
 }
 
 // New parses a given 'image' and 'tag' strings and returns ImageName
 func New(image string, tag string) *ImageName {
 	dockerImage := &ImageName{}
-	if strings.Contains(image, ".") || len(strings.SplitN(image, "/", 3)) > 2 {
-		registryAndName := strings.SplitN(image, "/", 2)
-		dockerImage.Registry = registryAndName[0]
-		dockerImage.Name = registryAndName[1]
-	} else {
+	nameParts := strings.SplitN(image, "/", 2)
+
+	firstIsHost := strings.Contains(nameParts[0], ".") ||
+		strings.Contains(nameParts[0], ":") ||
+		nameParts[0] == "localhost"
+
+	if len(nameParts) == 1 || !firstIsHost {
 		dockerImage.Name = image
+	} else {
+		dockerImage.Registry = nameParts[0]
+		dockerImage.Name = nameParts[1]
 	}
+
 	if tag != "" {
 		dockerImage.SetTag(tag)
 	}
+
 	return dockerImage
+}
+
+// ParseRepositoryTag gets a repos name and returns the right reposName + tag|digest
+// The tag can be confusing because of a port in a repository name.
+//     Ex: localhost.localdomain:5000/samalba/hipache:latest
+//     Digest ex: localhost:5000/foo/bar@sha256:bc8813ea7b3603864987522f02a76101c17ad122e1c46d790efc0fca78ca7bfb
+// NOTE: borrowed from Docker under Apache 2.0, Copyright 2013-2015 Docker, Inc.
+func ParseRepositoryTag(repos string) (string, string) {
+	n := strings.Index(repos, "@")
+	if n >= 0 {
+		parts := strings.Split(repos, "@")
+		return parts[0], parts[1]
+	}
+	n = strings.LastIndex(repos, ":")
+	if n < 0 {
+		return repos, ""
+	}
+	if tag := repos[n+1:]; !strings.Contains(tag, "/") {
+		return repos[:n], tag
+	}
+	return repos, ""
 }
 
 // String returns the string representation of the current image name
 func (img ImageName) String() string {
+	if img.TagIsSha() {
+		return img.NameWithRegistry() + "@" + img.GetTag()
+	}
 	return img.NameWithRegistry() + ":" + img.GetTag()
 }
 
 // HasTag returns true if tags is specified for the image name
 func (img ImageName) HasTag() bool {
 	return img.Tag != ""
+}
+
+// TagIsSha returns true if the tag is content addressable sha256
+// e.g. golang@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11
+func (img ImageName) TagIsSha() bool {
+	return strings.HasPrefix(img.Tag, "sha256:")
 }
 
 // GetTag returns the tag of the current image name
