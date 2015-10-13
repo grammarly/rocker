@@ -96,12 +96,21 @@ func ParseRepositoryTag(repos string) (string, string) {
 
 // String returns the string representation of the current image name
 func (img ImageName) String() string {
+	if img.TagIsSha() {
+		return img.NameWithRegistry() + "@" + img.GetTag()
+	}
 	return img.NameWithRegistry() + ":" + img.GetTag()
 }
 
 // HasTag returns true if tags is specified for the image name
 func (img ImageName) HasTag() bool {
 	return img.Tag != ""
+}
+
+// TagIsSha returns true if the tag is content addressable sha256
+// e.g. golang@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11
+func (img ImageName) TagIsSha() bool {
+	return strings.HasPrefix(img.Tag, "sha256:")
 }
 
 // GetTag returns the tag of the current image name
