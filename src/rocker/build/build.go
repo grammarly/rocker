@@ -105,6 +105,11 @@ func (b *Build) Run(plan Plan) (err error) {
 			continue
 		}
 
+		// Replace env for the command if appropriate
+		if c, ok := c.(EnvReplacableCommand); ok {
+			c.ReplaceEnv(b.state.Config.Env)
+		}
+
 		log.Infof("%s", color.New(color.FgWhite, color.Bold).SprintFunc()(c))
 
 		if b.state, err = c.Execute(b); err != nil {

@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"rocker/imagename"
+	"rocker/shellparser"
 	"rocker/util"
 	"sort"
 	"strings"
@@ -58,6 +59,12 @@ type Command interface {
 
 	// String returns the human readable string representation of the command
 	String() string
+}
+
+// EnvReplacableCommand interface describes the command that can replace ENV
+// variables into arguments of itself
+type EnvReplacableCommand interface {
+	ReplaceEnv(env []string) error
 }
 
 // NewCommand make a new command according to the configuration given
@@ -498,6 +505,11 @@ func (c *CommandEnv) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// ReplaceEnv implements EnvReplacableCommand interface
+func (c *CommandEnv) ReplaceEnv(env []string) error {
+	return replaceEnv(c.cfg.args, env)
+}
+
 // Execute runs the command
 func (c *CommandEnv) Execute(b *Build) (s State, err error) {
 
@@ -555,6 +567,11 @@ func (c *CommandLabel) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// ReplaceEnv implements EnvReplacableCommand interface
+func (c *CommandLabel) ReplaceEnv(env []string) error {
+	return replaceEnv(c.cfg.args, env)
+}
+
 // Execute runs the command
 func (c *CommandLabel) Execute(b *Build) (s State, err error) {
 
@@ -604,6 +621,11 @@ func (c *CommandWorkdir) String() string {
 // ShouldRun returns true if the command should be executed
 func (c *CommandWorkdir) ShouldRun(b *Build) (bool, error) {
 	return true, nil
+}
+
+// ReplaceEnv implements EnvReplacableCommand interface
+func (c *CommandWorkdir) ReplaceEnv(env []string) error {
+	return replaceEnv(c.cfg.args, env)
 }
 
 // Execute runs the command
@@ -725,6 +747,11 @@ func (c *CommandExpose) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// ReplaceEnv implements EnvReplacableCommand interface
+func (c *CommandExpose) ReplaceEnv(env []string) error {
+	return replaceEnv(c.cfg.args, env)
+}
+
 // Execute runs the command
 func (c *CommandExpose) Execute(b *Build) (s State, err error) {
 
@@ -779,6 +806,11 @@ func (c *CommandVolume) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// ReplaceEnv implements EnvReplacableCommand interface
+func (c *CommandVolume) ReplaceEnv(env []string) error {
+	return replaceEnv(c.cfg.args, env)
+}
+
 // Execute runs the command
 func (c *CommandVolume) Execute(b *Build) (s State, err error) {
 
@@ -817,6 +849,11 @@ func (c *CommandUser) String() string {
 // ShouldRun returns true if the command should be executed
 func (c *CommandUser) ShouldRun(b *Build) (bool, error) {
 	return true, nil
+}
+
+// ReplaceEnv implements EnvReplacableCommand interface
+func (c *CommandUser) ReplaceEnv(env []string) error {
+	return replaceEnv(c.cfg.args, env)
 }
 
 // Execute runs the command
@@ -993,6 +1030,11 @@ func (c *CommandCopy) ShouldRun(b *Build) (bool, error) {
 	return true, nil
 }
 
+// ReplaceEnv implements EnvReplacableCommand interface
+func (c *CommandCopy) ReplaceEnv(env []string) error {
+	return replaceEnv(c.cfg.args, env)
+}
+
 // Execute runs the command
 func (c *CommandCopy) Execute(b *Build) (State, error) {
 	if len(c.cfg.args) < 2 {
@@ -1015,6 +1057,11 @@ func (c *CommandAdd) String() string {
 // ShouldRun returns true if the command should be executed
 func (c *CommandAdd) ShouldRun(b *Build) (bool, error) {
 	return true, nil
+}
+
+// ReplaceEnv implements EnvReplacableCommand interface
+func (c *CommandAdd) ReplaceEnv(env []string) error {
+	return replaceEnv(c.cfg.args, env)
 }
 
 // Execute runs the command
@@ -1324,4 +1371,15 @@ func (c *CommandOnbuildWrap) ShouldRun(b *Build) (bool, error) {
 // Execute runs the command
 func (c *CommandOnbuildWrap) Execute(b *Build) (State, error) {
 	return c.cmd.Execute(b)
+}
+
+////////// Private stuff //////////
+
+func replaceEnv(args []string, env []string) (err error) {
+	for i, v := range args {
+		if args[i], err = shellparser.ProcessWord(v, env); err != nil {
+			return err
+		}
+	}
+	return nil
 }
