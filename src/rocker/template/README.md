@@ -89,6 +89,24 @@ DOCKER_MACHINE_NAME: dev
 PATH: /usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin
 ```
 
+### {{ *anything* | yaml *N* }} where *N* is indentation level
+Useful if you want to nest a yaml struct into another yaml file:
+
+```yaml
+foo:
+  bar:
+    {{ .bar | yaml 2 }}
+```
+
+Will indent yaml-encoded `.bar` into two levels:
+
+```yaml
+foo:
+  bar:
+    a: 1
+    b: 2
+```
+
 ### {{ shell *string* }} or {{ *string* | shell }}
 Escapes given string so it can be substituted to a shell command.
 

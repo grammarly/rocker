@@ -195,12 +195,45 @@ func jsonFn(v interface{}) (string, error) {
 	return string(data), nil
 }
 
-func yamlFn(v interface{}) (string, error) {
-	data, err := yaml.Marshal(v)
+func yamlFn(args ...interface{}) (result string, err error) {
+	var (
+		i     = 0
+		input interface{}
+	)
+
+	if len(args) == 1 {
+		input = args[0]
+	} else if len(args) == 2 {
+		if i, err = interfaceToInt(args[0]); err != nil {
+			return "", err
+		}
+		input = args[1]
+	} else {
+		return "", fmt.Errorf("yaml helper expects from 1 to 2 arguments, %d given", len(args))
+	}
+
+	data, err := yaml.Marshal(input)
 	if err != nil {
 		return "", err
 	}
-	return string(data), nil
+	result = string(data)
+
+	if i > 0 {
+		result = indent(strings.Repeat("  ", i), result)
+	}
+
+	return result, nil
+}
+
+func indent(prefix, s string) string {
+	var res []string
+	for _, line := range strings.Split(s, "\n") {
+		if line != "" {
+			line = prefix + line
+		}
+		res = append(res, line)
+	}
+	return strings.Join(res, "\n")
 }
 
 func interfaceToInt(v interface{}) (int, error) {

@@ -116,6 +116,10 @@ func TestProcess_Yaml(t *testing.T) {
 	assert.Equal(t, "key: |-\n  hello\n  world\n", processTemplate(t, "key: {{ \"hello\\nworld\" | yaml }}"))
 }
 
+func TestProcess_YamlIndent(t *testing.T) {
+	assert.Equal(t, "key:\n  foo: bar\n", processTemplate(t, "key:\n{{ .data | yaml 1 }}"))
+}
+
 func processTemplate(t *testing.T, tpl string) string {
 	result, err := Process("test", strings.NewReader(tpl), configTemplateVars, map[string]interface{}{})
 	if err != nil {
