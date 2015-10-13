@@ -28,9 +28,39 @@ import (
 	"github.com/stretchr/testify/mock"
 )
 
-func TestNewBuild(t *testing.T) {
+func TestBuild_NewBuild(t *testing.T) {
 	b, _ := makeBuild(t, "FROM ubuntu", Config{})
 	assert.IsType(t, &Rockerfile{}, b.rockerfile)
+}
+
+func TestBuild_ReplaceEnvVars(t *testing.T) {
+	rockerfile := "FROM ubuntu\nENV PATH=$PATH:/cassandra/bin"
+	b, c := makeBuild(t, rockerfile, Config{})
+	plan := makePlan(t, rockerfile)
+
+	img := &docker.Image{
+		ID: "123",
+		Config: &docker.Config{
+			Env: []string{"PATH=/usr/bin"},
+		},
+	}
+
+	resultImage := &docker.Image{ID: "789"}
+
+	c.On("InspectImage", "ubuntu").Return(img, nil).Once()
+
+	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
+		arg := args.Get(0).(State)
+		assert.Equal(t, []string{"PATH=/usr/bin:/cassandra/bin"}, arg.Config.Env)
+	}).Once()
+
+	c.On("CommitContainer", mock.AnythingOfType("State"), "ENV PATH=/usr/bin:/cassandra/bin").Return(resultImage, nil).Once()
+
+	c.On("RemoveContainer", "456").Return(nil).Once()
+
+	if err := b.Run(plan); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // internal helpers
@@ -44,11 +74,15 @@ func makeBuild(t *testing.T, rockerfileContent string, cfg Config) (*Build, *Moc
 		t.Fatal(err)
 	}
 
+	cfg.NoCache = true
+
 	c := &MockClient{}
 	b := New(c, r, nil, cfg)
 
 	return b, c
 }
+
+// Docker client mock
 
 type MockClient struct {
 	mock.Mock
