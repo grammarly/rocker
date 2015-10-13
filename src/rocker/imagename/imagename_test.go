@@ -193,6 +193,24 @@ func TestImageWithDotsWithTag(t *testing.T) {
 	assert.Equal(t, "a.b.c.d:snapshot", img.String())
 }
 
+func TestImageWithRegistryAndDotsAndTag(t *testing.T) {
+	img := NewFromString("hub.com/a.b.c.d:snapshot")
+	assert.Equal(t, "hub.com", img.Registry)
+	assert.Equal(t, "a.b.c.d", img.Name)
+	assert.Equal(t, "snapshot", img.GetTag())
+	assert.Equal(t, true, img.HasTag())
+	assert.Equal(t, "hub.com/a.b.c.d:snapshot", img.String())
+}
+
+func TestImageWithRegistryAndSlashAndDotsAndTag(t *testing.T) {
+	img := NewFromString("hub.com/a.b/c.d:snapshot")
+	assert.Equal(t, "hub.com", img.Registry)
+	assert.Equal(t, "a.b/c.d", img.Name)
+	assert.Equal(t, "snapshot", img.GetTag())
+	assert.Equal(t, true, img.HasTag())
+	assert.Equal(t, "hub.com/a.b/c.d:snapshot", img.String())
+}
+
 func TestImageLatest(t *testing.T) {
 	img := NewFromString("rocker-build:latest")
 	assert.Equal(t, "", img.Registry, "bag registry value")
