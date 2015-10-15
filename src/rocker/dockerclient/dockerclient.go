@@ -23,6 +23,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -48,7 +50,8 @@ type Config struct {
 func NewConfig() *Config {
 	certPath := os.Getenv("DOCKER_CERT_PATH")
 	if certPath == "" {
-		certPath = "~/.docker"
+		usr, _ := user.Current()
+		certPath = filepath.Join(usr.HomeDir, ".docker")
 	}
 	host := os.Getenv("DOCKER_HOST")
 	if host == "" {
