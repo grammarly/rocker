@@ -49,7 +49,10 @@ type Config struct {
 func NewConfig() *Config {
 	certPath := os.Getenv("DOCKER_CERT_PATH")
 	if certPath == "" {
-		homePath, _ := homedir.Dir()
+		homePath, err := homedir.Dir()
+		if err != nil {
+			log.Fatal(err)
+		}
 		certPath = homePath + "/.docker"
 	}
 	host := os.Getenv("DOCKER_HOST")
