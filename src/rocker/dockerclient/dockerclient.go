@@ -23,13 +23,12 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/user"
-	"path/filepath"
 	"strconv"
 	"strings"
 
 	"github.com/codegangsta/cli"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/mitchellh/go-homedir"
 )
 
 var (
@@ -50,8 +49,8 @@ type Config struct {
 func NewConfig() *Config {
 	certPath := os.Getenv("DOCKER_CERT_PATH")
 	if certPath == "" {
-		usr, _ := user.Current()
-		certPath = filepath.Join(usr.HomeDir, ".docker")
+		homePath, _ := homedir.Dir()
+		certPath = homePath + "/.docker"
 	}
 	host := os.Getenv("DOCKER_HOST")
 	if host == "" {
