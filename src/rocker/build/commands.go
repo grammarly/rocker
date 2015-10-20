@@ -28,11 +28,13 @@ import (
 	"rocker/util"
 	"sort"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/nat"
 	"github.com/docker/docker/pkg/units"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/go-yaml/yaml"
 	"github.com/kr/pretty"
 )
 
@@ -974,11 +976,12 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 	}
 
 	image := imagename.NewFromString(c.cfg.args[0])
-	artifactProps := []string{
-		fmt.Sprintf("Name: %s", image),
-		fmt.Sprintf("Pushed: %t", b.cfg.Push),
-		fmt.Sprintf("Tag: %s", image.GetTag()),
-		fmt.Sprintf("ImageID: %s", b.state.ImageID),
+	artifact := imagename.Artifact{
+		Name:      image,
+		Pushed:    b.cfg.Push,
+		Tag:       image.GetTag(),
+		ImageID:   b.state.ImageID,
+		BuildTime: time.Now(),
 	}
 
 	// push image and add some lines to artifacts
@@ -987,11 +990,8 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 		if err != nil {
 			return b.state, err
 		}
-		artifactProps = append(
-			artifactProps,
-			fmt.Sprintf("Digest: %s", digest),
-			fmt.Sprintf("Addressable: %s@%s", image.NameWithRegistry(), digest),
-		)
+		artifact.Digest = digest
+		artifact.Addressable = fmt.Sprintf("%s@%s", image.NameWithRegistry(), digest)
 	} else {
 		log.Infof("| Don't push. Pass --push flag to actually push to the registry")
 	}
@@ -1001,15 +1001,23 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 		if err := os.MkdirAll(b.cfg.ArtifactsPath, 0755); err != nil {
 			return b.state, fmt.Errorf("Failed to create directory %s for the artifacts, error: %s", b.cfg.ArtifactsPath, err)
 		}
-		filePath := filepath.Join(b.cfg.ArtifactsPath, image.GetTag())
 
-		content := []byte(strings.Join(artifactProps, "\n") + "\n")
+		filePath := filepath.Join(b.cfg.ArtifactsPath, artifact.GetFileName())
+
+		artifacts := imagename.Artifacts{
+			[]imagename.Artifact{artifact},
+		}
+		content, err := yaml.Marshal(artifacts)
+		if err != nil {
+			return b.state, err
+		}
 
 		if err := ioutil.WriteFile(filePath, content, 0644); err != nil {
 			return b.state, fmt.Errorf("Failed to write artifact file %s, error: %s", filePath, err)
 		}
+
 		log.Infof("| Saved artifact file %s", filePath)
-		log.Debugf("Artifact properties: %# v", pretty.Formatter(artifactProps))
+		log.Debugf("Artifact properties: %# v", pretty.Formatter(artifact))
 	}
 
 	return b.state, nil
