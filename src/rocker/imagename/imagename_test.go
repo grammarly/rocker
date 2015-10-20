@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-yaml/yaml"
 	"github.com/kr/pretty"
 
 	"github.com/stretchr/testify/assert"
@@ -475,4 +476,19 @@ func TestTagsGetOld(t *testing.T) {
 	assert.Equal(t, "hub/ns/name:3", old[0].String(), "bad old image 1")
 	assert.Equal(t, "hub/ns/name:2", old[1].String(), "bad old image 2")
 	assert.Equal(t, "hub/ns/name:1", old[2].String(), "bad old image 3")
+}
+
+func TestImagename_ToYaml(t *testing.T) {
+	value := struct {
+		Name *ImageName
+	}{
+		NewFromString("hub/ns/name:1"),
+	}
+
+	data, err := yaml.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, "name: hub/ns/name:1\n", string(data))
 }
