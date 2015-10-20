@@ -98,6 +98,11 @@ func main() {
 			Value: &cli.StringSlice{},
 			Usage: "set variables to pass to build tasks, value is like \"key=value\"",
 		},
+		cli.StringSliceFlag{
+			Name:  "vars",
+			Value: &cli.StringSlice{},
+			Usage: "Load variables form a file, either JSON or YAML. Can pass multiple of this.",
+		},
 		cli.BoolFlag{
 			Name:  "no-cache",
 			Usage: "supresses cache for docker builds",
@@ -134,6 +139,10 @@ func main() {
 		cli.BoolFlag{
 			Name:  "print",
 			Usage: "just print the Rockerfile after template processing and stop",
+		},
+		cli.BoolFlag{
+			Name:  "demand-artifacts",
+			Usage: "fail if artifacts not found for {{ image }} helpers",
 		},
 		cli.StringFlag{
 			Name:  "id",
@@ -184,12 +193,22 @@ func buildCommand(c *cli.Context) {
 
 	initLogs(c)
 
+	vars, err := template.VarsFromFileMulti(c.StringSlice("vars"))
+	if err != nil {
+		log.Fatal(err)
+		os.Exit(1)
+	}
+
 	cliVars, err := template.VarsFromStrings(c.StringSlice("var"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	vars := template.Vars{}.Merge(cliVars)
+	vars = vars.Merge(cliVars)
+
+	if c.Bool("demand-artifacts") {
+		vars["DemandArtifacts"] = true
+	}
 
 	// obtain git info about current directory
 	// gitInfo, err := git.Info(filepath.Dir(configFilename))
