@@ -43,7 +43,7 @@ func TestCommandFrom_Existing(t *testing.T) {
 		},
 	}
 
-	c.On("InspectImage", "existing").Return(img, nil).Once()
+	c.On("LookupImage", "existing", false).Return(img, nil).Once()
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -68,8 +68,7 @@ func TestCommandFrom_PullExisting(t *testing.T) {
 		},
 	}
 
-	c.On("PullImage", "existing").Return(nil).Once()
-	c.On("InspectImage", "existing").Return(img, nil).Once()
+	c.On("LookupImage", "existing", true).Return(img, nil).Once()
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -89,38 +88,11 @@ func TestCommandFrom_NotExisting(t *testing.T) {
 
 	var nilImg *docker.Image
 
-	img := &docker.Image{
-		ID:     "123",
-		Config: &docker.Config{},
-	}
-
-	c.On("InspectImage", "not-existing").Return(nilImg, nil).Once()
-	c.On("PullImage", "not-existing").Return(nil).Once()
-	c.On("InspectImage", "not-existing").Return(img, nil).Once()
-
-	state, err := cmd.Execute(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	c.AssertExpectations(t)
-	assert.Equal(t, "123", state.ImageID)
-}
-
-func TestCommandFrom_AfterPullNotExisting(t *testing.T) {
-	b, c := makeBuild(t, "", Config{})
-	cmd := &CommandFrom{ConfigCommand{
-		args: []string{"not-existing"},
-	}}
-
-	var nilImg *docker.Image
-
-	c.On("InspectImage", "not-existing").Return(nilImg, nil).Twice()
-	c.On("PullImage", "not-existing").Return(nil).Once()
+	c.On("LookupImage", "not-existing", false).Return(nilImg, nil).Once()
 
 	_, err := cmd.Execute(b)
 	c.AssertExpectations(t)
-	assert.Equal(t, "FROM: Failed to inspect image after pull: not-existing", err.Error())
+	assert.Equal(t, "FROM: image not-existing not found", err.Error())
 }
 
 // =========== Testing RUN ===========

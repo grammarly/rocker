@@ -47,7 +47,7 @@ func TestBuild_ReplaceEnvVars(t *testing.T) {
 
 	resultImage := &docker.Image{ID: "789"}
 
-	c.On("InspectImage", "ubuntu").Return(img, nil).Once()
+	c.On("LookupImage", "ubuntu", false).Return(img, nil).Once()
 
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
 		arg := args.Get(0).(State)
@@ -96,6 +96,11 @@ func (m *MockClient) InspectImage(name string) (*docker.Image, error) {
 func (m *MockClient) PullImage(name string) error {
 	args := m.Called(name)
 	return args.Error(0)
+}
+
+func (m *MockClient) LookupImage(name string, pull bool) (*docker.Image, error) {
+	args := m.Called(name, pull)
+	return args.Get(0).(*docker.Image), args.Error(1)
 }
 
 func (m *MockClient) RemoveImage(imageID string) error {

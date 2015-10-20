@@ -157,23 +157,12 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 		return s, nil
 	}
 
-	// If Pull is true, then img will remain nil and it will be pulled below
-	if !b.cfg.Pull {
-		if img, err = b.client.InspectImage(name); err != nil {
-			return s, err
-		}
+	if img, err = b.client.LookupImage(name, b.cfg.Pull); err != nil {
+		return s, fmt.Errorf("FROM: Failed to lookup image: %s, error: %s", name, err)
 	}
 
 	if img == nil {
-		if err = b.client.PullImage(name); err != nil {
-			return s, err
-		}
-		if img, err = b.client.InspectImage(name); err != nil {
-			return s, err
-		}
-		if img == nil {
-			return s, fmt.Errorf("FROM: Failed to inspect image after pull: %s", name)
-		}
+		return s, fmt.Errorf("FROM: image %s not found", name)
 	}
 
 	// We want to say the size of the FROM image. Better to do it
