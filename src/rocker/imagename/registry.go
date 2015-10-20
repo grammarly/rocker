@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/fsouza/go-dockerclient"
 )
@@ -95,8 +96,13 @@ func RegistryListTags(image *ImageName) (images []*ImageName, err error) {
 
 // registryListTagsDockerHub lists image tags from hub.docker.com
 func registryListTagsDockerHub(image *ImageName) (images []*ImageName, err error) {
+	name := image.Name
+	if !strings.Contains(name, "/") {
+		name = "library/" + name
+	}
+
 	tg := registryTags{}
-	if err = registryGet(fmt.Sprintf("https://hub.docker.com/v2/repositories/library/%s/tags/?page_size=9999&page=1", image.Name), &tg); err != nil {
+	if err = registryGet(fmt.Sprintf("https://hub.docker.com/v2/repositories/%s/tags/?page_size=9999&page=1", name), &tg); err != nil {
 		return
 	}
 
