@@ -122,53 +122,61 @@ func (c *DockerClient) PullImage(name string) error {
 }
 
 // LookupImage looks up for the image by name and returns *docker.Image object (result of the inspect)
-// `pull` param defines whether we want to update the latest version of the image from the remote registry
+// `hub` param defines whether we want to update the latest version of the image from the remote registry
 //
-// If `pull` is false, it tries to lookup locally by exact matching, e.g. if the image is already
+// If `hub` is false, it tries to lookup locally by exact matching, e.g. if the image is already
 // pulled with that exact name given (no fuzzy semver matching)
 //
 // Then the function fetches the list of all pulled images and tries to match one of them by the given name.
 //
-// If `pull` is set to true or if it cannot find the image locally, it then fetches all image
+// If `hub` is set to true or if it cannot find the image locally, it then fetches all image
 // tags from the remote registry and finds the best match for the given image name.
 //
 // If it cannot find the image either locally or in the remote registry, it returns `nil`
-func (c *DockerClient) LookupImage(name string, pull bool) (img *docker.Image, err error) {
+func (c *DockerClient) LookupImage(name string, hub bool) (img *docker.Image, err error) {
 	var (
-		imgName         = imagename.NewFromString(name)
-		localImages     = []*imagename.ImageName{}
-		candidate       *imagename.ImageName
-		remoteCandidate *imagename.ImageName
-		dockerImages    []docker.APIImages
-		remoteImages    []*imagename.ImageName
+		imgName                    = imagename.NewFromString(name)
+		localImages                = []*imagename.ImageName{}
+		remoteImages               []*imagename.ImageName
+		candidate, remoteCandidate *imagename.ImageName
+		dockerImages               []docker.APIImages
+		pull                       = false
+		isSha                      = imgName.TagIsSha()
 	)
 
-	// If pull is true, then there is no sense to inspect the local image
-	if !pull {
+	// If hub is true, then there is no sense to inspect the local image
+	if !hub || isSha {
 		// Try to inspect image as is, without version resolution
 		if img, err := c.InspectImage(name); err != nil || img != nil {
 			return img, err
 		}
 	}
 
-	// List local images
-	if dockerImages, err = c.client.ListImages(docker.ListImagesOptions{}); err != nil {
-		return nil, err
-	}
-	for _, image := range dockerImages {
-		for _, repoTag := range image.RepoTags {
-			if n := imagename.NewFromString(repoTag); imgName.IsSameKind(*n) {
-				localImages = append(localImages, n)
+	if isSha {
+		// If we are still here and image not found locally, we want to pull it
+		candidate = imgName
+		hub = false
+		pull = true
+	} else {
+		// List local images
+		if dockerImages, err = c.client.ListImages(docker.ListImagesOptions{}); err != nil {
+			return nil, err
+		}
+		for _, image := range dockerImages {
+			for _, repoTag := range image.RepoTags {
+				if n := imagename.NewFromString(repoTag); imgName.IsSameKind(*n) {
+					localImages = append(localImages, n)
+				}
 			}
 		}
+
+		// Resolve local candidate
+		candidate = imgName.ResolveVersion(localImages)
 	}
 
-	// Resolve local candidate
-	candidate = imgName.ResolveVersion(localImages)
-
 	// In case we want to include external images as well, pulling list of available
-	// images from repository or central docker hub
-	if pull || candidate == nil {
+	// images from the remote registry
+	if hub || candidate == nil {
 		log.Debugf("Getting list of tags for %s from the registry", imgName)
 
 		if remoteImages, err = imagename.RegistryListTags(imgName); err != nil {
@@ -177,9 +185,7 @@ func (c *DockerClient) LookupImage(name string, pull bool) (img *docker.Image, e
 
 		// Since we found the remove image, we want to pull it
 		if remoteCandidate = imgName.ResolveVersion(remoteImages); remoteCandidate != nil {
-			if err = c.PullImage(remoteCandidate.String()); err != nil {
-				return
-			}
+			pull = true
 			candidate = remoteCandidate
 		}
 	}
@@ -190,10 +196,18 @@ func (c *DockerClient) LookupImage(name string, pull bool) (img *docker.Image, e
 		return
 	}
 
-	if remoteCandidate != nil {
-		log.Infof("Resolve %s --> %s (found remotely)", imgName, candidate.GetTag())
-	} else {
-		log.Infof("Resolve %s --> %s", imgName, candidate.GetTag())
+	if !isSha {
+		if remoteCandidate != nil {
+			log.Infof("Resolve %s --> %s (found remotely)", imgName, candidate.GetTag())
+		} else {
+			log.Infof("Resolve %s --> %s", imgName, candidate.GetTag())
+		}
+	}
+
+	if pull {
+		if err = c.PullImage(candidate.String()); err != nil {
+			return
+		}
 	}
 
 	return c.InspectImage(candidate.String())
