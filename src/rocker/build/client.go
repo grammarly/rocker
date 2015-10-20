@@ -157,7 +157,9 @@ func (c *DockerClient) LookupImage(name string, pull bool) (img *docker.Image, e
 	}
 	for _, image := range dockerImages {
 		for _, repoTag := range image.RepoTags {
-			localImages = append(localImages, imagename.NewFromString(repoTag))
+			if n := imagename.NewFromString(repoTag); imgName.IsSameKind(*n) {
+				localImages = append(localImages, n)
+			}
 		}
 	}
 
