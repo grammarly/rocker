@@ -193,6 +193,12 @@ func buildCommand(c *cli.Context) {
 
 	initLogs(c)
 
+	// We don't want info level for 'print' mode
+	// So log only errors unless 'debug' is on
+	if c.Bool("print") && log.StandardLogger().Level != log.DebugLevel {
+		log.StandardLogger().Level = log.ErrorLevel
+	}
+
 	vars, err := template.VarsFromFileMulti(c.StringSlice("vars"))
 	if err != nil {
 		log.Fatal(err)
