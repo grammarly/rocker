@@ -190,7 +190,6 @@ func VarsFromFileMulti(files []string) (Vars, error) {
 	)
 
 	for _, pat := range files {
-		// TODO: error if file not found (when not using wildcards)
 		matches = []string{pat}
 
 		if containsWildcards(pat) {
