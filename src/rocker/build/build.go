@@ -252,19 +252,23 @@ func (b *Build) getExportsContainer() (name string, err error) {
 }
 
 // lookupImage looks up for the image by name and returns *docker.Image object (result of the inspect)
-// `hub` param defines whether we want to update the latest version of the image from the remote registry
+// `Pull` config option defines whether we want to update the latest version of the image from the remote registry
+// See build.Config struct for more details about other build config options.
 //
-// TODO: update me!
-//
-// If `hub` is false, it tries to lookup locally by exact matching, e.g. if the image is already
+// If `Pull` is false, it tries to lookup locally by exact matching, e.g. if the image is already
 // pulled with that exact name given (no fuzzy semver matching)
 //
 // Then the function fetches the list of all pulled images and tries to match one of them by the given name.
 //
-// If `hub` is set to true or if it cannot find the image locally, it then fetches all image
+// If `Pull` is set to true or if it cannot find the image locally, it then fetches all image
 // tags from the remote registry and finds the best match for the given image name.
 //
 // If it cannot find the image either locally or in the remote registry, it returns `nil`
+//
+// In case the given image has sha256 tag, it looks for it locally and pulls if it's not found.
+// No semver matching is done for sha256 tagged images.
+//
+// See also TestBuild_LookupImage_* test cases in build_test.go
 func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
 	var (
 		candidate, remoteCandidate *imagename.ImageName
