@@ -287,13 +287,13 @@ func makeImageHelper(vars Vars) func(string, ...string) (string, error) {
 			}
 
 			if a.Digest != "" {
-				log.Debugf("Apply digest %s for image %s", a.Digest, image)
+				log.Infof("Apply artifact digest %s for image %s", a.Digest, image)
 				image.SetTag(a.Digest)
 				matched = true
 				break
 			}
 			if a.Name.HasTag() {
-				log.Debugf("Apply tag %s for image %s", a.Name.GetTag(), image)
+				log.Infof("Apply artifact tag %s for image %s", a.Name.GetTag(), image)
 				image.SetTag(a.Name.GetTag())
 				matched = true
 				break
