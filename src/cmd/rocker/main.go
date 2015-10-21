@@ -216,22 +216,6 @@ func buildCommand(c *cli.Context) {
 		vars["DemandArtifacts"] = true
 	}
 
-	// obtain git info about current directory
-	// gitInfo, err := git.Info(filepath.Dir(configFilename))
-	// if err != nil {
-	// 	// Ignore if given directory is not a git repo
-	// 	if _, ok := err.(*git.ErrNotGitRepo); !ok {
-	// 		log.Fatal(err)
-	// 	}
-	// }
-
-	// // some additional useful vars
-	// vars["commit"] = stringOr(os.Getenv("GIT_COMMIT"), gitInfo.Sha)
-	// vars["branch"] = stringOr(os.Getenv("GIT_BRANCH"), gitInfo.Branch)
-	// vars["git_url"] = stringOr(os.Getenv("GIT_URL"), gitInfo.URL)
-	// vars["commit_message"] = gitInfo.Message
-	// vars["commit_author"] = gitInfo.Author
-
 	wd, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
@@ -346,30 +330,6 @@ func buildCommand(c *cli.Context) {
 	)
 
 	log.Infof("Successfully built %.12s | %s", builder.GetImageID(), size)
-
-	// builder := build.Builder{
-	// 	Rockerfile:   configFilename,
-	// 	ContextDir:   contextDir,
-	// 	UtilizeCache: !c.Bool("no-cache"),
-	// 	Push:         c.Bool("push"),
-	// 	NoReuse:      c.Bool("no-reuse"),
-	// 	Verbose:      c.Bool("verbose"),
-	// 	Attach:       c.Bool("attach"),
-	// 	Print:        c.Bool("print"),
-	// 	Auth:         auth,
-	// 	Vars:         vars,
-	// 	CliVars:      cliVars,
-	// 	InStream:     os.Stdin,
-	// 	OutStream:    os.Stdout,
-	// 	Docker:       dockerClient,
-	// 	AddMeta:      c.Bool("meta"),
-	// 	Pull:         c.Bool("pull"),
-	// 	ID:           c.String("id"),
-	// }
-
-	// if _, err := builder.Build(); err != nil {
-	// 	log.Fatal(err)
-	// }
 }
 
 func cleanCommand(c *cli.Context) {
