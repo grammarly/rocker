@@ -18,6 +18,7 @@ package build
 
 import (
 	"io"
+	"rocker/imagename"
 	"rocker/template"
 	"runtime"
 	"strings"
@@ -47,7 +48,7 @@ func TestBuild_ReplaceEnvVars(t *testing.T) {
 
 	resultImage := &docker.Image{ID: "789"}
 
-	c.On("LookupImage", "ubuntu", false).Return(img, nil).Once()
+	c.On("InspectImage", "ubuntu").Return(img, nil).Once()
 
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
 		arg := args.Get(0).(State)
@@ -60,6 +61,184 @@ func TestBuild_ReplaceEnvVars(t *testing.T) {
 
 	if err := b.Run(plan); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestBuild_LookupImage_ExactExistLocally(t *testing.T) {
+	var (
+		b, c        = makeBuild(t, "", Config{})
+		resultImage = &docker.Image{ID: "789"}
+		name        = "ubuntu:latest"
+	)
+
+	c.On("InspectImage", name).Return(resultImage, nil).Once()
+
+	result, err := b.lookupImage(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, resultImage, result)
+	c.AssertExpectations(t)
+}
+
+func TestBuild_LookupImage_ExistLocally(t *testing.T) {
+	var (
+		nilImage *docker.Image
+
+		b, c        = makeBuild(t, "", Config{})
+		resultImage = &docker.Image{ID: "789"}
+		name        = "ubuntu:latest"
+
+		localImages = []*imagename.ImageName{
+			imagename.NewFromString("debian:7.7"),
+			imagename.NewFromString("debian:latest"),
+			imagename.NewFromString("ubuntu:12.04"),
+			imagename.NewFromString("ubuntu:14.04"),
+			imagename.NewFromString("ubuntu:latest"),
+		}
+	)
+
+	c.On("InspectImage", name).Return(nilImage, nil).Once()
+	c.On("ListImages").Return(localImages, nil).Once()
+	c.On("InspectImage", name).Return(resultImage, nil).Once()
+
+	result, err := b.lookupImage(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, resultImage, result)
+	c.AssertExpectations(t)
+}
+
+func TestBuild_LookupImage_NotExistLocally(t *testing.T) {
+	var (
+		nilImage *docker.Image
+
+		b, c        = makeBuild(t, "", Config{})
+		resultImage = &docker.Image{ID: "789"}
+		name        = "ubuntu:latest"
+
+		localImages = []*imagename.ImageName{}
+
+		remoteImages = []*imagename.ImageName{
+			imagename.NewFromString("debian:7.7"),
+			imagename.NewFromString("debian:latest"),
+			imagename.NewFromString("ubuntu:12.04"),
+			imagename.NewFromString("ubuntu:14.04"),
+			imagename.NewFromString("ubuntu:latest"),
+		}
+	)
+
+	c.On("InspectImage", name).Return(nilImage, nil).Once()
+	c.On("ListImages").Return(localImages, nil).Once()
+	c.On("ListImageTags", name).Return(remoteImages, nil).Once()
+	c.On("PullImage", name).Return(nil).Once()
+	c.On("InspectImage", name).Return(resultImage, nil).Once()
+
+	result, err := b.lookupImage(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, resultImage, result)
+	c.AssertExpectations(t)
+}
+
+func TestBuild_LookupImage_PullAndExist(t *testing.T) {
+	var (
+		b, c        = makeBuild(t, "", Config{Pull: true})
+		resultImage = &docker.Image{ID: "789"}
+		name        = "ubuntu:latest"
+
+		remoteImages = []*imagename.ImageName{
+			imagename.NewFromString("debian:7.7"),
+			imagename.NewFromString("debian:latest"),
+			imagename.NewFromString("ubuntu:12.04"),
+			imagename.NewFromString("ubuntu:14.04"),
+			imagename.NewFromString("ubuntu:latest"),
+		}
+	)
+
+	c.On("ListImageTags", name).Return(remoteImages, nil).Once()
+	c.On("PullImage", name).Return(nil).Once()
+	c.On("InspectImage", name).Return(resultImage, nil).Once()
+
+	result, err := b.lookupImage(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, resultImage, result)
+	c.AssertExpectations(t)
+}
+
+func TestBuild_LookupImage_PullAndNotExist(t *testing.T) {
+	var (
+		b, c = makeBuild(t, "", Config{Pull: true})
+		name = "ubuntu:latest"
+
+		remoteImages = []*imagename.ImageName{
+			imagename.NewFromString("debian:7.7"),
+			imagename.NewFromString("debian:latest"),
+			imagename.NewFromString("ubuntu:12.04"),
+			imagename.NewFromString("ubuntu:14.04"),
+		}
+	)
+
+	c.On("ListImageTags", name).Return(remoteImages, nil).Once()
+
+	_, err := b.lookupImage(name)
+	assert.EqualError(t, err, "Image not found: ubuntu:latest (also checked in the remote registry)")
+	c.AssertExpectations(t)
+}
+
+func TestBuild_LookupImage_ShaExistLocally(t *testing.T) {
+	for _, pull := range []bool{true, false} {
+		t.Logf("Testing with pull=%t", pull)
+
+		var (
+			b, c        = makeBuild(t, "", Config{Pull: pull})
+			resultImage = &docker.Image{ID: "789"}
+			name        = "ubuntu@sha256:afafa"
+		)
+
+		c.On("InspectImage", name).Return(resultImage, nil).Once()
+
+		result, err := b.lookupImage(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, resultImage, result)
+		c.AssertExpectations(t)
+	}
+}
+
+func TestBuild_LookupImage_ShaNotExistLocally(t *testing.T) {
+	for _, pull := range []bool{true, false} {
+		t.Logf("Testing with pull=%t", pull)
+
+		var (
+			nilImage *docker.Image
+
+			b, c        = makeBuild(t, "", Config{Pull: pull})
+			resultImage = &docker.Image{ID: "789"}
+			name        = "ubuntu@sha256:afafa"
+		)
+
+		c.On("InspectImage", name).Return(nilImage, nil).Once()
+		c.On("PullImage", name).Return(nil).Once()
+		c.On("InspectImage", name).Return(resultImage, nil).Once()
+
+		result, err := b.lookupImage(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		assert.Equal(t, resultImage, result)
+		c.AssertExpectations(t)
 	}
 }
 
@@ -98,9 +277,14 @@ func (m *MockClient) PullImage(name string) error {
 	return args.Error(0)
 }
 
-func (m *MockClient) LookupImage(name string, pull bool) (*docker.Image, error) {
-	args := m.Called(name, pull)
-	return args.Get(0).(*docker.Image), args.Error(1)
+func (m *MockClient) ListImages() (images []*imagename.ImageName, err error) {
+	args := m.Called()
+	return args.Get(0).([]*imagename.ImageName), args.Error(1)
+}
+
+func (m *MockClient) ListImageTags(name string) (images []*imagename.ImageName, err error) {
+	args := m.Called(name)
+	return args.Get(0).([]*imagename.ImageName), args.Error(1)
 }
 
 func (m *MockClient) RemoveImage(imageID string) error {

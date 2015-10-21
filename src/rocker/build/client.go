@@ -41,7 +41,8 @@ import (
 type Client interface {
 	InspectImage(name string) (*docker.Image, error)
 	PullImage(name string) error
-	LookupImage(name string, pull bool) (*docker.Image, error)
+	ListImages() (images []*imagename.ImageName, err error)
+	ListImageTags(name string) (images []*imagename.ImageName, err error)
 	RemoveImage(imageID string) error
 	TagImage(imageID, imageName string) error
 	PushImage(imageName string) (digest string, err error)
@@ -121,96 +122,27 @@ func (c *DockerClient) PullImage(name string) error {
 	return <-errch
 }
 
-// LookupImage looks up for the image by name and returns *docker.Image object (result of the inspect)
-// `hub` param defines whether we want to update the latest version of the image from the remote registry
-//
-// If `hub` is false, it tries to lookup locally by exact matching, e.g. if the image is already
-// pulled with that exact name given (no fuzzy semver matching)
-//
-// Then the function fetches the list of all pulled images and tries to match one of them by the given name.
-//
-// If `hub` is set to true or if it cannot find the image locally, it then fetches all image
-// tags from the remote registry and finds the best match for the given image name.
-//
-// If it cannot find the image either locally or in the remote registry, it returns `nil`
-func (c *DockerClient) LookupImage(name string, hub bool) (img *docker.Image, err error) {
-	var (
-		imgName                    = imagename.NewFromString(name)
-		localImages                = []*imagename.ImageName{}
-		remoteImages               []*imagename.ImageName
-		candidate, remoteCandidate *imagename.ImageName
-		dockerImages               []docker.APIImages
-		pull                       = false
-		isSha                      = imgName.TagIsSha()
-	)
+// ListImages lists all pulled images in the local docker registry
+func (c *DockerClient) ListImages() (images []*imagename.ImageName, err error) {
 
-	// If hub is true, then there is no sense to inspect the local image
-	if !hub || isSha {
-		// Try to inspect image as is, without version resolution
-		if img, err := c.InspectImage(name); err != nil || img != nil {
-			return img, err
-		}
-	}
-
-	if isSha {
-		// If we are still here and image not found locally, we want to pull it
-		candidate = imgName
-		hub = false
-		pull = true
-	} else {
-		// List local images
-		if dockerImages, err = c.client.ListImages(docker.ListImagesOptions{}); err != nil {
-			return nil, err
-		}
-		for _, image := range dockerImages {
-			for _, repoTag := range image.RepoTags {
-				if n := imagename.NewFromString(repoTag); imgName.IsSameKind(*n) {
-					localImages = append(localImages, n)
-				}
-			}
-		}
-
-		// Resolve local candidate
-		candidate = imgName.ResolveVersion(localImages)
-	}
-
-	// In case we want to include external images as well, pulling list of available
-	// images from the remote registry
-	if hub || candidate == nil {
-		log.Debugf("Getting list of tags for %s from the registry", imgName)
-
-		if remoteImages, err = imagename.RegistryListTags(imgName); err != nil {
-			err = fmt.Errorf("Failed to list tags of image %s from the remote registry, error: %s", imgName, err)
-		}
-
-		// Since we found the remove image, we want to pull it
-		if remoteCandidate = imgName.ResolveVersion(remoteImages); remoteCandidate != nil {
-			pull = true
-			candidate = remoteCandidate
-		}
-	}
-
-	// If not candidate found, it's an error
-	if candidate == nil {
-		err = fmt.Errorf("Image not found: %s (also checked in the remote registry)", imgName)
+	var dockerImages []docker.APIImages
+	if dockerImages, err = c.client.ListImages(docker.ListImagesOptions{}); err != nil {
 		return
 	}
 
-	if !isSha {
-		if remoteCandidate != nil {
-			log.Infof("Resolve %s --> %s (found remotely)", imgName, candidate.GetTag())
-		} else {
-			log.Infof("Resolve %s --> %s", imgName, candidate.GetTag())
+	images = []*imagename.ImageName{}
+	for _, image := range dockerImages {
+		for _, repoTag := range image.RepoTags {
+			images = append(images, imagename.NewFromString(repoTag))
 		}
 	}
 
-	if pull {
-		if err = c.PullImage(candidate.String()); err != nil {
-			return
-		}
-	}
+	return
+}
 
-	return c.InspectImage(candidate.String())
+// ListImageTags returns the list of images instances obtained from all tags existing in the registry
+func (c *DockerClient) ListImageTags(name string) (images []*imagename.ImageName, err error) {
+	return imagename.RegistryListTags(imagename.NewFromString(name))
 }
 
 // RemoveImage removes docker image

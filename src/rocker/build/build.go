@@ -19,6 +19,7 @@ package build
 import (
 	"fmt"
 	"io"
+	"rocker/imagename"
 
 	"github.com/docker/docker/pkg/units"
 	"github.com/fatih/color"
@@ -248,4 +249,94 @@ func (b *Build) getExportsContainer() (name string, err error) {
 	log.Infof("| Using exports container %s", name)
 
 	return containerID, nil
+}
+
+// lookupImage looks up for the image by name and returns *docker.Image object (result of the inspect)
+// `hub` param defines whether we want to update the latest version of the image from the remote registry
+//
+// TODO: update me!
+//
+// If `hub` is false, it tries to lookup locally by exact matching, e.g. if the image is already
+// pulled with that exact name given (no fuzzy semver matching)
+//
+// Then the function fetches the list of all pulled images and tries to match one of them by the given name.
+//
+// If `hub` is set to true or if it cannot find the image locally, it then fetches all image
+// tags from the remote registry and finds the best match for the given image name.
+//
+// If it cannot find the image either locally or in the remote registry, it returns `nil`
+func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
+	var (
+		candidate, remoteCandidate *imagename.ImageName
+
+		imgName = imagename.NewFromString(name)
+		pull    = false
+		hub     = b.cfg.Pull
+		isSha   = imgName.TagIsSha()
+	)
+
+	// If hub is true, then there is no sense to inspect the local image
+	if !hub || isSha {
+		// Try to inspect image as is, without version resolution
+		if img, err := b.client.InspectImage(name); err != nil || img != nil {
+			return img, err
+		}
+	}
+
+	if isSha {
+		// If we are still here and image not found locally, we want to pull it
+		candidate = imgName
+		hub = false
+		pull = true
+	}
+
+	if !isSha && !hub {
+		// List local images
+		var localImages = []*imagename.ImageName{}
+		if localImages, err = b.client.ListImages(); err != nil {
+			return nil, err
+		}
+		// Resolve local candidate
+		candidate = imgName.ResolveVersion(localImages)
+	}
+
+	// In case we want to include external images as well, pulling list of available
+	// images from the remote registry
+	if hub || candidate == nil {
+		log.Debugf("Getting list of tags for %s from the registry", imgName)
+
+		var remoteImages []*imagename.ImageName
+
+		if remoteImages, err = b.client.ListImageTags(imgName.String()); err != nil {
+			err = fmt.Errorf("Failed to list tags of image %s from the remote registry, error: %s", imgName, err)
+		}
+
+		// Since we found the remote image, we want to pull it
+		if remoteCandidate = imgName.ResolveVersion(remoteImages); remoteCandidate != nil {
+			pull = true
+			candidate = remoteCandidate
+		}
+	}
+
+	// If not candidate found, it's an error
+	if candidate == nil {
+		err = fmt.Errorf("Image not found: %s (also checked in the remote registry)", imgName)
+		return
+	}
+
+	if !isSha && imgName.GetTag() != candidate.GetTag() {
+		if remoteCandidate != nil {
+			log.Infof("Resolve %s --> %s (found remotely)", imgName, candidate.GetTag())
+		} else {
+			log.Infof("Resolve %s --> %s", imgName, candidate.GetTag())
+		}
+	}
+
+	if pull {
+		if err = b.client.PullImage(candidate.String()); err != nil {
+			return
+		}
+	}
+
+	return b.client.InspectImage(candidate.String())
 }

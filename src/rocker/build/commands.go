@@ -157,8 +157,8 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 		return s, nil
 	}
 
-	if img, err = b.client.LookupImage(name, b.cfg.Pull); err != nil {
-		return s, fmt.Errorf("FROM: Failed to lookup image: %s, error: %s", name, err)
+	if img, err = b.lookupImage(name); err != nil {
+		return s, fmt.Errorf("FROM error: %s", err)
 	}
 
 	if img == nil {

@@ -225,6 +225,11 @@ func (img ImageName) Contains(b *ImageName) bool {
 // ResolveVersion finds an applicable tag for current image among the list of available tags
 func (img *ImageName) ResolveVersion(list []*ImageName) (result *ImageName) {
 	for _, candidate := range list {
+		// If these are different images (different names/repos)
+		if !img.IsSameKind(*candidate) {
+			continue
+		}
+
 		// If we have a strict equality
 		if img.HasTag() && candidate.HasTag() && img.Tag == candidate.Tag {
 			return candidate

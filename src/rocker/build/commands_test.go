@@ -19,6 +19,7 @@ package build
 import (
 	"fmt"
 	"reflect"
+	"rocker/imagename"
 	"testing"
 
 	"github.com/kr/pretty"
@@ -43,32 +44,7 @@ func TestCommandFrom_Existing(t *testing.T) {
 		},
 	}
 
-	c.On("LookupImage", "existing", false).Return(img, nil).Once()
-
-	state, err := cmd.Execute(b)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	c.AssertExpectations(t)
-	assert.Equal(t, "123", state.ImageID)
-	assert.Equal(t, "localhost", state.Config.Hostname)
-}
-
-func TestCommandFrom_PullExisting(t *testing.T) {
-	b, c := makeBuild(t, "", Config{Pull: true})
-	cmd := &CommandFrom{ConfigCommand{
-		args: []string{"existing"},
-	}}
-
-	img := &docker.Image{
-		ID: "123",
-		Config: &docker.Config{
-			Hostname: "localhost",
-		},
-	}
-
-	c.On("LookupImage", "existing", true).Return(img, nil).Once()
+	c.On("InspectImage", "existing").Return(img, nil).Once()
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -87,12 +63,15 @@ func TestCommandFrom_NotExisting(t *testing.T) {
 	}}
 
 	var nilImg *docker.Image
+	var nilList []*imagename.ImageName
 
-	c.On("LookupImage", "not-existing", false).Return(nilImg, nil).Once()
+	c.On("InspectImage", "not-existing").Return(nilImg, nil).Once()
+	c.On("ListImages").Return(nilList, nil).Once()
+	c.On("ListImageTags", "not-existing:latest").Return(nilList, nil).Once()
 
 	_, err := cmd.Execute(b)
 	c.AssertExpectations(t)
-	assert.Equal(t, "FROM: image not-existing not found", err.Error())
+	assert.Equal(t, "FROM error: Image not found: not-existing:latest (also checked in the remote registry)", err.Error())
 }
 
 // =========== Testing RUN ===========
