@@ -95,6 +95,12 @@
 			"repository": "https://github.com/fsouza/go-dockerclient",
 			"revision": "c9ad0ce23f68428421adfc6ced9e6123f54788a5",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/mitchellh/go-homedir",
+			"repository": "https://github.com/mitchellh/go-homedir",
+			"revision": "d682a8f0cf139663a984ff12528da460ca963de9",
+			"branch": "master"
 		}
 	]
 }
