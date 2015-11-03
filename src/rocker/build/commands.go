@@ -175,7 +175,11 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 
 	s = b.state
 	s.ImageID = img.ID
-	s.Config = *img.Config
+	s.Config = docker.Config{}
+
+	if img.Config != nil {
+		s.Config = *img.Config
+	}
 
 	b.ProducedSize = 0
 	b.VirtualSize = img.VirtualSize
