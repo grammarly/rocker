@@ -143,6 +143,12 @@
 			"revision": "02ae137b1d309729c32110aac6e315e798ba4f0e",
 			"branch": "master",
 			"path": "/pkg/fileutils"
+		},
+		{
+			"importpath": "github.com/mitchellh/go-homedir",
+			"repository": "https://github.com/mitchellh/go-homedir",
+			"revision": "d682a8f0cf139663a984ff12528da460ca963de9",
+			"branch": "master"
 		}
 	]
 }
