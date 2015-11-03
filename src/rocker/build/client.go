@@ -424,6 +424,7 @@ func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
 
 	log.Debugf("Push with options: %# v", opts)
 
+	// TODO: DisplayJSONMessagesStream may fail by client.PushImage run without errors
 	go func() {
 		if err := jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut); err != nil {
 			log.Errorf("Failed to process json stream, error %s", err)
