@@ -80,6 +80,9 @@ func main() {
 		cli.BoolTFlag{
 			Name: "colors",
 		},
+		cli.BoolFlag{
+			Name: "cmd, C",
+		},
 	}, dockerclient.GlobalCliParams()...)
 
 	buildFlags := []cli.Flag{
@@ -164,11 +167,7 @@ func main() {
 			Usage:  "launches a build for the specified Rockerfile",
 			Action: buildCommand,
 			Flags:  buildFlags,
-		},
-		{
-			Name:   "clean",
-			Usage:  "complete a task on the list",
-			Action: cleanCommand,
+			Before: globalBefore,
 		},
 		dockerclient.InfoCommandSpec(),
 	}
@@ -182,6 +181,13 @@ func main() {
 		fmt.Printf(err.Error())
 		os.Exit(1)
 	}
+}
+
+func globalBefore(c *cli.Context) error {
+	if c.GlobalBool("cmd") {
+		log.Infof("Cmd: %s", strings.Join(os.Args, " "))
+	}
+	return nil
 }
 
 func buildCommand(c *cli.Context) {
@@ -330,12 +336,6 @@ func buildCommand(c *cli.Context) {
 	)
 
 	log.Infof("Successfully built %.12s | %s", builder.GetImageID(), size)
-}
-
-func cleanCommand(c *cli.Context) {
-	verbose := c.Bool("verbose")
-	fmt.Println("verbose")
-	fmt.Println(verbose)
 }
 
 func initLogs(ctx *cli.Context) {
