@@ -330,14 +330,23 @@ func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, erro
 				seen[relFilePath] = struct{}{}
 
 				// cut the wildcard path of the file or use base name
-				var resultFilePath string
-				if containsWildcards(pattern) {
-					common := commonPrefix(pattern, relFilePath)
-					resultFilePath = strings.Replace(relFilePath, common, "", 1)
+
+				var (
+					resultFilePath string
+					baseChunks     = splitPath(pattern)
+					destChunks     = splitPath(relFilePath)
+					lastChunk      = baseChunks[len(baseChunks)-1]
+				)
+
+				if containsWildcards(lastChunk) {
+					// In case there is `foo/bar/*` source path we need to make a
+					// destination files without `foo/bar/` prefix
+					resultFilePath = filepath.Join(destChunks[len(baseChunks)-1:]...)
 				} else if matchInfo.IsDir() {
-					common := commonPrefix(pattern, match)
-					resultFilePath = strings.Replace(relFilePath, common, "", 1)
+					// If source is a directory, keep as is
+					resultFilePath = relFilePath
 				} else {
+					// The source has referred to a file
 					resultFilePath = filepath.Base(relFilePath)
 				}
 
@@ -372,21 +381,8 @@ func containsWildcards(name string) bool {
 	return false
 }
 
-func commonPrefix(a, b string) (prefix string) {
-	// max length of either a or b
-	l := len(a)
-	if len(b) > l {
-		l = len(b)
-	}
-	// find common prefix
-	for i := 0; i < l; i++ {
-		if a[i] != b[i] {
-			break
-		}
-		// not optimal, but I don't care
-		prefix = prefix + string(a[i])
-	}
-	return
+func splitPath(path string) []string {
+	return strings.Split(path, string(os.PathSeparator))
 }
 
 type nestedPattern struct {

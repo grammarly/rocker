@@ -755,6 +755,39 @@ func TestCopy_MakeTarStream_SubDirRenameWildcard(t *testing.T) {
 	assert.Equal(t, assertion, out, "bad tar content")
 }
 
+func TestCopy_MakeTarStream_WierdWildcards(t *testing.T) {
+	tmpDir := makeTmpDir(t, map[string]string{
+		"abc.txt": "hello",
+		"adf.txt": "hello",
+		"bvz.txt": "hello",
+	})
+	defer os.RemoveAll(tmpDir)
+
+	includes := []string{
+		"a*.txt",
+	}
+	excludes := []string{}
+	dest := "./"
+
+	t.Logf("includes: %# v", pretty.Formatter(includes))
+	t.Logf("excludes: %# v", pretty.Formatter(excludes))
+	t.Logf("dest: %# v", pretty.Formatter(dest))
+
+	stream, err := makeTarStream(tmpDir, dest, "COPY", includes, excludes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out := writeReadTar(t, tmpDir, stream.tar)
+
+	assertion := strings.Join([]string{
+		"./abc.txt",
+		"./adf.txt",
+	}, "\n") + "\n"
+
+	assert.Equal(t, assertion, out, "bad tar content")
+}
+
 func TestCopy_MakeTarStream_SingleFileDirRename(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"c/foo.txt": "hello",
