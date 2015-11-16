@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"rocker/build"
+	"rocker/debugtrap"
 	"rocker/dockerclient"
 	"rocker/template"
 	"rocker/textformatter"
@@ -53,6 +54,7 @@ var (
 func init() {
 	log.SetOutput(os.Stdout)
 	log.SetLevel(log.InfoLevel)
+	debugtrap.SetupDumpStackTrap()
 }
 
 func main() {
