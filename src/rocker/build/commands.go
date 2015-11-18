@@ -1224,7 +1224,9 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	}()
 
 	// Append exports container as a volume
-	s.NoCache.HostConfig.VolumesFrom = []string{exportsContainerID}
+	// TODO: test the case when there are imports before
+	s.NoCache.HostConfig.VolumesFrom = append(
+		s.NoCache.HostConfig.VolumesFrom, exportsContainerID)
 
 	cmd := []string{"/opt/rsync/bin/rsync", "-a", "--delete-during"}
 
@@ -1336,7 +1338,11 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 
 	s.Config.Cmd = cmd
 	s.Config.Entrypoint = []string{}
-	s.NoCache.HostConfig.VolumesFrom = []string{b.exportsContainerName()}
+
+	// Append exports container as a volume
+	// TODO: test the case when there are imports before
+	s.NoCache.HostConfig.VolumesFrom = append(
+		s.NoCache.HostConfig.VolumesFrom, b.exportsContainerName())
 
 	if importID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
