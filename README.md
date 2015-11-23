@@ -2,21 +2,18 @@
 
 Rocker breaks the limits of Dockerfile. It adds some crucial features that are missing while keeping Docker’s original design and idea. Read the [blog post](http://tech.grammarly.com/blog/posts/Making-Docker-Rock-at-Grammarly.html) about how and why it was invented.
 
-# *NOTE on v1 branch*
-In this branch we are developing the new experimental implementation of Rocker that will be completely client-side driven, with no fallback on `docker build`. This means faster builds and more power. No build context uploads anymore. Also, the builder code is completely rewritten and made much more testable and extensible in the future. Caching might be also rethought. Cross-server builds determinism is our dream. 
+# *v1 NOTE*
+Rocker has been rewritten from scratch and now it became much more robust! While [dockramp](https://github.com/jlhawn/dockramp) as a proof of concept of a client-driven Docker builder, Rocker is a full-featured implementation.
 
-Install v1 (you should have golang 1.5):
+1. There are no context uploads and fallbacks to `docker build`. It makes your builds faster especially if you have a big project.
+2. Cache lookup works much faster than Docker's implementation when you have thousands of layers.
+3. Better output: rocker reports size for each produced layer, so you see which steps take space.
+4. Works with Docker >= 1.8
 
-```bash
-make
-make install
-```
+What is not supported yet:
 
-### v1 TODO
-
-- [x] Cache
-- [x] FROM scratch
-- [ ] ADD urls and local archives
+1. `ADD <url>`
+2. Adding tar archives that supposed to automatically extract
 
 ---
 
@@ -54,6 +51,15 @@ Go to the [releases](https://github.com/grammarly/rocker/releases) section and d
 Something like this:
 ```bash
 curl -SL https://github.com/grammarly/rocker/releases/download/0.2.2/rocker-0.2.2_darwin_amd64.tar.gz | tar -xzC /usr/local/bin && chmod +x /usr/local/bin/rocker
+```
+
+### Building locally
+
+`make` will produce the `bin/rocker` binary.
+
+```bash
+make
+make install
 ```
 
 ### Getting help, usage:
