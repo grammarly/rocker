@@ -13,7 +13,6 @@
 
 **Fixed bugs:**
 
-- v1: "COPY a\*.js ./" is not working properly [\#48](https://github.com/grammarly/rocker/issues/48)
 - Randomly appearing IMPORT/EXPORT problem in rocker [\#8](https://github.com/grammarly/rocker/issues/8)
 - Image fails to parse if registry is an ip with a port [\#24](https://github.com/grammarly/rocker/issues/24)
 - Adopt image name splitting logic from docker [\#41](https://github.com/grammarly/rocker/pull/41) ([fxposter](https://github.com/fxposter))
