@@ -1,15 +1,44 @@
 # Change Log
 
+## [1.0.0](https://github.com/grammarly/rocker/tree/1.0.0) (2015-11-23)
+[Full Changelog](https://github.com/grammarly/rocker/compare/0.2.3...1.0.0)
+
+**Implemented enhancements:**
+
+- Ability to lookup images by fuzzy semver tags [\#46](https://github.com/grammarly/rocker/issues/46)
+- rocker/template: `image` helper that can read artifacts [\#45](https://github.com/grammarly/rocker/issues/45)
+- Export artifacts as a build result [\#44](https://github.com/grammarly/rocker/issues/44)
+- do not create .rockerignore for user [\#27](https://github.com/grammarly/rocker/issues/27)
+- Read Rockerfile from STDIN [\#15](https://github.com/grammarly/rocker/issues/15)
+- Rewrite MOUNT and $GIT\_SSH\_KEY readme due to the new template engine [\#14](https://github.com/grammarly/rocker/issues/14)
+- making rocker requires rocker [\#1](https://github.com/grammarly/rocker/issues/1)
+- V1 - rewrite Rocker from scratch, completely client-driven [\#50](https://github.com/grammarly/rocker/pull/50) ([ybogdanov](https://github.com/ybogdanov))
+
+**Fixed bugs:**
+
+- v1: "COPY a\*.js ./" is not working properly [\#48](https://github.com/grammarly/rocker/issues/48)
+- Ability to update $PATH env variable \(compatibility with docker\) [\#42](https://github.com/grammarly/rocker/issues/42)
+- WARN\[0000\] Tar: Can't archive a file with includes [\#40](https://github.com/grammarly/rocker/issues/40)
+- Make in the rocker's Rockerfile does not work with Go 1.5  [\#26](https://github.com/grammarly/rocker/issues/26)
+
 ## [0.2.3](https://github.com/grammarly/rocker/tree/0.2.3) (2015-11-23)
 [Full Changelog](https://github.com/grammarly/rocker/compare/0.2.2...0.2.3)
 
 **Implemented enhancements:**
 
+- Would be nice to get results of `rocker show` in creation time order [\#25](https://github.com/grammarly/rocker/issues/25)
+- \[experiment\] make rocker create a light semver aliases for published tags [\#9](https://github.com/grammarly/rocker/issues/9)
+- rocker/template: include [\#37](https://github.com/grammarly/rocker/issues/37)
 - Store information about pushed images as artifact files [\#35](https://github.com/grammarly/rocker/issues/35)
 - rocker/template: load vars from file [\#34](https://github.com/grammarly/rocker/issues/34)
 - rocker/template: call strings helper "indexOf" instead of "index" [\#33](https://github.com/grammarly/rocker/issues/33)
-- rocker/template: yaml helper [\#19](https://github.com/grammarly/rocker/issues/19)
 - Hightlight INCLUDE for sublime text language [\#29](https://github.com/grammarly/rocker/issues/29)
+- rocker/template: other template string helpers [\#22](https://github.com/grammarly/rocker/issues/22)
+- rocker/template: shell helper [\#20](https://github.com/grammarly/rocker/issues/20)
+- rocker/template: yaml helper [\#19](https://github.com/grammarly/rocker/issues/19)
+- rocker/template: json helper [\#18](https://github.com/grammarly/rocker/issues/18)
+- Do not fail on gathering git info, give a warning instead [\#17](https://github.com/grammarly/rocker/issues/17)
+- rocker/template: load variable content from a file [\#13](https://github.com/grammarly/rocker/issues/13)
 
 **Fixed bugs:**
 
