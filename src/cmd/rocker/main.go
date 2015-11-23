@@ -17,22 +17,24 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"log"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
 	"rocker/build"
+	"rocker/debugtrap"
 	"rocker/dockerclient"
-	"rocker/git"
-	"rocker/imagename"
 	"rocker/template"
+	"rocker/textformatter"
+	"rocker/util"
 
 	"github.com/codegangsta/cli"
+	"github.com/docker/docker/pkg/units"
+	"github.com/fatih/color"
 	"github.com/fsouza/go-dockerclient"
+
+	log "github.com/Sirupsen/logrus"
 )
 
 var (
@@ -48,6 +50,12 @@ var (
 	// BuildTime that is passed on compile time through -ldflags
 	BuildTime = "none"
 )
+
+func init() {
+	log.SetOutput(os.Stdout)
+	log.SetLevel(log.InfoLevel)
+	debugtrap.SetupDumpStackTrap()
+}
 
 func main() {
 	app := cli.NewApp()
@@ -66,8 +74,16 @@ func main() {
 
 	app.Flags = append([]cli.Flag{
 		cli.BoolFlag{
-			Name:  "verbose",
-			Usage: "enables verbose output",
+			Name: "verbose, vv, D",
+		},
+		cli.BoolFlag{
+			Name: "json",
+		},
+		cli.BoolTFlag{
+			Name: "colors",
+		},
+		cli.BoolFlag{
+			Name: "cmd, C",
 		},
 	}, dockerclient.GlobalCliParams()...)
 
@@ -87,9 +103,23 @@ func main() {
 			Value: &cli.StringSlice{},
 			Usage: "set variables to pass to build tasks, value is like \"key=value\"",
 		},
+		cli.StringSliceFlag{
+			Name:  "vars",
+			Value: &cli.StringSlice{},
+			Usage: "Load variables form a file, either JSON or YAML. Can pass multiple of this.",
+		},
 		cli.BoolFlag{
 			Name:  "no-cache",
 			Usage: "supresses cache for docker builds",
+		},
+		cli.BoolFlag{
+			Name:  "reload-cache",
+			Usage: "removes any cache that hit and save the new one",
+		},
+		cli.StringFlag{
+			Name:  "cache-dir",
+			Value: "~/.rocker_cache",
+			Usage: "Set the directory where the cache will be stored",
 		},
 		cli.BoolFlag{
 			Name:  "no-reuse",
@@ -115,6 +145,10 @@ func main() {
 			Name:  "print",
 			Usage: "just print the Rockerfile after template processing and stop",
 		},
+		cli.BoolFlag{
+			Name:  "demand-artifacts",
+			Usage: "fail if artifacts not found for {{ image }} helpers",
+		},
 		cli.StringFlag{
 			Name:  "id",
 			Usage: "override the default id generation strategy for current build",
@@ -122,6 +156,10 @@ func main() {
 		cli.StringFlag{
 			Name:  "artifacts-path",
 			Usage: "put artifacts (files with pushed images description) to the directory",
+		},
+		cli.BoolFlag{
+			Name:  "no-garbage",
+			Usage: "remove the images from the tail if not tagged",
 		},
 	}
 
@@ -131,22 +169,7 @@ func main() {
 			Usage:  "launches a build for the specified Rockerfile",
 			Action: buildCommand,
 			Flags:  buildFlags,
-		},
-		{
-			Name:   "show",
-			Usage:  "shows information about any image",
-			Action: showCommand,
-			Flags: []cli.Flag{
-				cli.BoolFlag{
-					Name:  "json",
-					Usage: "print output in json",
-				},
-			},
-		},
-		{
-			Name:   "clean",
-			Usage:  "complete a task on the list",
-			Action: cleanCommand,
+			Before: globalBefore,
 		},
 		dockerclient.InfoCommandSpec(),
 	}
@@ -162,38 +185,32 @@ func main() {
 	}
 }
 
+func globalBefore(c *cli.Context) error {
+	if c.GlobalBool("cmd") {
+		log.Infof("Cmd: %s", strings.Join(os.Args, " "))
+	}
+	return nil
+}
+
 func buildCommand(c *cli.Context) {
-	configFilename := c.String("file")
 
-	wd, err := os.Getwd()
+	var (
+		rockerfile *build.Rockerfile
+		err        error
+	)
+
+	initLogs(c)
+
+	// We don't want info level for 'print' mode
+	// So log only errors unless 'debug' is on
+	if c.Bool("print") && log.StandardLogger().Level != log.DebugLevel {
+		log.StandardLogger().Level = log.ErrorLevel
+	}
+
+	vars, err := template.VarsFromFileMulti(c.StringSlice("vars"))
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	if !filepath.IsAbs(configFilename) {
-		configFilename = filepath.Clean(path.Join(wd, configFilename))
-	}
-
-	// we do not want to outpu anything if "print" was asked
-	// TODO: find a more clean way to suppress output
-	if !c.Bool("print") {
-		fmt.Printf("[Rocker] Building...\n")
-	}
-
-	dockerClient, err := dockerclient.NewFromCli(c)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Initialize context dir
-	args := c.Args()
-	contextDir := filepath.Dir(configFilename)
-	if len(args) > 0 {
-		if filepath.IsAbs(args[0]) {
-			contextDir = args[0]
-		} else {
-			contextDir = filepath.Clean(path.Join(wd, args[0]))
-		}
+		os.Exit(1)
 	}
 
 	cliVars, err := template.VarsFromStrings(c.StringSlice("var"))
@@ -201,25 +218,72 @@ func buildCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
-	vars := template.Vars{}.Merge(cliVars)
+	vars = vars.Merge(cliVars)
 
-	// obtain git info about current directory
-	gitInfo, err := git.Info(filepath.Dir(configFilename))
+	if c.Bool("demand-artifacts") {
+		vars["DemandArtifacts"] = true
+	}
+
+	wd, err := os.Getwd()
 	if err != nil {
-		// Ignore if given directory is not a git repo
-		if _, ok := err.(*git.ErrNotGitRepo); !ok {
+		log.Fatal(err)
+	}
+
+	configFilename := c.String("file")
+	contextDir := wd
+
+	if configFilename == "-" {
+
+		rockerfile, err = build.NewRockerfile(filepath.Base(wd), os.Stdin, vars, template.Funs{})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+	} else {
+
+		if !filepath.IsAbs(configFilename) {
+			configFilename = filepath.Join(wd, configFilename)
+		}
+
+		rockerfile, err = build.NewRockerfileFromFile(configFilename, vars, template.Funs{})
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Initialize context dir
+		contextDir = filepath.Dir(configFilename)
+	}
+
+	args := c.Args()
+	if len(args) > 0 {
+		contextDir = args[0]
+		if !filepath.IsAbs(contextDir) {
+			contextDir = filepath.Join(wd, args[0])
+		}
+	}
+
+	log.Debugf("Context directory: %s", contextDir)
+
+	if c.Bool("print") {
+		fmt.Print(rockerfile.Content)
+		os.Exit(0)
+	}
+
+	dockerignore := []string{}
+
+	dockerignoreFilename := filepath.Join(contextDir, ".dockerignore")
+	if _, err := os.Stat(dockerignoreFilename); err == nil {
+		if dockerignore, err = build.ReadDockerignoreFile(dockerignoreFilename); err != nil {
 			log.Fatal(err)
 		}
 	}
 
-	// some additional useful vars
-	vars["commit"] = stringOr(os.Getenv("GIT_COMMIT"), gitInfo.Sha)
-	vars["branch"] = stringOr(os.Getenv("GIT_BRANCH"), gitInfo.Branch)
-	vars["git_url"] = stringOr(os.Getenv("GIT_URL"), gitInfo.URL)
-	vars["commit_message"] = gitInfo.Message
-	vars["commit_author"] = gitInfo.Author
+	dockerClient, err := dockerclient.NewFromCli(c)
+	if err != nil {
+		log.Fatal(err)
+	}
 
-	auth := &docker.AuthConfiguration{}
+	auth := docker.AuthConfiguration{}
 	authParam := c.String("auth")
 	if strings.Contains(authParam, ":") {
 		userPass := strings.Split(authParam, ":")
@@ -227,126 +291,82 @@ func buildCommand(c *cli.Context) {
 		auth.Password = userPass[1]
 	}
 
-	builder := build.Builder{
-		Rockerfile:    configFilename,
-		ContextDir:    contextDir,
-		UtilizeCache:  !c.Bool("no-cache"),
-		Push:          c.Bool("push"),
-		NoReuse:       c.Bool("no-reuse"),
-		Verbose:       c.Bool("verbose"),
-		Attach:        c.Bool("attach"),
-		Print:         c.Bool("print"),
-		Auth:          auth,
-		Vars:          vars,
-		CliVars:       cliVars,
+	client := build.NewDockerClient(dockerClient, auth)
+
+	var cache build.Cache
+	if !c.Bool("no-cache") {
+		cacheDir, err := util.MakeAbsolute(c.String("cache-dir"))
+		if err != nil {
+			log.Fatal(err)
+		}
+		cache = build.NewCacheFS(cacheDir)
+	}
+
+	builder := build.New(client, rockerfile, cache, build.Config{
 		InStream:      os.Stdin,
 		OutStream:     os.Stdout,
-		Docker:        dockerClient,
-		AddMeta:       c.Bool("meta"),
-		Pull:          c.Bool("pull"),
-		ID:            c.String("id"),
+		ContextDir:    contextDir,
+		Dockerignore:  dockerignore,
 		ArtifactsPath: c.String("artifacts-path"),
-	}
+		Pull:          c.Bool("pull"),
+		NoGarbage:     c.Bool("no-garbage"),
+		Attach:        c.Bool("attach"),
+		Verbose:       c.GlobalBool("verbose"),
+		ID:            c.String("id"),
+		NoCache:       c.Bool("no-cache"),
+		ReloadCache:   c.Bool("reload-cache"),
+		Push:          c.Bool("push"),
+	})
 
-	if _, err := builder.Build(); err != nil {
-		log.Fatal(err)
-	}
-}
-
-func showCommand(c *cli.Context) {
-	dockerClient, err := dockerclient.NewFromCli(c)
+	plan, err := build.NewPlan(rockerfile.Commands(), true)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	// Initialize context dir
-	args := c.Args()
-	if len(args) == 0 {
-		log.Fatal("Missing image argument")
-	}
-	//parse parameter to name
-	imageName := imagename.NewFromString(args[0])
-	infos := []*build.RockerImageData{}
-
-	if imageName.IsStrict() {
-		image, err := dockerClient.InspectImage(args[0])
-		if err != nil && err.Error() == "no such image" {
-			image, err = imagename.RegistryGet(imageName)
-			if err != nil {
-				log.Fatal(err)
-			}
-		} else if err != nil {
-			log.Fatal(err)
-		}
-		info, err := toInfo(imageName, image)
-		if err != nil {
-			log.Fatal(err)
-		}
-		infos = append(infos, info)
-	} else {
-		images, err := imagename.RegistryListTags(imageName)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		type resp struct {
-			name  *imagename.ImageName
-			image *docker.Image
-			err   error
-		}
-		chResp := make(chan resp, len(images))
-
-		for _, img := range images {
-			go func(img *imagename.ImageName) {
-				r := resp{name: img}
-				r.image, r.err = imagename.RegistryGet(img)
-				chResp <- r
-			}(img)
-		}
-
-		for _ = range images {
-			r := <-chResp
-			if r.err != nil {
-				log.Println(r.err)
-			} else if info, err := toInfo(r.name, r.image); err == nil {
-				infos = append(infos, info)
-			}
-		}
+	// Check the docker connection before we actually run
+	if err := dockerclient.Ping(dockerClient, 5000); err != nil {
+		log.Fatal(err)
 	}
 
-	if c.Bool("json") {
-		res, err := json.Marshal(infos)
-		if err != nil {
-			log.Fatal(err)
-		}
-		fmt.Println(string(res))
-	} else {
-		for _, res := range infos {
-			fmt.Println(res.PrettyString())
-		}
+	if err := builder.Run(plan); err != nil {
+		log.Fatal(err)
 	}
+
+	size := fmt.Sprintf("final size %s (+%s from the base image)",
+		units.HumanSize(float64(builder.VirtualSize)),
+		units.HumanSize(float64(builder.ProducedSize)),
+	)
+
+	log.Infof("Successfully built %.12s | %s", builder.GetImageID(), size)
 }
 
-func toInfo(name *imagename.ImageName, image *docker.Image) (*build.RockerImageData, error) {
-	data := &build.RockerImageData{}
+func initLogs(ctx *cli.Context) {
+	logger := log.StandardLogger()
 
-	if image.Config != nil {
-		if _, ok := image.Config.Labels["rocker-data"]; ok {
-			if err := json.Unmarshal([]byte(image.Config.Labels["rocker-data"]), data); err != nil {
-				return nil, err
-			}
-		}
-		data.Created = image.Created
+	if ctx.GlobalBool("verbose") {
+		logger.Level = log.DebugLevel
 	}
 
-	data.ImageName = name
-	return data, nil
-}
+	var (
+		isTerm    = log.IsTerminal()
+		json      = ctx.GlobalBool("json")
+		useColors = isTerm && !json
+	)
 
-func cleanCommand(c *cli.Context) {
-	verbose := c.Bool("verbose")
-	fmt.Println("verbose")
-	fmt.Println(verbose)
+	if ctx.GlobalIsSet("colors") {
+		useColors = ctx.GlobalBool("colors")
+	}
+
+	color.NoColor = !useColors
+
+	if json {
+		logger.Formatter = &log.JSONFormatter{}
+	} else {
+		formatter := &textformatter.TextFormatter{}
+		formatter.DisableColors = !useColors
+
+		logger.Formatter = formatter
+	}
 }
 
 func stringOr(args ...string) string {

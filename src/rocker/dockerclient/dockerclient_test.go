@@ -1,3 +1,5 @@
+// +build integration
+
 /*-
  * Copyright 2015 Grammarly, Inc.
  *

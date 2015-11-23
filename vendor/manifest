@@ -97,6 +97,54 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/stretchr/objx",
+			"repository": "https://github.com/stretchr/objx",
+			"revision": "cbeaeb16a013161a98496fad62933b1d21786672",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/urlutil",
+			"repository": "https://github.com/docker/docker",
+			"revision": "148be8bd7efd2cdb74b0cd9466fccb57c4c51834",
+			"branch": "master",
+			"path": "/pkg/urlutil"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/httputils",
+			"repository": "https://github.com/docker/docker",
+			"revision": "148be8bd7efd2cdb74b0cd9466fccb57c4c51834",
+			"branch": "master",
+			"path": "/pkg/httputils"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/tarsum",
+			"repository": "https://github.com/docker/docker",
+			"revision": "148be8bd7efd2cdb74b0cd9466fccb57c4c51834",
+			"branch": "master",
+			"path": "/pkg/tarsum"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/nat",
+			"repository": "https://github.com/docker/docker",
+			"revision": "b0dc11127ef4fc20261ccc0db03a16b17f7f91c4",
+			"branch": "master",
+			"path": "/pkg/nat"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/parsers",
+			"repository": "https://github.com/docker/docker",
+			"revision": "b0dc11127ef4fc20261ccc0db03a16b17f7f91c4",
+			"branch": "master",
+			"path": "/pkg/parsers"
+		},
+		{
+			"importpath": "github.com/docker/docker/pkg/fileutils",
+			"repository": "https://github.com/docker/docker",
+			"revision": "02ae137b1d309729c32110aac6e315e798ba4f0e",
+			"branch": "master",
+			"path": "/pkg/fileutils"
+		},
+		{
 			"importpath": "github.com/mitchellh/go-homedir",
 			"repository": "https://github.com/mitchellh/go-homedir",
 			"revision": "d682a8f0cf139663a984ff12528da460ca963de9",

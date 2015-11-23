@@ -1,9 +1,7 @@
 .git
 dist
-.dockerignore
-.rockertmp*
-Rockerfile
+**/.a
 pkg
 vendor/pkg
-Rockerfile.exec
-Rockerfile.build-cross
+example
+rsync

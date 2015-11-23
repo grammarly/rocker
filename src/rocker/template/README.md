@@ -153,6 +153,40 @@ If the `Version` variable is not given, then template processing will fail with 
 Error executing template TEMPLATE_NAME, error: template: TEMPLATE_NAME:1:3: executing \"TEMPLATE_NAME\" at <assert .Version>: error calling assert: Assertion failed
 ```
 
+### {{ image *docker_image_name_with_tag* }} or {{ image *docker_image_name* *tag* }}
+Wrapper that is used to substitute images of particular versions derived by artifacts *(TODO: link to artifacts doc)*.
+
+Example:
+```Dockerfile
+FROM {{ image "ubuntu" }}
+# OR
+FROM {{ image "ubuntu:latest" }}
+# OR
+FROM {{ image "ubuntu" "latest" }}
+```
+
+Without any additional arguments it will resolve into this:
+```Dockerfile
+FROM ubuntu:latest
+```
+
+But if you have an artifact that is resulted by a previous rocker build, that can be fed back to rocker as variable, the artifact will be substituted:
+```yaml
+# shorten version of an artifact by rocker
+RockerArtifacts:
+- Name: ubuntu:latest
+  Digest: sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11
+```
+
+```Dockerfile
+# rocker build -vars artifacts/*
+FROM ubuntu@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11
+```
+
+This feature is useful when you have a continuous integration pipeline and you want to build images on top of each other with guaranteed immutability. Also, this trick can be used with [rocker-compose](https://github.com/grammarly/rocker-compose) to run images of particular versions devired by the artifacts.
+
+*TODO: also describe semver matching behavior*
+
 # Variables
 `rocker/template` automatically populates [os.Environ](https://golang.org/pkg/os/#Environ) to the template along with the variables that are passed from the outside. All environment variables are available under `.Env`.
 

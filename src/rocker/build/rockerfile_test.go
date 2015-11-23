@@ -17,96 +17,61 @@
 package build
 
 import (
-	"io/ioutil"
-	"os"
+	"rocker/template"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
 
-func TestConfigParse(t *testing.T) {
-	t.Parallel()
-
-	fd, err := os.Open("testdata/Rockerfile")
+func TestNewRockerfile_Base(t *testing.T) {
+	src := `FROM {{ .BaseImage }}`
+	vars := template.Vars{"BaseImage": "ubuntu"}
+	r, err := NewRockerfile("test", strings.NewReader(src), vars, template.Funs{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	node, err := Parse(fd)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Logf("Node: %v", node.Dump())
-
-	expected, err := ioutil.ReadFile("testdata/Rockerfile_result")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, string(expected), node.Dump()+"\n", "invalid AST parsed from Rockerfile")
+	assert.Equal(t, src, r.Source)
+	assert.Equal(t, "FROM ubuntu", r.Content)
 }
 
-func TestConfigRockerfileAstToString_Base(t *testing.T) {
-	t.Parallel()
-
-	fd, err := os.Open("testdata/Rockerfile")
+func TestNewRockerfileFromFile(t *testing.T) {
+	r, err := NewRockerfileFromFile("testdata/Rockerfile", template.Vars{}, template.Funs{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	node, err := Parse(fd)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	str, err := RockerfileAstToString(node)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Node String: %v", str)
-
-	expected, err := ioutil.ReadFile("testdata/Rockerfile_string_result")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, string(expected), str+"\n", "invalid Rockerfile dumped to string")
+	assert.Equal(t, `from "some-java8-image-dev:1"`, r.rootNode.Children[0].Dump())
 }
 
-func TestConfigRockerfileAstToString_CmdJson(t *testing.T) {
-	t.Parallel()
-
-	node, err := Parse(strings.NewReader("FROM scratch\nCMD [\"-\"]\n"))
+func TestRockerfileCommands(t *testing.T) {
+	src := `FROM ubuntu`
+	r, err := NewRockerfile("test", strings.NewReader(src), template.Vars{}, template.Funs{})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	str, err := RockerfileAstToString(node)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Logf("Node String: %v", str)
-
-	assert.Equal(t, "from scratch\ncmd [\"-\"]", str, "invalid Rockerfile dumped to string")
+	commands := r.Commands()
+	assert.Len(t, commands, 1)
+	assert.Equal(t, "from", commands[0].name)
+	assert.Equal(t, "ubuntu", commands[0].args[0])
 }
 
-func TestConfigRockerfileAstToString_KeyVals(t *testing.T) {
-	t.Parallel()
+func TestRockerfileParseOnbuildCommands(t *testing.T) {
+	triggers := []string{
+		"RUN make",
+		"RUN make install",
+	}
 
-	node, err := Parse(strings.NewReader("FROM scratch\nENV NAME=JOHN\\\n LASTNAME=DOE\nMOUNT a b c\nLABEL ASD QWE SDF"))
+	commands, err := parseOnbuildCommands(triggers)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	str, err := RockerfileAstToString(node)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// t.Logf("Node String: %v", str)
-	// pretty.Println(node)
-	// t.Logf("Node: %v", node.Dump())
-
-	assert.Equal(t, "from scratch\nenv NAME=JOHN LASTNAME=DOE\nmount a b c\nlabel ASD=QWE SDF", str, "invalid Rockerfile dumped to string")
+	assert.Len(t, commands, 2)
+	assert.Equal(t, "run", commands[0].name)
+	assert.Equal(t, []string{"make"}, commands[0].args)
+	assert.Equal(t, "run", commands[1].name)
+	assert.Equal(t, []string{"make install"}, commands[1].args)
 }

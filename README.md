@@ -2,6 +2,21 @@
 
 Rocker breaks the limits of Dockerfile. It adds some crucial features that are missing while keeping Docker’s original design and idea. Read the [blog post](http://tech.grammarly.com/blog/posts/Making-Docker-Rock-at-Grammarly.html) about how and why it was invented.
 
+# *v1 NOTE*
+Rocker has been rewritten from scratch and now it became much more robust! While [dockramp](https://github.com/jlhawn/dockramp) as a proof of concept of a client-driven Docker builder, Rocker is a full-featured implementation.
+
+1. There are no context uploads and fallbacks to `docker build`. It makes your builds faster especially if you have a big project.
+2. Cache lookup works much faster than Docker's implementation when you have thousands of layers.
+3. Better output: rocker reports size for each produced layer, so you see which steps take space.
+4. Works with Docker >= 1.8
+
+What is not supported yet:
+
+1. `ADD <url>`
+2. Adding tar archives that supposed to automatically extract
+
+---
+
 * [Installation](#installation)
 * [Rockerfile](#rockerfile)
   * [MOUNT](#mount)
@@ -10,8 +25,6 @@ Rocker breaks the limits of Dockerfile. It adds some crucial features that are m
   * [TAG](#tag)
   * [PUSH](#push)
   * [Templating](#templating)
-  * [REQUIRE](#require)
-  * [INCLUDE](#include)
   * [ATTACH](#attach)
 * [Where to go next?](#where-to-go-next)
 * [Contributing](#contributing)
@@ -35,7 +48,16 @@ Go to the [releases](https://github.com/grammarly/rocker/releases) section and d
 
 Something like this:
 ```bash
-curl -SL https://github.com/grammarly/rocker/releases/download/0.2.2/rocker-0.2.2_darwin_amd64.tar.gz | tar -xzC /usr/local/bin && chmod +x /usr/local/bin/rocker
+curl -SL https://github.com/grammarly/rocker/releases/download/1.0.0/rocker-1.0.0_darwin_amd64.tar.gz | tar -xzC /usr/local/bin && chmod +x /usr/local/bin/rocker
+```
+
+### Building locally
+
+`make` will produce the `bin/rocker` binary.
+
+```bash
+make
+make install
 ```
 
 ### Getting help, usage:
@@ -63,7 +85,9 @@ The most challenging part is caching. While implementing those features seems to
 
 ### How does it work
 
-Rocker parses the Rockerfile into an AST using the same library Docker uses for parsing Dockerfiles. Then it goes through the instructions and makes a decision, should it execute a command on its own or delegate it to Docker. Internally, Rocker splits a Rockerfile into slices, some of them are executed through Docker’s remote API, some are sent as regular Dockerfiles underneath. This allows to not reimplement the whole thing — only add custom stuff. So if you have a plain Dockerfile, Rocker will not find any custom commands, so it will just pass it straight to Docker.
+Rocker parses the Rockerfile into an AST using the same library Docker uses for parsing Dockerfiles. Then it builds a [plan](/src/rocker/build/plan.go) out of instructions and yields a list of commands. For every command there is a function in [commands.go](/src/rocker/build/commands.go) though in the future we will make it extensible.
+
+The more detailed documentation of internals will come later.
 
 # MOUNT
 
@@ -78,10 +102,6 @@ or
 ```bash
 MOUNT .:/src
 ```
-or
-```bash
-MOUNT $GIT_SSH_KEY:/root/.ssh/id_rsa
-```
 
 `MOUNT` is used to share volumes between builds, so they can be reused by tools like dependency management. There are two types of mounts:
 
@@ -90,20 +110,20 @@ MOUNT $GIT_SSH_KEY:/root/.ssh/id_rsa
 
 Volume container names are hashed with Rockerfile’s full path and the directories it shares. So as long as your Rockerfile has the same name and it is in the same place — same volume containers will be used.
 
-Note that Rocker is not tracking changes in mounted directories, so no changes can affect caching. Cache will be busted only if you change list of mounts, add or remove them. In future, we may add some configuration flags, so you can specify if you want to watch the actual mount contents changes, and make them invalidate the cache (for example $GIT_SSH_KEY contents may change).
+Note that Rocker is not tracking changes in mounted directories, so no changes can affect caching. Cache will be busted only if you change list of mounts, add or remove them. In future, we may add some configuration flags, so you can specify if you want to watch the actual mount contents changes, and make them invalidate the cache.
 
-To force cache invalidation you can always use `--no-cache` flag for `rocker build` command. But you will then need a lot of patience.
+To force cache invalidation you can always use `--no-cache` or `--reload-cache` flags for `rocker build` command. But you will then need a lot of patience.
 
 **Example usage**
 
 ```bash
 FROM grammarly/nodejs:latest
-ADD . /src                                    #1
+ADD . /src                                      #1
 WORKDIR /src                                
-MOUNT /src/node_modules /src/bower_components #2
-MOUNT $GIT_SSH_KEY:/root/.ssh/id_rsa          #3
-RUN npm install                               #4
-RUN cp -R /src /app                           #5
+MOUNT /src/node_modules /src/bower_components   #2
+MOUNT {{ .Env.GIT_SSH_KEY }}:/root/.ssh/id_rsa  #3
+RUN npm install                                 #4
+RUN cp -R /src /app                             #5
 WORKDIR /app                                 
 CMD ["/usr/bin/node", "index.js"]
 ```
@@ -327,66 +347,6 @@ CMD ["/bin/rocker"]
 PUSH grammarly/rocker:0.1.22
 ```
 
-# REQUIRE
-
-```bash
-REQUIRE foo
-```
-or
-```bash
-REQUIRE ["foo", "bar"]
-```
-
-Useful when you use variables, for example for image name or tag (as shown above). In such case, you should specify the variable because otherwise the build doesn't make sense.
-
-`REQUIRE` does not affect the cache and it doesn't produce any layers.
-
-**Usage**
-```bash
-FROM google/golang:1.4
-…
-CMD ["/bin/rocker"]
-REQUIRE Version
-PUSH grammarly/rocker:{{ .Version }}
-```
-
-So if we run the build not specifying the version variable (like `-var "Version=123"`), it will fail
-```bash
-$ rocker build
-...
-Error: Var $Version is required but not set
-```
-
-# INCLUDE
-
-```bash
-INCLUDE path/to/mixin
-```
-or
-```bash
-INCLUDE ../../path/to/mixin
-```
-
-Adds ability to include other Dockerfiles or Rockerfiles into your file. Useful if you have some collections of mixins on the side, such as a recipe to install nodejs or python, and want to use them.
-
-1. Paths passed to `INCLUDE` are relative to the Rockerfile's directory.
-2. It is not allowed to nest includes, e.g. use `INCLUDE` in files which are being included.
-
-**Usage**
-```bash
-# includes/install_nodejs
-RUN apt-get install nodejs
-```
-
-```bash
-# Rockerfile
-FROM debian:jessie
-INCLUDE includes/install_nodejs
-ADD . /src
-WORKDIR /src
-CMD ["node", "app.js"]
-```
-
 # ATTACH
 ```bash
 ATTACH
@@ -406,7 +366,7 @@ FROM phusion/passenger-ruby22
 WORKDIR /src
 
 MOUNT /var/lib/gems
-MOUNT $GIT_SSH_KEY:/root/.ssh/id_rsa
+MOUNT {{ .Env.GIT_SSH_KEY }}:/root/.ssh/id_rsa
 MOUNT .:/src
 
 RUN ["bundle", "install"]
@@ -445,7 +405,7 @@ gb build
 
 or build for all platforms:
 ```bash
-make
+make all
 ```
 
 If you have a github access token, you can also do a github release:
@@ -476,18 +436,6 @@ gb test rocker/... -run TestMyFunction
 ```
 
 # TODO
-
-- [x] Correctly handle streaming TTY from Docker, so we can show fancy progress bars
-- [x] rocker build --attach? possibly allow to attach to a running container within build, so can run interactively; may be useful for dev images
-- [ ] run own tar stream so there is no need to put a generated dockerfile into a working directory
-- [ ] write reamde about rocker cli
-- [ ] colorful output for terminals
-- [ ] Should the same mounts be reused between different FROMs?
-- [ ] rocker inspect; inspecting a Rockerfile - whilch mount/export containers are there
-- [ ] SQUASH as discussed [here](https://github.com/docker/docker/issues/332)
-- [ ] do not store properties in an image
-- [ ] Read Rockerfile from stdin
-- [ ] Make more TODOs here
 
 ```bash
 grep -R TODO **/*.go | grep -v '^vendor/'
