@@ -1,12 +1,35 @@
 # Change Log
 
-## [Unreleased](https://github.com/grammarly/rocker/tree/HEAD)
+## [0.2.3](https://github.com/grammarly/rocker/tree/0.2.3) (2015-11-23)
+[Full Changelog](https://github.com/grammarly/rocker/compare/0.2.2...0.2.3)
 
-[Full Changelog](https://github.com/grammarly/rocker/compare/0.2.2...HEAD)
+**Implemented enhancements:**
+
+- Store information about pushed images as artifact files [\#35](https://github.com/grammarly/rocker/issues/35)
+- rocker/template: load vars from file [\#34](https://github.com/grammarly/rocker/issues/34)
+- rocker/template: call strings helper "indexOf" instead of "index" [\#33](https://github.com/grammarly/rocker/issues/33)
+- rocker/template: yaml helper [\#19](https://github.com/grammarly/rocker/issues/19)
+- Hightlight INCLUDE for sublime text language [\#29](https://github.com/grammarly/rocker/issues/29)
 
 **Fixed bugs:**
 
 - Randomly appearing IMPORT/EXPORT problem in rocker [\#8](https://github.com/grammarly/rocker/issues/8)
+- Image fails to parse if registry is an ip with a port [\#24](https://github.com/grammarly/rocker/issues/24)
+- Adopt image name splitting logic from docker [\#41](https://github.com/grammarly/rocker/pull/41) ([fxposter](https://github.com/fxposter))
+
+**Closed issues:**
+
+- --attach skips through cached layers [\#39](https://github.com/grammarly/rocker/issues/39)
+- how to def default value in template [\#38](https://github.com/grammarly/rocker/issues/38)
+- Multiple MOUNTs have stange behaviour [\#31](https://github.com/grammarly/rocker/issues/31)
+- \[feature request\] add hooks support [\#3](https://github.com/grammarly/rocker/issues/3)
+
+**Merged pull requests:**
+
+- Fix Windows inability to handle a tilde as the home directory [\#43](https://github.com/grammarly/rocker/pull/43) ([tyrken](https://github.com/tyrken))
+- ability to create artifacts without push images to regestry [\#36](https://github.com/grammarly/rocker/pull/36) ([ctrlok](https://github.com/ctrlok))
+- \#22 integrate Go's string functions to the template [\#23](https://github.com/grammarly/rocker/pull/23) ([ybogdanov](https://github.com/ybogdanov))
+- Merge template functions collected in Dev branch [\#21](https://github.com/grammarly/rocker/pull/21) ([ybogdanov](https://github.com/ybogdanov))
 
 ## [0.2.2](https://github.com/grammarly/rocker/tree/0.2.2) (2015-09-17)
 [Full Changelog](https://github.com/grammarly/rocker/compare/0.2.1...0.2.2)

@@ -1,6 +1,6 @@
-FROM dockerhub.grammarly.io/golang-1.5.1-cross
+FROM dockerhub.grammarly.io/golang-1.5.1-cross:v1
 
 ADD . /src
 WORKDIR /src
 
-TAG --no-alias rocker-build:latest
+TAG rocker-build:latest
