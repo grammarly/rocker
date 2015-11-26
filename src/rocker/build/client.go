@@ -34,7 +34,7 @@ import (
 	"github.com/fsouza/go-dockerclient"
 	"github.com/kr/pretty"
 
-	log "github.com/Sirupsen/logrus"
+	"github.com/Sirupsen/logrus"
 )
 
 // Client interface
@@ -53,6 +53,7 @@ type Client interface {
 	RemoveContainer(containerID string) error
 	UploadToContainer(containerID string, stream io.Reader, path string) error
 	EnsureContainer(containerName string, config *docker.Config, purpose string) (containerID string, err error)
+	InspectContainer(containerName string) (*docker.Container, error)
 	ResolveHostPath(path string) (resultPath string, err error)
 }
 
@@ -60,6 +61,7 @@ type Client interface {
 type DockerClient struct {
 	client *docker.Client
 	auth   docker.AuthConfiguration
+	log    *logrus.Logger
 }
 
 var (
@@ -67,10 +69,14 @@ var (
 )
 
 // NewDockerClient makes a new client that works with a docker socket
-func NewDockerClient(dockerClient *docker.Client, auth docker.AuthConfiguration) *DockerClient {
+func NewDockerClient(dockerClient *docker.Client, auth docker.AuthConfiguration, log *logrus.Logger) *DockerClient {
+	if log == nil {
+		log = logrus.StandardLogger()
+	}
 	return &DockerClient{
 		client: dockerClient,
 		auth:   auth,
+		log:    log,
 	}
 }
 
@@ -90,14 +96,13 @@ func (c *DockerClient) PullImage(name string) error {
 	var (
 		image                  = imagename.NewFromString(name)
 		pipeReader, pipeWriter = io.Pipe()
-		def                    = log.StandardLogger()
-		fdOut, isTerminalOut   = term.GetFdInfo(def.Out)
-		out                    = def.Out
+		fdOut, isTerminalOut   = term.GetFdInfo(c.log.Out)
+		out                    = c.log.Out
 		errch                  = make(chan error)
 	)
 
 	if !isTerminalOut {
-		out = def.Writer()
+		out = c.log.Writer()
 	}
 
 	opts := docker.PullImageOptions{
@@ -108,8 +113,8 @@ func (c *DockerClient) PullImage(name string) error {
 		RawJSONStream: true,
 	}
 
-	log.Infof("| Pull image %s", image)
-	log.Debugf("Pull image %s with options: %# v", image, opts)
+	c.log.Infof("| Pull image %s", image)
+	c.log.Debugf("Pull image %s with options: %# v", image, opts)
 
 	go func() {
 		errch <- jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut)
@@ -147,7 +152,7 @@ func (c *DockerClient) ListImageTags(name string) (images []*imagename.ImageName
 
 // RemoveImage removes docker image
 func (c *DockerClient) RemoveImage(imageID string) error {
-	log.Infof("| Remove image %.12s", imageID)
+	c.log.Infof("| Remove image %.12s", imageID)
 
 	opts := docker.RemoveImageOptions{
 		Force:   true,
@@ -168,7 +173,7 @@ func (c *DockerClient) CreateContainer(s State) (string, error) {
 		HostConfig: &s.NoCache.HostConfig,
 	}
 
-	log.Debugf("Create container: %# v", pretty.Formatter(opts))
+	c.log.Debugf("Create container: %# v", pretty.Formatter(opts))
 
 	container, err := c.client.CreateContainer(opts)
 	if err != nil {
@@ -180,7 +185,7 @@ func (c *DockerClient) CreateContainer(s State) (string, error) {
 		imageStr = "(from scratch)"
 	}
 
-	log.Infof("| Created container %.12s %s", container.ID, imageStr)
+	c.log.Infof("| Created container %.12s %s", container.ID, imageStr)
 
 	return container.ID, nil
 }
@@ -195,16 +200,15 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 		errch    = make(chan error)
 
 		// Wrap output streams with logger
-		def       = log.StandardLogger()
-		outLogger = &log.Logger{
-			Out:       def.Out,
-			Formatter: NewContainerFormatter(containerID, log.InfoLevel),
-			Level:     def.Level,
+		outLogger = &logrus.Logger{
+			Out:       c.log.Out,
+			Formatter: NewContainerFormatter(containerID, logrus.InfoLevel),
+			Level:     c.log.Level,
 		}
-		errLogger = &log.Logger{
-			Out:       def.Out,
-			Formatter: NewContainerFormatter(containerID, log.ErrorLevel),
-			Level:     def.Level,
+		errLogger = &logrus.Logger{
+			Out:       c.log.Out,
+			Formatter: NewContainerFormatter(containerID, logrus.ErrorLevel),
+			Level:     c.log.Level,
 		}
 
 		in                 = os.Stdin
@@ -223,7 +227,7 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 
 	// Used by ATTACH
 	if attachStdin {
-		log.Infof("| Attach stdin to the container %.12s", containerID)
+		c.log.Infof("| Attach stdin to the container %.12s", containerID)
 
 		if !isTerminalIn {
 			return fmt.Errorf("Cannot attach to a container on non tty input")
@@ -237,7 +241,7 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 	}
 
 	// We want do debug the final attach options before setting raw term
-	log.Debugf("Attach to container with options: %# v", attachOpts)
+	c.log.Debugf("Attach to container with options: %# v", attachOpts)
 
 	if attachStdin {
 		oldState, err := term.SetRawTerminal(fdIn)
@@ -263,7 +267,7 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 				// But let's consider it a corner case.
 			default:
 				// Print the error. We cannot return it because the main routine is handing on WaitContaienr
-				log.Errorf("Got error while attaching to container %.12s: %s", containerID, err)
+				c.log.Errorf("Got error while attaching to container %.12s: %s", containerID, err)
 			}
 		}
 	}()
@@ -288,7 +292,7 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 
 	go func() {
 		statusCode, err := c.client.WaitContainer(containerID)
-		// log.Debugf("Wait finished, status %q error %q", statusCode, err)
+		// c.log.Debugf("Wait finished, status %q error %q", statusCode, err)
 		if err != nil {
 			errch <- err
 		} else if statusCode != 0 {
@@ -307,9 +311,9 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 		}
 	case <-sigch:
 		// TODO: Removing container twice for some reason
-		log.Infof("Received SIGINT, remove current container...")
+		c.log.Infof("Received SIGINT, remove current container...")
 		if err := c.RemoveContainer(containerID); err != nil {
-			log.Errorf("Failed to remove container: %s", err)
+			c.log.Errorf("Failed to remove container: %s", err)
 		}
 		// TODO: send signal to builder.Run() and have a proper cleanup
 		os.Exit(2)
@@ -326,7 +330,7 @@ func (c *DockerClient) CommitContainer(s State, message string) (*docker.Image, 
 		Run:       &s.Config,
 	}
 
-	log.Debugf("Commit container: %# v", pretty.Formatter(commitOpts))
+	c.log.Debugf("Commit container: %# v", pretty.Formatter(commitOpts))
 
 	image, err := c.client.CommitContainer(commitOpts)
 	if err != nil {
@@ -334,7 +338,7 @@ func (c *DockerClient) CommitContainer(s State, message string) (*docker.Image, 
 	}
 
 	// Inspect the image to get the real size
-	log.Debugf("Inspect image %s", image.ID)
+	c.log.Debugf("Inspect image %s", image.ID)
 
 	if image, err = c.client.InspectImage(image.ID); err != nil {
 		return nil, err
@@ -345,7 +349,7 @@ func (c *DockerClient) CommitContainer(s State, message string) (*docker.Image, 
 		units.HumanSize(float64(image.Size)),
 	)
 
-	log.WithFields(log.Fields{
+	c.log.WithFields(logrus.Fields{
 		"size": size,
 	}).Infof("| Result image is %.12s", image.ID)
 
@@ -354,7 +358,7 @@ func (c *DockerClient) CommitContainer(s State, message string) (*docker.Image, 
 
 // RemoveContainer removes docker container
 func (c *DockerClient) RemoveContainer(containerID string) error {
-	log.Infof("| Removing container %.12s", containerID)
+	c.log.Infof("| Removing container %.12s", containerID)
 
 	opts := docker.RemoveContainerOptions{
 		ID:            containerID,
@@ -367,7 +371,7 @@ func (c *DockerClient) RemoveContainer(containerID string) error {
 
 // UploadToContainer uploads files to a docker container
 func (c *DockerClient) UploadToContainer(containerID string, stream io.Reader, path string) error {
-	log.Infof("| Uploading files to container %.12s", containerID)
+	c.log.Infof("| Uploading files to container %.12s", containerID)
 
 	opts := docker.UploadToContainerOptions{
 		InputStream:          stream,
@@ -382,7 +386,7 @@ func (c *DockerClient) UploadToContainer(containerID string, stream io.Reader, p
 func (c *DockerClient) TagImage(imageID, imageName string) error {
 	img := imagename.NewFromString(imageName)
 
-	log.Infof("| Tag %.12s -> %s", imageID, img)
+	c.log.Infof("| Tag %.12s -> %s", imageID, img)
 
 	opts := docker.TagImageOptions{
 		Repo:  img.NameWithRegistry(),
@@ -390,7 +394,7 @@ func (c *DockerClient) TagImage(imageID, imageName string) error {
 		Force: true,
 	}
 
-	log.Debugf("Tag image %s with options: %# v", imageID, opts)
+	c.log.Debugf("Tag image %s with options: %# v", imageID, opts)
 
 	return c.client.TagImage(imageID, opts)
 }
@@ -403,9 +407,8 @@ func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
 		buf                    bytes.Buffer
 		pipeReader, pipeWriter = io.Pipe()
 		outStream              = io.MultiWriter(pipeWriter, &buf)
-		def                    = log.StandardLogger()
-		fdOut, isTerminalOut   = term.GetFdInfo(def.Out)
-		out                    = def.Out
+		fdOut, isTerminalOut   = term.GetFdInfo(c.log.Out)
+		out                    = c.log.Out
 
 		opts = docker.PushImageOptions{
 			Name:          img.NameWithRegistry(),
@@ -417,17 +420,17 @@ func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
 	)
 
 	if !isTerminalOut {
-		out = def.Writer()
+		out = c.log.Writer()
 	}
 
-	log.Infof("| Push %s", img)
+	c.log.Infof("| Push %s", img)
 
-	log.Debugf("Push with options: %# v", opts)
+	c.log.Debugf("Push with options: %# v", opts)
 
 	// TODO: DisplayJSONMessagesStream may fail by client.PushImage run without errors
 	go func() {
 		if err := jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut); err != nil {
-			log.Errorf("Failed to process json stream, error %s", err)
+			c.log.Errorf("Failed to process json stream, error %s", err)
 		}
 	}()
 
@@ -484,14 +487,14 @@ func (c *DockerClient) EnsureContainer(containerName string, config *docker.Conf
 		return "", fmt.Errorf("Failed to check image %s, error: %s", config.Image, err)
 	}
 
-	log.Infof("| Create container: %s for %s", containerName, purpose)
+	c.log.Infof("| Create container: %s for %s", containerName, purpose)
 
 	opts := docker.CreateContainerOptions{
 		Name:   containerName,
 		Config: config,
 	}
 
-	log.Debugf("Create container options %# v", opts)
+	c.log.Debugf("Create container options %# v", opts)
 
 	container, err = c.client.CreateContainer(opts)
 	if err != nil {
@@ -499,4 +502,9 @@ func (c *DockerClient) EnsureContainer(containerName string, config *docker.Conf
 	}
 
 	return container.ID, err
+}
+
+// InspectContainer simply inspects the container by name or ID
+func (c *DockerClient) InspectContainer(containerName string) (container *docker.Container, err error) {
+	return c.client.InspectContainer(containerName)
 }

@@ -206,9 +206,9 @@ func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
 	return *s2, true, nil
 }
 
-func (b *Build) getVolumeContainer(path string) (name string, err error) {
+func (b *Build) getVolumeContainer(path string) (c *docker.Container, err error) {
 
-	name = b.mountsContainerName(path)
+	name := b.mountsContainerName(path)
 
 	config := &docker.Config{
 		Image: MountVolumeImage,
@@ -220,16 +220,16 @@ func (b *Build) getVolumeContainer(path string) (name string, err error) {
 	log.Debugf("Make MOUNT volume container %s with options %# v", name, config)
 
 	if _, err = b.client.EnsureContainer(name, config, path); err != nil {
-		return name, err
+		return nil, err
 	}
 
 	log.Infof("| Using container %s for %s", name, path)
 
-	return name, nil
+	return b.client.InspectContainer(name)
 }
 
-func (b *Build) getExportsContainer() (name string, err error) {
-	name = b.exportsContainerName()
+func (b *Build) getExportsContainer() (c *docker.Container, err error) {
+	name := b.exportsContainerName()
 
 	config := &docker.Config{
 		Image: RsyncImage,
@@ -243,12 +243,12 @@ func (b *Build) getExportsContainer() (name string, err error) {
 
 	containerID, err := b.client.EnsureContainer(name, config, "exports")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	log.Infof("| Using exports container %s", name)
+	log.Infof("| Using exports container %.12s", name)
 
-	return containerID, nil
+	return b.client.InspectContainer(containerID)
 }
 
 // lookupImage looks up for the image by name and returns *docker.Image object (result of the inspect)

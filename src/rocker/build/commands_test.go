@@ -678,6 +678,18 @@ func TestCommandMount_VolumeContainer(t *testing.T) {
 		assert.True(t, reflect.DeepEqual(expectedVolumes, arg.Volumes))
 	}).Once()
 
+	cnt := &docker.Container{
+		Name: "/" + containerName,
+		Mounts: []docker.Mount{
+			{
+				Source:      "/volumedir",
+				Destination: "/cache",
+			},
+		},
+	}
+
+	c.On("InspectContainer", containerName).Return(cnt, nil)
+
 	state, err := cmd.Execute(b)
 	if err != nil {
 		t.Fatal(err)
@@ -686,7 +698,7 @@ func TestCommandMount_VolumeContainer(t *testing.T) {
 	commitMsg := fmt.Sprintf("MOUNT [\"%s:/cache\"]", containerName)
 
 	c.AssertExpectations(t)
-	assert.Equal(t, []string{containerName}, state.NoCache.HostConfig.VolumesFrom)
+	assert.Equal(t, []string{"/volumedir:/cache:ro"}, state.NoCache.HostConfig.Binds)
 	assert.Equal(t, commitMsg, state.GetCommits())
 }
 

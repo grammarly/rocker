@@ -107,6 +107,9 @@ gocyclo:
 test: testdeps fmtcheck vet lint
 	gb test rocker/... $(TESTARGS)
 
+integ:
+	GOPATH=`pwd`:`pwd`/vendor go test rocker/... -tags="integration" -run TestInteg_
+
 version:
 	@echo $(VERSION)
 

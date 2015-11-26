@@ -291,7 +291,7 @@ func buildCommand(c *cli.Context) {
 		auth.Password = userPass[1]
 	}
 
-	client := build.NewDockerClient(dockerClient, auth)
+	client := build.NewDockerClient(dockerClient, auth, log.StandardLogger())
 
 	var cache build.Cache
 	if !c.Bool("no-cache") {

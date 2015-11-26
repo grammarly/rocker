@@ -1132,17 +1132,19 @@ func (c *CommandMount) Execute(b *Build) (s State, err error) {
 
 		// MOUNT dir
 		case false:
-			name, err := b.getVolumeContainer(arg)
+			c, err := b.getVolumeContainer(arg)
 			if err != nil {
 				return s, err
 			}
 
-			if s.NoCache.HostConfig.VolumesFrom == nil {
-				s.NoCache.HostConfig.VolumesFrom = []string{}
+			if s.NoCache.HostConfig.Binds == nil {
+				s.NoCache.HostConfig.Binds = []string{}
 			}
 
-			s.NoCache.HostConfig.VolumesFrom = append(s.NoCache.HostConfig.VolumesFrom, name)
-			commitIds = append(commitIds, name+":"+arg)
+			s.NoCache.HostConfig.Binds = append(s.NoCache.HostConfig.Binds,
+				mountsToBinds(c.Mounts)...)
+
+			commitIds = append(commitIds, strings.TrimLeft(c.Name, "/")+":"+arg)
 		}
 	}
 
@@ -1191,7 +1193,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	// EXPORT /my/dir /stuff/ --> /EXPORT_VOLUME/stuff/my_dir
 	// EXPORT /my/dir/* / --> /EXPORT_VOLUME/stuff/my_dir
 
-	exportsContainerID, err := b.getExportsContainer()
+	exportsContainer, err := b.getExportsContainer()
 	if err != nil {
 		return s, err
 	}
@@ -1202,7 +1204,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		return s, fmt.Errorf("Invalid EXPORT destination: %s", dest)
 	}
 
-	s.Commit("EXPORT %q to %.12s:%s", src, exportsContainerID, dest)
+	s.Commit("EXPORT %q to %.12s:%s", src, exportsContainer.ID, dest)
 
 	s, hit, err := b.probeCache(s)
 	if err != nil {
@@ -1224,9 +1226,8 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	}()
 
 	// Append exports container as a volume
-	// TODO: test the case when there are imports before
-	s.NoCache.HostConfig.VolumesFrom = append(
-		s.NoCache.HostConfig.VolumesFrom, exportsContainerID)
+	s.NoCache.HostConfig.Binds = append(s.NoCache.HostConfig.Binds,
+		mountsToBinds(exportsContainer.Mounts)...)
 
 	cmd := []string{"/opt/rsync/bin/rsync", "-a", "--delete-during"}
 
@@ -1287,7 +1288,12 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	// 			 data in the exports container may be from the latest EXPORT of different
 	// 			 build. So we need to prefix ~/.rocker_exports dir with some id somehow.
 
-	log.Infof("| Import from %s", b.exportsContainerName())
+	exportsContainer, err := b.getExportsContainer()
+	if err != nil {
+		return s, err
+	}
+
+	log.Infof("| Import from %s (%.12s)", b.exportsContainerName(), exportsContainer.ID)
 
 	// If only one argument was given to IMPORT, use the same path for destination
 	// IMPORT /my/dir/file.tar --> ADD ./EXPORT_VOLUME/my/dir/file.tar /my/dir/file.tar
@@ -1340,9 +1346,8 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	s.Config.Entrypoint = []string{}
 
 	// Append exports container as a volume
-	// TODO: test the case when there are imports before
-	s.NoCache.HostConfig.VolumesFrom = append(
-		s.NoCache.HostConfig.VolumesFrom, b.exportsContainerName())
+	s.NoCache.HostConfig.Binds = append(s.NoCache.HostConfig.Binds,
+		mountsToBinds(exportsContainer.Mounts)...)
 
 	if importID, err = b.client.CreateContainer(s); err != nil {
 		return s, err

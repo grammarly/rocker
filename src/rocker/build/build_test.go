@@ -342,6 +342,11 @@ func (m *MockClient) EnsureContainer(containerName string, config *docker.Config
 	return args.String(0), args.Error(1)
 }
 
+func (m *MockClient) InspectContainer(containerName string) (container *docker.Container, err error) {
+	args := m.Called(containerName)
+	return args.Get(0).(*docker.Container), args.Error(1)
+}
+
 // type MockCache struct {
 // 	mock.Mock
 // }

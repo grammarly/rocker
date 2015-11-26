@@ -20,6 +20,8 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+
+	"github.com/fsouza/go-dockerclient"
 )
 
 // mountsContainerName returns the name of volume container that will be used for a particular MOUNT
@@ -41,6 +43,24 @@ func (b *Build) getIdentifier() string {
 		return b.cfg.ID
 	}
 	return b.cfg.ContextDir + ":" + b.rockerfile.Name
+}
+
+// mountsToBinds turns the list of mounts to the list of binds
+func mountsToBinds(mounts []docker.Mount) []string {
+	result := make([]string, len(mounts))
+	for i, m := range mounts {
+		// TODO: Mode?
+		result[i] = mountToBind(m, m.RW)
+	}
+	return result
+}
+
+// mountToBind turns docker.Mount into a bind string
+func mountToBind(m docker.Mount, rw bool) string {
+	if rw {
+		return m.Source + ":" + m.Destination + ":rw"
+	}
+	return m.Source + ":" + m.Destination + ":ro"
 }
 
 // readerVoidCloser is a hack of the improved go-dockerclient's hijacking behavior
