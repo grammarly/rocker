@@ -1,5 +1,12 @@
 # Change Log
 
+## [1.0.1](https://github.com/grammarly/rocker/tree/1.0.1) (2015-11-26)
+[Full Changelog](https://github.com/grammarly/rocker/compare/1.0.0...1.0.1)
+
+**Fixed bugs:**
+
+- EXPORT/IMPORT is not working with Docker 1.9: rsync-static container volumes [\#51](https://github.com/grammarly/rocker/issues/51)
+
 ## [1.0.0](https://github.com/grammarly/rocker/tree/1.0.0) (2015-11-23)
 [Full Changelog](https://github.com/grammarly/rocker/compare/0.2.3...1.0.0)
 
@@ -45,13 +52,6 @@
 - Randomly appearing IMPORT/EXPORT problem in rocker [\#8](https://github.com/grammarly/rocker/issues/8)
 - Image fails to parse if registry is an ip with a port [\#24](https://github.com/grammarly/rocker/issues/24)
 - Adopt image name splitting logic from docker [\#41](https://github.com/grammarly/rocker/pull/41) ([fxposter](https://github.com/fxposter))
-
-**Closed issues:**
-
-- --attach skips through cached layers [\#39](https://github.com/grammarly/rocker/issues/39)
-- how to def default value in template [\#38](https://github.com/grammarly/rocker/issues/38)
-- Multiple MOUNTs have stange behaviour [\#31](https://github.com/grammarly/rocker/issues/31)
-- \[feature request\] add hooks support [\#3](https://github.com/grammarly/rocker/issues/3)
 
 **Merged pull requests:**
 
