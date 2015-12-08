@@ -149,6 +149,12 @@
 			"repository": "https://github.com/mitchellh/go-homedir",
 			"revision": "d682a8f0cf139663a984ff12528da460ca963de9",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/aws/aws-sdk-go",
+			"repository": "https://github.com/aws/aws-sdk-go",
+			"revision": "d4677067b535e7a06201ce491b41f4b73dcc73a9",
+			"branch": "master"
 		}
 	]
 }
