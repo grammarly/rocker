@@ -594,8 +594,7 @@ func (c *DockerClient) pushImageS3(imageName string) (digest string, err error) 
 		Body:        fd,
 	}
 
-	result, err := uploader.Upload(upParams)
-	if err != nil {
+	if _, err := uploader.Upload(upParams); err != nil {
 		return "", fmt.Errorf("Failed to upload object to S3, error: %s", err)
 	}
 

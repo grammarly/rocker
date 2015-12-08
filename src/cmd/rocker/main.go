@@ -50,7 +50,7 @@ var (
 	// BuildTime that is passed on compile time through -ldflags
 	BuildTime = "none"
 
-	// Human readable app version
+	// HumanVersion is a human readable app version
 	HumanVersion = fmt.Sprintf("%s - %.7s (%s) %s", Version, GitCommit, GitBranch, BuildTime)
 )
 
