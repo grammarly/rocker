@@ -167,6 +167,18 @@
 			"repository": "https://github.com/jmespath/go-jmespath",
 			"revision": "c01cf91b011868172fdcd9f41838e80c9d716264",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/mitchellh/goamz",
+			"repository": "https://github.com/mitchellh/goamz",
+			"revision": "caaaea8b30ee15616494ee68abd5d8ebbbef05cf",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/vaughan0/go-ini",
+			"repository": "https://github.com/vaughan0/go-ini",
+			"revision": "a98ad7ee00ec53921f08832bc06ecf7fd600e6a1",
+			"branch": "master"
 		}
 	]
 }
