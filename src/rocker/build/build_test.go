@@ -48,7 +48,7 @@ func TestBuild_ReplaceEnvVars(t *testing.T) {
 
 	resultImage := &docker.Image{ID: "789"}
 
-	c.On("InspectImage", "ubuntu").Return(img, nil).Once()
+	c.On("InspectImage", "ubuntu:latest").Return(img, nil).Once()
 
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
 		arg := args.Get(0).(State)
@@ -62,6 +62,8 @@ func TestBuild_ReplaceEnvVars(t *testing.T) {
 	if err := b.Run(plan); err != nil {
 		t.Fatal(err)
 	}
+
+	c.AssertExpectations(t)
 }
 
 func TestBuild_LookupImage_ExactExistLocally(t *testing.T) {

@@ -282,7 +282,7 @@ func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
 	// If hub is true, then there is no sense to inspect the local image
 	if !hub || isSha {
 		// Try to inspect image as is, without version resolution
-		if img, err := b.client.InspectImage(name); err != nil || img != nil {
+		if img, err := b.client.InspectImage(imgName.StringNoStorage()); err != nil || img != nil {
 			return img, err
 		}
 	}
@@ -342,5 +342,5 @@ func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
 		}
 	}
 
-	return b.client.InspectImage(candidate.String())
+	return b.client.InspectImage(candidate.StringNoStorage())
 }

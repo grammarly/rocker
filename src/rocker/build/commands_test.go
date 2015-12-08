@@ -44,7 +44,7 @@ func TestCommandFrom_Existing(t *testing.T) {
 		},
 	}
 
-	c.On("InspectImage", "existing").Return(img, nil).Once()
+	c.On("InspectImage", "existing:latest").Return(img, nil).Once()
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -65,7 +65,7 @@ func TestCommandFrom_NotExisting(t *testing.T) {
 	var nilImg *docker.Image
 	var nilList []*imagename.ImageName
 
-	c.On("InspectImage", "not-existing").Return(nilImg, nil).Once()
+	c.On("InspectImage", "not-existing:latest").Return(nilImg, nil).Once()
 	c.On("ListImages").Return(nilList, nil).Once()
 	c.On("ListImageTags", "not-existing:latest").Return(nilList, nil).Once()
 
