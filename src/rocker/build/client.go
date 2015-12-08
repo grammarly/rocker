@@ -541,7 +541,7 @@ func (c *DockerClient) pushImageS3(imageName string) (digest string, err error) 
 
 	// TODO: here we use tmp file, but we can stream to S3 directly from Docker
 	// https://github.com/aws/aws-sdk-go/issues/272
-	tmpf, err := ioutil.TempFile("/tmp", "rocker_image_")
+	tmpf, err := ioutil.TempFile("", "rocker_image_")
 	if err != nil {
 		return "", err
 	}
@@ -620,29 +620,42 @@ func (c *DockerClient) pushImageS3(imageName string) (digest string, err error) 
 func (c *DockerClient) pullImageS3(name string) error {
 	img := imagename.NewFromString(name)
 
+	// TODO: here we use tmp file, but we can stream from S3 directly to Docker
+	tmpf, err := ioutil.TempFile("", "rocker_image_")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmpf.Name())
+
 	svc := s3.New(session.New(), &aws.Config{Region: aws.String("us-east-1")})
 
-	getParams := &s3.GetObjectInput{
+	// Create a downloader with the s3 client and custom options
+	downloader := s3manager.NewDownloaderWithClient(svc, func(d *s3manager.Downloader) {
+		d.PartSize = 64 * 1024 * 1024 // 64MB per part
+	})
+
+	downloadParams := &s3.GetObjectInput{
 		Bucket: aws.String(img.Registry),
 		Key:    aws.String(img.Name + "/" + img.Tag + ".tar"),
 	}
 
-	c.log.Infof("| Import s3://%s/%s.tar", img.NameWithRegistry(), img.Tag)
+	c.log.Infof("| Import s3://%s/%s.tar to %s", img.NameWithRegistry(), img.Tag, tmpf.Name())
 
-	req, output := svc.GetObjectRequest(getParams)
-	errch := make(chan error, 1)
-
-	if err := req.Send(); err != nil {
-		return fmt.Errorf("Failed to get object from S3, error: %s", err)
+	if _, err := downloader.Download(tmpf, downloadParams); err != nil {
+		return fmt.Errorf("Failed to download object from S3, error: %s", err)
 	}
 
-	go func() {
-		errch <- c.client.LoadImage(docker.LoadImageOptions{
-			InputStream: output.Body,
-		})
-	}()
+	fd, err := os.Open(tmpf.Name())
+	if err != nil {
+		return err
+	}
+	defer fd.Close()
 
-	if err := <-errch; err != nil {
+	loadOptions := docker.LoadImageOptions{
+		InputStream: fd,
+	}
+
+	if err := c.client.LoadImage(loadOptions); err != nil {
 		return fmt.Errorf("Failed to import image, error: %s", err)
 	}
 
