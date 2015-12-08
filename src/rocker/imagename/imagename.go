@@ -35,11 +35,17 @@ const (
 	Wildcards = "x*"
 )
 
+const (
+	STORAGE_REGISTRY = "registry"
+	STORAGE_S3       = "s3"
+)
+
 // ImageName is the data structure with describes docker image name
 type ImageName struct {
 	Registry string
 	Name     string
 	Tag      string
+	Storage  string
 	Version  *semver.Range
 }
 
@@ -52,6 +58,26 @@ func NewFromString(image string) *ImageName {
 // New parses a given 'image' and 'tag' strings and returns ImageName
 func New(image string, tag string) *ImageName {
 	dockerImage := &ImageName{}
+
+	if tag != "" {
+		dockerImage.SetTag(tag)
+	}
+
+	// In case storage is specified, e.g. s3://bucket-name/image-name
+	storages := []string{STORAGE_REGISTRY, STORAGE_S3}
+
+	for _, storage := range storages {
+		prefix := storage + "://"
+
+		if strings.HasPrefix(image, prefix) {
+			nameParts := strings.SplitN(strings.TrimPrefix(image, prefix), "/", 2)
+			dockerImage.Registry = nameParts[0]
+			dockerImage.Name = nameParts[1]
+			dockerImage.Storage = storage
+			return dockerImage
+		}
+	}
+
 	nameParts := strings.SplitN(image, "/", 2)
 
 	firstIsHost := strings.Contains(nameParts[0], ".") ||
@@ -65,9 +91,7 @@ func New(image string, tag string) *ImageName {
 		dockerImage.Name = nameParts[1]
 	}
 
-	if tag != "" {
-		dockerImage.SetTag(tag)
-	}
+	dockerImage.Storage = STORAGE_REGISTRY
 
 	return dockerImage
 }
@@ -95,10 +119,16 @@ func ParseRepositoryTag(repos string) (string, string) {
 
 // String returns the string representation of the current image name
 func (img ImageName) String() string {
+	var str string
 	if img.TagIsSha() {
-		return img.NameWithRegistry() + "@" + img.GetTag()
+		str = img.NameWithRegistry() + "@" + img.GetTag()
+	} else {
+		str = img.NameWithRegistry() + ":" + img.GetTag()
 	}
-	return img.NameWithRegistry() + ":" + img.GetTag()
+	if img.Storage != "registry" {
+		str = img.Storage + "://" + str
+	}
+	return str
 }
 
 // HasTag returns true if tags is specified for the image name
