@@ -49,6 +49,9 @@ var (
 
 	// BuildTime that is passed on compile time through -ldflags
 	BuildTime = "none"
+
+	// Human readable app version
+	HumanVersion = fmt.Sprintf("%s - %.7s (%s) %s", Version, GitCommit, GitBranch, BuildTime)
 )
 
 func init() {
@@ -61,7 +64,7 @@ func main() {
 	app := cli.NewApp()
 
 	app.Name = "rocker"
-	app.Version = fmt.Sprintf("%s - %.7s (%s) %s", Version, GitCommit, GitBranch, BuildTime)
+	app.Version = HumanVersion
 
 	app.Usage = "Docker based build tool\n\n   Run 'rocker COMMAND --help' for more information on a command."
 
@@ -187,7 +190,7 @@ func main() {
 
 func globalBefore(c *cli.Context) error {
 	if c.GlobalBool("cmd") {
-		log.Infof("Cmd: %s", strings.Join(os.Args, " "))
+		log.Infof("Rocker %s | Cmd: %s", HumanVersion, strings.Join(os.Args, " "))
 	}
 	return nil
 }
