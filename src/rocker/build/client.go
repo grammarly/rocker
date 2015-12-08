@@ -98,7 +98,7 @@ func (c *DockerClient) PullImage(name string) error {
 		pipeReader, pipeWriter = io.Pipe()
 		fdOut, isTerminalOut   = term.GetFdInfo(c.log.Out)
 		out                    = c.log.Out
-		errch                  = make(chan error)
+		errch                  = make(chan error, 1)
 	)
 
 	if !isTerminalOut {
@@ -417,6 +417,7 @@ func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
 			OutputStream:  outStream,
 			RawJSONStream: true,
 		}
+		errch = make(chan error, 1)
 	)
 
 	if !isTerminalOut {
@@ -429,15 +430,17 @@ func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
 
 	// TODO: DisplayJSONMessagesStream may fail by client.PushImage run without errors
 	go func() {
-		if err := jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut); err != nil {
-			c.log.Errorf("Failed to process json stream, error %s", err)
-		}
+		errch <- jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut)
 	}()
 
 	if err := c.client.PushImage(opts, c.auth); err != nil {
 		return "", err
 	}
 	pipeWriter.Close()
+
+	if err := <-errch; err != nil {
+		return "", fmt.Errorf("Failed to process json stream, error %s", err)
+	}
 
 	// It is the best way to have pushed image digest so far
 	matches := captureDigest.FindStringSubmatch(buf.String())
