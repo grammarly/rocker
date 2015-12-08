@@ -572,8 +572,9 @@ func (c *DockerClient) pushImageS3(imageName string) (digest string, err error) 
 	if err != nil {
 		return "", err
 	}
+	defer fd.Close()
 
-	stat, err := os.Stat(tmpf.Name())
+	stat, err := tmpf.Stat()
 	if err != nil {
 		return "", err
 	}
