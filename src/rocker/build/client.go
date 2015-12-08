@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 
@@ -30,9 +29,10 @@ import (
 	"rocker/dockerclient"
 	"rocker/imagename"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/docker/docker/pkg/units"
-	"github.com/mitchellh/goamz/aws"
-	"github.com/mitchellh/goamz/s3"
 
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/docker/docker/pkg/term"
@@ -562,11 +562,7 @@ func (c *DockerClient) pushImageS3(imageName string) (digest string, err error) 
 
 	digest = fmt.Sprintf("sha256:%x", hash.Sum(nil))
 
-	auth, err := aws.EnvAuth()
-	if err != nil {
-		log.Fatal(err)
-	}
-	bucket := s3.New(auth, aws.USEast).Bucket(img.Registry)
+	svc := s3.New(session.New(), &aws.Config{Region: aws.String("us-east-1")})
 
 	fd, err := os.Open(tmpf.Name())
 	if err != nil {
@@ -574,38 +570,29 @@ func (c *DockerClient) pushImageS3(imageName string) (digest string, err error) 
 	}
 	defer fd.Close()
 
-	stat, err := tmpf.Stat()
-	if err != nil {
-		return "", err
+	putParams := &s3.PutObjectInput{
+		Bucket:      aws.String(img.Registry),
+		Key:         aws.String(img.Name + "/" + digest + ".tar"),
+		Body:        fd,
+		ContentType: aws.String("application/x-tar"),
 	}
-
-	// putParams := &s3.PutObjectInput{
-	// 	Bucket:      aws.String(img.Registry),
-	// 	Key:         aws.String(img.Name + "/" + digest + ".tar"),
-	// 	Body:        fd,
-	// 	ContentType: aws.String("application/x-tar"),
-	// }
 
 	c.log.Infof("| Uploading image to s3://%s/%s.tar", img.NameWithRegistry(), digest)
 
-	putPath := img.Name + "/" + digest + ".tar"
-
-	if err := bucket.PutReader(putPath, fd, stat.Size(), "application/x-tar", s3.Private); err != nil {
+	if _, err := svc.PutObject(putParams); err != nil {
 		return "", fmt.Errorf("Failed to PUT object to S3, error: %s", err)
 	}
 
 	// Make a content addressable copy of an image file
-	// copyParams := &s3.CopyObjectInput{
-	// 	Bucket:     aws.String(img.Registry),
-	// 	CopySource: aws.String(img.Registry + "/" + img.Name + "/" + digest + ".tar"),
-	// 	Key:        aws.String(img.Name + "/" + img.Tag + ".tar"),
-	// }
+	copyParams := &s3.CopyObjectInput{
+		Bucket:     aws.String(img.Registry),
+		CopySource: aws.String(img.Registry + "/" + img.Name + "/" + digest + ".tar"),
+		Key:        aws.String(img.Name + "/" + img.Tag + ".tar"),
+	}
 
 	c.log.Infof("| Make alias s3://%s/%s.tar", img.NameWithRegistry(), img.Tag)
 
-	aliasPath := img.Name + "/" + img.Tag + ".tar"
-
-	if err := bucket.Copy(putPath, aliasPath, s3.Private); err != nil {
+	if _, err = svc.CopyObject(copyParams); err != nil {
 		return "", fmt.Errorf("Failed to PUT object to S3, error: %s", err)
 	}
 
@@ -618,32 +605,25 @@ func (c *DockerClient) pushImageS3(imageName string) (digest string, err error) 
 func (c *DockerClient) pullImageS3(name string) error {
 	img := imagename.NewFromString(name)
 
-	// svc := s3.New(session.New(), &aws.Config{Region: aws.String("us-east-1")})
+	svc := s3.New(session.New(), &aws.Config{Region: aws.String("us-east-1")})
 
-	// getParams := &s3.GetObjectInput{
-	// 	Bucket: aws.String(img.Registry),
-	// 	Key:    aws.String(img.Name + "/" + img.Tag + ".tar"),
-	// }
-
-	auth, err := aws.EnvAuth()
-	if err != nil {
-		log.Fatal(err)
+	getParams := &s3.GetObjectInput{
+		Bucket: aws.String(img.Registry),
+		Key:    aws.String(img.Name + "/" + img.Tag + ".tar"),
 	}
-	bucket := s3.New(auth, aws.USEast).Bucket(img.Registry)
 
 	c.log.Infof("| Import s3://%s/%s.tar", img.NameWithRegistry(), img.Tag)
 
-	rd, err := bucket.GetReader(img.Name + "/" + img.Tag + ".tar")
-	if err != nil {
-		return err
-	}
-	defer rd.Close()
-
+	req, output := svc.GetObjectRequest(getParams)
 	errch := make(chan error, 1)
+
+	if err := req.Send(); err != nil {
+		return fmt.Errorf("Failed to get object from S3, error: %s", err)
+	}
 
 	go func() {
 		errch <- c.client.LoadImage(docker.LoadImageOptions{
-			InputStream: rd,
+			InputStream: output.Body,
 		})
 	}()
 
