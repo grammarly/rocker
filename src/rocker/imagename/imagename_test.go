@@ -494,20 +494,33 @@ func TestImagename_ToYaml(t *testing.T) {
 }
 
 func TestImagename_S3_Basic(t *testing.T) {
-	img := NewFromString("s3://bucket-name/image-name:1.2.3")
+	img := NewFromString("s3:bucket-name/image-name:1.2.3")
 	assert.Equal(t, "bucket-name", img.Registry)
 	assert.Equal(t, "image-name", img.Name)
+	assert.Equal(t, false, img.TagIsSha())
 	assert.Equal(t, "1.2.3", img.GetTag())
-	assert.Equal(t, "bucket-name/image-name", img.NameWithRegistry())
-	assert.Equal(t, "s3://bucket-name/image-name:1.2.3", img.String())
+	assert.Equal(t, "s3:bucket-name/image-name", img.NameWithRegistry())
+	assert.Equal(t, "s3:bucket-name/image-name:1.2.3", img.String())
 }
 
-func TestImagename_S3_Etag(t *testing.T) {
-	img := NewFromString("s3://bucket-name/image-name@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11")
+func TestImagename_S3_Digest(t *testing.T) {
+	img := NewFromString("s3:bucket-name/image-name@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11")
 	assert.Equal(t, "bucket-name", img.Registry)
 	assert.Equal(t, "image-name", img.Name)
 	assert.Equal(t, true, img.TagIsSha())
-	assert.Equal(t, "bucket-name/image-name", img.NameWithRegistry())
+	assert.Equal(t, true, img.TagIsDigest())
+	assert.Equal(t, "s3:bucket-name/image-name", img.NameWithRegistry())
 	assert.Equal(t, "sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.GetTag())
-	assert.Equal(t, "s3://bucket-name/image-name@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.String())
+	assert.Equal(t, "s3:bucket-name/image-name@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.String())
+}
+
+func TestImagename_S3_Sha(t *testing.T) {
+	img := NewFromString("s3:bucket-name/image-name:sha256-ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11")
+	assert.Equal(t, "bucket-name", img.Registry)
+	assert.Equal(t, "image-name", img.Name)
+	assert.Equal(t, true, img.TagIsSha())
+	assert.Equal(t, false, img.TagIsDigest())
+	assert.Equal(t, "s3:bucket-name/image-name", img.NameWithRegistry())
+	assert.Equal(t, "sha256-ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.GetTag())
+	assert.Equal(t, "s3:bucket-name/image-name:sha256-ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.String())
 }

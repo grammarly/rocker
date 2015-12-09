@@ -46,6 +46,18 @@ func (a *Artifact) GetFileName() string {
 	return fmt.Sprintf("%s_%s.yml", imageName, a.Name.GetTag())
 }
 
+// SetDigest sets the digest and forms the Addressable property
+func (a *Artifact) SetDigest(digest string) {
+	a.Digest = digest
+	if strings.HasPrefix(a.Digest, "sha256:") {
+		// for digest sha256:blabla
+		a.Addressable = fmt.Sprintf("%s@%s", a.Name.NameWithRegistry(), a.Digest)
+	} else {
+		// for digest sha256-blabla (tag)
+		a.Addressable = fmt.Sprintf("%s:%s", a.Name.NameWithRegistry(), a.Digest)
+	}
+}
+
 // Len returns the length of image tags
 func (a *Artifacts) Len() int {
 	return len(a.RockerArtifacts)

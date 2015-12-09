@@ -25,6 +25,7 @@ import (
 	"rocker/build"
 	"rocker/debugtrap"
 	"rocker/dockerclient"
+	"rocker/storage/s3"
 	"rocker/template"
 	"rocker/textformatter"
 	"rocker/util"
@@ -294,16 +295,19 @@ func buildCommand(c *cli.Context) {
 		auth.Password = userPass[1]
 	}
 
-	client := build.NewDockerClient(dockerClient, auth, log.StandardLogger())
+	cacheDir, err := util.MakeAbsolute(c.String("cache-dir"))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	var cache build.Cache
 	if !c.Bool("no-cache") {
-		cacheDir, err := util.MakeAbsolute(c.String("cache-dir"))
-		if err != nil {
-			log.Fatal(err)
-		}
 		cache = build.NewCacheFS(cacheDir)
 	}
+
+	s3storage := s3.New(dockerClient, cacheDir)
+
+	client := build.NewDockerClient(dockerClient, auth, log.StandardLogger(), s3storage)
 
 	builder := build.New(client, rockerfile, cache, build.Config{
 		InStream:      os.Stdin,

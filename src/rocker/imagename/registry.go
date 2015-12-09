@@ -122,7 +122,7 @@ func s3ListTags(image *ImageName) (images []*ImageName, err error) {
 		}
 
 		imgName := strings.Join(split[:len(split)-1], "/")
-		imgName = fmt.Sprintf("s3://%s/%s", image.Registry, imgName)
+		imgName = fmt.Sprintf("s3:%s/%s", image.Registry, imgName)
 
 		tag := strings.TrimSuffix(split[len(split)-1], ".tar")
 		candidate := New(imgName, tag)

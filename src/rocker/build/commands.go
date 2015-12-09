@@ -983,8 +983,7 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 		if err != nil {
 			return b.state, err
 		}
-		artifact.Digest = digest
-		artifact.Addressable = fmt.Sprintf("%s@%s", image.NameWithRegistry(), digest)
+		artifact.SetDigest(digest)
 	} else {
 		log.Infof("| Don't push. Pass --push flag to actually push to the registry")
 	}

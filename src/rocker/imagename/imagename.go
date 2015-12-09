@@ -66,24 +66,28 @@ func New(image string, tag string) *ImageName {
 		dockerImage.SetTag(tag)
 	}
 
+	// default storage driver
+	dockerImage.Storage = StorageRegistry
+
 	// In case storage is specified, e.g. s3://bucket-name/image-name
 	storages := []string{StorageRegistry, StorageS3}
+	firstIsHost := false
 
 	for _, storage := range storages {
-		prefix := storage + "://"
+		prefix := storage + ":"
 
 		if strings.HasPrefix(image, prefix) {
-			nameParts := strings.SplitN(strings.TrimPrefix(image, prefix), "/", 2)
-			dockerImage.Registry = nameParts[0]
-			dockerImage.Name = nameParts[1]
+			image = strings.TrimPrefix(image, prefix)
 			dockerImage.Storage = storage
-			return dockerImage
+			firstIsHost = true
+			break
 		}
 	}
 
 	nameParts := strings.SplitN(image, "/", 2)
 
-	firstIsHost := strings.Contains(nameParts[0], ".") ||
+	firstIsHost = firstIsHost ||
+		strings.Contains(nameParts[0], ".") ||
 		strings.Contains(nameParts[0], ":") ||
 		nameParts[0] == "localhost"
 
@@ -94,7 +98,12 @@ func New(image string, tag string) *ImageName {
 		dockerImage.Name = nameParts[1]
 	}
 
-	dockerImage.Storage = StorageRegistry
+	// Minor validation
+	if dockerImage.Storage == StorageS3 {
+		if dockerImage.Registry == "" {
+			panic("Image with S3 storage driver requires bucket name to be specified: " + image)
+		}
+	}
 
 	return dockerImage
 }
@@ -122,17 +131,7 @@ func ParseRepositoryTag(repos string) (string, string) {
 
 // String returns the string representation of the current image name
 func (img ImageName) String() string {
-	str := img.StringNoStorage()
-	if img.Storage != StorageRegistry {
-		str = img.Storage + "://" + str
-	}
-	return str
-}
-
-// StringNoStorage returns string representation with no storage specified
-// e.g. s3://bucket-name/image-name will return bucket-name/image-name
-func (img ImageName) StringNoStorage() string {
-	if img.TagIsSha() {
+	if img.TagIsDigest() {
 		return img.NameWithRegistry() + "@" + img.GetTag()
 	}
 	return img.NameWithRegistry() + ":" + img.GetTag()
@@ -143,9 +142,16 @@ func (img ImageName) HasTag() bool {
 	return img.Tag != ""
 }
 
-// TagIsSha returns true if the tag is content addressable sha256
+// TagIsSha returns true if the tag is content addressable sha256 but can also be a tag
 // e.g. golang@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11
+// or golang:sha256-ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11
 func (img ImageName) TagIsSha() bool {
+	return strings.HasPrefix(img.Tag, "sha256:") || strings.HasPrefix(img.Tag, "sha256-")
+}
+
+// TagIsDigest returns true if the tag is content addressable sha256
+// e.g. golang@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11
+func (img ImageName) TagIsDigest() bool {
 	return strings.HasPrefix(img.Tag, "sha256:")
 }
 
@@ -228,6 +234,9 @@ func (img ImageName) NameWithRegistry() string {
 	registryPrefix := ""
 	if img.Registry != "" {
 		registryPrefix = img.Registry + "/"
+	}
+	if img.Storage != StorageRegistry {
+		registryPrefix = img.Storage + ":" + registryPrefix
 	}
 	return registryPrefix + img.Name
 }

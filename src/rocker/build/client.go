@@ -18,21 +18,16 @@ package build
 
 import (
 	"bytes"
-	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/signal"
 
 	"regexp"
 	"rocker/dockerclient"
 	"rocker/imagename"
+	"rocker/storage/s3"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
-	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/docker/docker/pkg/units"
 
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -65,9 +60,10 @@ type Client interface {
 
 // DockerClient implements the client that works with a docker socket
 type DockerClient struct {
-	client *docker.Client
-	auth   docker.AuthConfiguration
-	log    *logrus.Logger
+	client    *docker.Client
+	auth      docker.AuthConfiguration
+	log       *logrus.Logger
+	s3storage *s3.StorageS3
 }
 
 var (
@@ -75,14 +71,16 @@ var (
 )
 
 // NewDockerClient makes a new client that works with a docker socket
-func NewDockerClient(dockerClient *docker.Client, auth docker.AuthConfiguration, log *logrus.Logger) *DockerClient {
+func NewDockerClient(dockerClient *docker.Client, auth docker.AuthConfiguration, log *logrus.Logger,
+	s3storage *s3.StorageS3) *DockerClient {
 	if log == nil {
 		log = logrus.StandardLogger()
 	}
 	return &DockerClient{
-		client: dockerClient,
-		auth:   auth,
-		log:    log,
+		client:    dockerClient,
+		auth:      auth,
+		log:       log,
+		s3storage: s3storage,
 	}
 }
 
@@ -100,9 +98,12 @@ func (c *DockerClient) InspectImage(name string) (img *docker.Image, err error) 
 func (c *DockerClient) PullImage(name string) error {
 	image := imagename.NewFromString(name)
 
-	// e.g. s3://bucket-name/image-name
+	// e.g. s3:bucket-name/image-name
 	if image.Storage == imagename.StorageS3 {
-		return c.pullImageS3(name)
+		if _, err := c.s3storage.Pull(name); err != nil {
+			return err
+		}
+		return nil
 	}
 
 	var (
@@ -397,7 +398,7 @@ func (c *DockerClient) UploadToContainer(containerID string, stream io.Reader, p
 func (c *DockerClient) TagImage(imageID, imageName string) error {
 	img := imagename.NewFromString(imageName)
 
-	c.log.Infof("| Tag %.12s -> %s", imageID, img.StringNoStorage())
+	c.log.Infof("| Tag %.12s -> %s", imageID, img)
 
 	opts := docker.TagImageOptions{
 		Repo:  img.NameWithRegistry(),
@@ -416,7 +417,7 @@ func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
 
 	// Use direct S3 image pusher instead
 	if img.Storage == imagename.StorageS3 {
-		return c.pushImageS3(imageName)
+		return c.s3storage.Push(imageName)
 	}
 
 	var (
@@ -526,138 +527,4 @@ func (c *DockerClient) EnsureContainer(containerName string, config *docker.Conf
 // InspectContainer simply inspects the container by name or ID
 func (c *DockerClient) InspectContainer(containerName string) (container *docker.Container, err error) {
 	return c.client.InspectContainer(containerName)
-}
-
-// pushImageS3 pushes image tarball directly to S3
-func (c *DockerClient) pushImageS3(imageName string) (digest string, err error) {
-	img := imagename.NewFromString(imageName)
-
-	var image *docker.Image
-	if image, err = c.client.InspectImage(img.StringNoStorage()); err != nil {
-		return "", err
-	}
-
-	humanSize := units.HumanSize(float64(image.VirtualSize))
-
-	// TODO: here we use tmp file, but we can stream to S3 directly from Docker
-	// https://github.com/aws/aws-sdk-go/issues/272
-	tmpf, err := ioutil.TempFile("", "rocker_image_")
-	if err != nil {
-		return "", err
-	}
-	defer os.Remove(tmpf.Name())
-
-	hash := sha256.New()
-	outStream := io.MultiWriter(tmpf, hash)
-
-	opts := docker.ExportImageOptions{
-		Name:         img.StringNoStorage(),
-		OutputStream: outStream,
-	}
-
-	c.log.Infof("| Buffering image to a file %s (%s)", tmpf.Name(), humanSize)
-
-	if err := c.client.ExportImage(opts); err != nil {
-		return "", fmt.Errorf("Failed to export docker image %s, error: %s", img, err)
-	}
-
-	digest = fmt.Sprintf("sha256:%x", hash.Sum(nil))
-
-	svc := s3.New(session.New(), &aws.Config{Region: aws.String("us-east-1")})
-
-	uploader := s3manager.NewUploaderWithClient(svc, func(u *s3manager.Uploader) {
-		u.PartSize = 64 * 1024 * 1024 // 64MB per part
-	})
-
-	fd, err := os.Open(tmpf.Name())
-	if err != nil {
-		return "", err
-	}
-	defer fd.Close()
-
-	// putParams := &s3.PutObjectInput{
-	// 	Bucket:      aws.String(img.Registry),
-	// 	Key:         aws.String(img.Name + "/" + digest + ".tar"),
-	// 	Body:        fd,
-	// 	ContentType: aws.String("application/x-tar"),
-	// }
-
-	c.log.Infof("| Uploading image to s3://%s/%s.tar", img.NameWithRegistry(), digest)
-
-	// if _, err := svc.PutObject(putParams); err != nil {
-	// 	return "", fmt.Errorf("Failed to PUT object to S3, error: %s", err)
-	// }
-	upParams := &s3manager.UploadInput{
-		Bucket:      aws.String(img.Registry),
-		Key:         aws.String(img.Name + "/" + digest + ".tar"),
-		ContentType: aws.String("application/x-tar"),
-		Body:        fd,
-	}
-
-	if _, err := uploader.Upload(upParams); err != nil {
-		return "", fmt.Errorf("Failed to upload object to S3, error: %s", err)
-	}
-
-	// Make a content addressable copy of an image file
-	copyParams := &s3.CopyObjectInput{
-		Bucket:     aws.String(img.Registry),
-		CopySource: aws.String(img.Registry + "/" + img.Name + "/" + digest + ".tar"),
-		Key:        aws.String(img.Name + "/" + img.Tag + ".tar"),
-	}
-
-	c.log.Infof("| Make alias s3://%s/%s.tar", img.NameWithRegistry(), img.Tag)
-
-	if _, err = svc.CopyObject(copyParams); err != nil {
-		return "", fmt.Errorf("Failed to PUT object to S3, error: %s", err)
-	}
-
-	// pretty.Println(cpResp)
-
-	return "", nil
-}
-
-// pullImageS3 imports docker image from tar artifact stored on S3
-func (c *DockerClient) pullImageS3(name string) error {
-	img := imagename.NewFromString(name)
-
-	// TODO: here we use tmp file, but we can stream from S3 directly to Docker
-	tmpf, err := ioutil.TempFile("", "rocker_image_")
-	if err != nil {
-		return err
-	}
-	defer os.Remove(tmpf.Name())
-
-	svc := s3.New(session.New(), &aws.Config{Region: aws.String("us-east-1")})
-
-	// Create a downloader with the s3 client and custom options
-	downloader := s3manager.NewDownloaderWithClient(svc, func(d *s3manager.Downloader) {
-		d.PartSize = 64 * 1024 * 1024 // 64MB per part
-	})
-
-	downloadParams := &s3.GetObjectInput{
-		Bucket: aws.String(img.Registry),
-		Key:    aws.String(img.Name + "/" + img.Tag + ".tar"),
-	}
-
-	c.log.Infof("| Import s3://%s/%s.tar to %s", img.NameWithRegistry(), img.Tag, tmpf.Name())
-
-	if _, err := downloader.Download(tmpf, downloadParams); err != nil {
-		return fmt.Errorf("Failed to download object from S3, error: %s", err)
-	}
-
-	fd, err := os.Open(tmpf.Name())
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-
-	loadOptions := docker.LoadImageOptions{
-		InputStream: fd,
-	}
-
-	if err := c.client.LoadImage(loadOptions); err != nil {
-		return fmt.Errorf("Failed to import image, error: %s", err)
-	}
-
-	return nil
 }
