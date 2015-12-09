@@ -175,6 +175,29 @@ func main() {
 			Flags:  buildFlags,
 			Before: globalBefore,
 		},
+		{
+			Name:   "pull",
+			Usage:  "launches a pull of image (supports s3 storage driver)",
+			Action: pullCommand,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "file, f",
+					Value: "Rockerfile",
+					Usage: "rocker build file to execute",
+				},
+				cli.StringFlag{
+					Name:  "auth, a",
+					Value: "",
+					Usage: "Username and password in user:password format",
+				},
+				cli.StringFlag{
+					Name:  "cache-dir",
+					Value: "~/.rocker_cache",
+					Usage: "Set the directory where the cache will be stored",
+				},
+			},
+			Before: globalBefore,
+		},
 		dockerclient.InfoCommandSpec(),
 	}
 
@@ -345,6 +368,41 @@ func buildCommand(c *cli.Context) {
 	)
 
 	log.Infof("Successfully built %.12s | %s", builder.GetImageID(), size)
+}
+
+func pullCommand(c *cli.Context) {
+	initLogs(c)
+
+	args := c.Args()
+	if len(args) < 1 {
+		log.Fatal("rocker pull <image>")
+	}
+
+	dockerClient, err := dockerclient.NewFromCli(c)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	auth := docker.AuthConfiguration{}
+	authParam := c.String("auth")
+	if strings.Contains(authParam, ":") {
+		userPass := strings.Split(authParam, ":")
+		auth.Username = userPass[0]
+		auth.Password = userPass[1]
+	}
+
+	cacheDir, err := util.MakeAbsolute(c.String("cache-dir"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	s3storage := s3.New(dockerClient, cacheDir)
+
+	client := build.NewDockerClient(dockerClient, auth, log.StandardLogger(), s3storage)
+
+	if err := client.PullImage(args[0]); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func initLogs(ctx *cli.Context) {
