@@ -94,12 +94,13 @@ func (s *StorageS3) Push(imageName string) (digest string, err error) {
 		}
 	}
 
-	ext := ".tar"
-	imgPathDigest := fmt.Sprintf("%s/%s%s", img.Name, digest, ext)
-	imgPathTag := fmt.Sprintf("%s/%s%s", img.Name, img.Tag, ext)
+	var (
+		ext           = ".tar"
+		imgPathDigest = fmt.Sprintf("%s/%s%s", img.Name, digest, ext)
+		imgPathTag    = fmt.Sprintf("%s/%s%s", img.Name, img.Tag, ext)
+	)
 
 	// Make HEAD request to s3 and check if image already uploaded
-	// TODO: handle not found correctly
 	_, headErr := s.s3.HeadObject(&s3.HeadObjectInput{
 		Bucket: aws.String(img.Registry),
 		Key:    aws.String(imgPathDigest),
@@ -117,7 +118,7 @@ func (s *StorageS3) Push(imageName string) (digest string, err error) {
 			if tmpf, digest2, err = s.MakeTar(imageName); err != nil {
 				return "", err
 			}
-			// Verify digest (TODO: remote this check in future)
+			// Verify digest (TODO: remote this check in future?)
 			if digest != digest2 {
 				return "", fmt.Errorf("The new digest does no equal old one (shouldn't happen) %s != %s", digest, digest2)
 			}
@@ -135,7 +136,7 @@ func (s *StorageS3) Push(imageName string) (digest string, err error) {
 
 		log.Infof("| Uploading image to s3://%s/%s", img.Registry, imgPathDigest)
 
-		upParams := &s3manager.UploadInput{
+		uploadParams := &s3manager.UploadInput{
 			Bucket:      aws.String(img.Registry),
 			Key:         aws.String(imgPathDigest),
 			ContentType: aws.String("application/x-tar"),
@@ -147,7 +148,7 @@ func (s *StorageS3) Push(imageName string) (digest string, err error) {
 			},
 		}
 
-		if _, err := uploader.Upload(upParams); err != nil {
+		if _, err := uploader.Upload(uploadParams); err != nil {
 			return "", fmt.Errorf("Failed to upload object to S3, error: %s", err)
 		}
 	}
@@ -187,17 +188,19 @@ func (s *StorageS3) Pull(name string) (*docker.Image, error) {
 	}
 	defer os.Remove(tmpf.Name())
 
-	// Create a downloader with the s3 client and custom options
-	downloader := s3manager.NewDownloaderWithClient(s.s3, func(d *s3manager.Downloader) {
-		d.PartSize = 64 * 1024 * 1024 // 64MB per part
-	})
+	var (
+		// Create a downloader with the s3 client and custom options
+		downloader = s3manager.NewDownloaderWithClient(s.s3, func(d *s3manager.Downloader) {
+			d.PartSize = 64 * 1024 * 1024 // 64MB per part
+		})
 
-	imgPath := img.Name + "/" + img.Tag + ".tar"
+		imgPath = img.Name + "/" + img.Tag + ".tar"
 
-	downloadParams := &s3.GetObjectInput{
-		Bucket: aws.String(img.Registry),
-		Key:    aws.String(imgPath),
-	}
+		downloadParams = &s3.GetObjectInput{
+			Bucket: aws.String(img.Registry),
+			Key:    aws.String(imgPath),
+		}
+	)
 
 	log.Infof("| Import s3://%s/%s to %s", img.Registry, imgPath, tmpf.Name())
 
@@ -236,58 +239,58 @@ func (s *StorageS3) MakeTar(imageName string) (tmpfile string, digest string, er
 		return "", "", err
 	}
 
-	humanSize := units.HumanSize(float64(image.VirtualSize))
-
-	// TODO: here we use tmp file, but we can stream to S3 directly from Docker
-	// https://github.com/aws/aws-sdk-go/issues/272
 	tmpf, err := ioutil.TempFile("", "rocker_image_")
 	if err != nil {
 		return "", "", err
 	}
 	defer tmpf.Close()
 
-	cleanup := func() {
-		os.Remove(tmpf.Name())
-	}
+	var (
+		cleanup = func() {
+			os.Remove(tmpf.Name())
+		}
 
-	pipeReader, pipeWriter := io.Pipe()
+		humanSize = units.HumanSize(float64(image.VirtualSize))
+		errch     = make(chan error, 1)
+
+		pipeReader, pipeWriter = io.Pipe()
+		tr                     = tar.NewReader(pipeReader)
+		tw                     = tar.NewWriter(tmpf)
+		hash                   = sha256.New()
+		tarHashStream          = io.MultiWriter(tw, hash)
+
+		exportParams = docker.ExportImageOptions{
+			Name:         img.String(),
+			OutputStream: pipeWriter,
+		}
+	)
+
 	defer pipeWriter.Close()
-
-	opts := docker.ExportImageOptions{
-		Name:         img.String(),
-		OutputStream: pipeWriter,
-	}
-
-	tr := tar.NewReader(pipeReader)
-	tw := tar.NewWriter(tmpf)
-	hash := sha256.New()
-	tarHashStream := io.MultiWriter(tw, hash)
 
 	log.Infof("| Buffering image to a file %s (%s)", tmpf.Name(), humanSize)
 
-	errch := make(chan error, 1)
-
 	go func() {
-		errch <- s.client.ExportImage(opts)
+		errch <- s.client.ExportImage(exportParams)
 	}()
 
 	// Iterate through the files in the archive.
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
-			// end of tar archive
 			break
 		}
 		if err != nil {
 			cleanup()
 			return "", "", err
 		}
-		// fmt.Printf("Contents of %s\n", hdr.Name)
-		// We will write our own repositories
+
+		// Skip "repositories" file, we will write our own
 		if hdr.Name == "repositories" {
 			io.Copy(ioutil.Discard, tr)
 			continue
 		}
+
+		// Write any other file
 		tw.WriteHeader(hdr)
 		if _, err := io.Copy(tarHashStream, tr); err != nil {
 			cleanup()
@@ -295,16 +298,15 @@ func (s *StorageS3) MakeTar(imageName string) (tmpfile string, digest string, er
 		}
 	}
 
-	// Write repositories
+	// Write "repositories" file
 	digest = fmt.Sprintf("sha256-%x", hash.Sum(nil))
 
-	repos := map[string]map[string]string{
+	reposBody, err := json.Marshal(map[string]map[string]string{
 		img.NameWithRegistry(): map[string]string{
 			img.Tag: image.ID,
 			digest:  image.ID,
 		},
-	}
-	reposBody, err := json.Marshal(repos)
+	})
 	if err != nil {
 		cleanup()
 		return "", "", err
@@ -324,6 +326,8 @@ func (s *StorageS3) MakeTar(imageName string) (tmpfile string, digest string, er
 		return "", "", err
 	}
 
+	// Finish tar
+
 	if err := tw.Close(); err != nil {
 		cleanup()
 		return "", "", err
@@ -334,6 +338,7 @@ func (s *StorageS3) MakeTar(imageName string) (tmpfile string, digest string, er
 		return "", "", fmt.Errorf("Failed to export docker image %s, error: %s", img, err)
 	}
 
+	// Cache digest by image ID
 	if err := s.CachePut(image.ID, digest); err != nil {
 		return "", "", fmt.Errorf("Failed to save digest cache, error: %s", err)
 	}
