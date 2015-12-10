@@ -27,6 +27,7 @@ import (
 	"rocker/dockerclient"
 	"rocker/imagename"
 	"rocker/storage/s3"
+	"rocker/textformatter"
 
 	"github.com/docker/docker/pkg/units"
 
@@ -206,10 +207,11 @@ func (c *DockerClient) CreateContainer(s State) (string, error) {
 func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error {
 
 	var (
-		success  = make(chan struct{})
-		finished = make(chan struct{}, 1)
-		sigch    = make(chan os.Signal, 1)
-		errch    = make(chan error)
+		success   = make(chan struct{})
+		finished  = make(chan struct{}, 1)
+		sigch     = make(chan os.Signal, 1)
+		errch     = make(chan error, 1)
+		attacherr = make(chan error, 1)
 
 		// Wrap output streams with logger
 		outLogger = &logrus.Logger{
@@ -229,8 +231,8 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 
 	attachOpts := docker.AttachToContainerOptions{
 		Container:    containerID,
-		OutputStream: outLogger.Writer(),
-		ErrorStream:  errLogger.Writer(),
+		OutputStream: textformatter.LogWriter(outLogger),
+		ErrorStream:  textformatter.LogWriter(errLogger),
 		Stdout:       true,
 		Stderr:       true,
 		Stream:       true,
@@ -266,20 +268,20 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 	go func() {
 		if err := c.client.AttachToContainer(attachOpts); err != nil {
 			select {
+			// Ignore any attach errors when we have finished already.
+			// It may happen if we attach stdin, then container exit, but then there is other input from stdin continues.
+			// This is the case when multiple ATTACH command are used in a single Rockerfile.
+			// The problem though is that we cannot close stdin, to have it available for the subsequent ATTACH;
+			// therefore, hijack goroutine from the previous ATTACH will hang until the input received and then
+			// it will fire an error.
+			// It's ok for `rocker` since it is not a daemon, but rather a one-off command.
+			//
+			// Also, there is still a problem that `rocker` loses second character from the Stdin in a second ATTACH.
+			// But let's consider it a corner case.
 			case <-finished:
-				// Ignore any attach errors when we have finished already.
-				// It may happen if we attach stdin, then container exit, but then there is other input from stdin continues.
-				// This is the case when multiple ATTACH command are used in a single Rockerfile.
-				// The problem though is that we cannot close stdin, to have it available for the subsequent ATTACH;
-				// therefore, hijack goroutine from the previous ATTACH will hang until the input received and then
-				// it will fire an error.
-				// It's ok for `rocker` since it is not a daemon, but rather a one-off command.
-				//
-				// Also, there is still a problem that `rocker` loses second character from the Stdin in a second ATTACH.
-				// But let's consider it a corner case.
+				return
 			default:
-				// Print the error. We cannot return it because the main routine is handing on WaitContaienr
-				c.log.Errorf("Got error while attaching to container %.12s: %s", containerID, err)
+				attacherr <- fmt.Errorf("Got error while attaching to container %.12s: %s", containerID, err)
 			}
 		}
 	}()
@@ -318,6 +320,10 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 	case err := <-errch:
 		// indicate 'finished' so the `attach` goroutine will not give any errors
 		finished <- struct{}{}
+		if err != nil {
+			return err
+		}
+	case err := <-attacherr:
 		if err != nil {
 			return err
 		}
