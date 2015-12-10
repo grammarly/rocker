@@ -12,6 +12,7 @@ import (
 	"github.com/Sirupsen/logrus"
 )
 
+// LogWriter makes a pipe writer to write to the logrus logger
 func LogWriter(logger *logrus.Logger) *io.PipeWriter {
 	reader, writer := io.Pipe()
 
