@@ -47,14 +47,17 @@ type StorageS3 struct {
 	client    *docker.Client
 	cacheRoot string
 	s3        *s3.S3
+	retryer   *Retryer
 }
 
 // New makes an instance of StorageS3 storage driver
 func New(client *docker.Client, cacheRoot string) *StorageS3 {
+	retryer := NewRetryer(400, 6)
+
 	// TODO: configure region?
 	cfg := &aws.Config{
 		Region:  aws.String("us-east-1"),
-		Retryer: &Retryer{},
+		Retryer: retryer,
 		Logger:  &Logger{},
 	}
 
@@ -66,6 +69,7 @@ func New(client *docker.Client, cacheRoot string) *StorageS3 {
 		client:    client,
 		cacheRoot: cacheRoot,
 		s3:        s3.New(session.New(), cfg),
+		retryer:   retryer,
 	}
 }
 
@@ -159,7 +163,7 @@ func (s *StorageS3) Push(imageName string) (digest string, err error) {
 			},
 		}
 
-		if err := globalRetry(func() error {
+		if err := s.retryer.Outer(func() error {
 			_, err := uploader.Upload(uploadParams)
 			return err
 		}); err != nil {
@@ -218,7 +222,7 @@ func (s *StorageS3) Pull(name string) error {
 
 	log.Infof("| Import s3://%s/%s to %s", img.Registry, imgPath, tmpf.Name())
 
-	if err := globalRetry(func() error {
+	if err := s.retryer.Outer(func() error {
 		_, err := downloader.Download(tmpf, downloadParams)
 		return err
 	}); err != nil {

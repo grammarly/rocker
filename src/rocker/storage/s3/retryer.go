@@ -17,7 +17,6 @@
 package s3
 
 import (
-	"fmt"
 	"math"
 	"math/rand"
 	"time"
@@ -29,26 +28,30 @@ import (
 	"github.com/aws/aws-sdk-go/aws/request"
 )
 
-var (
-	retryDelay = 400
-	retryMax   = 6
-)
-
 // Retryer is a custom aws retrier that logs retry attempts
 type Retryer struct {
 	client.DefaultRetryer
+
+	retryDelay int
+	retryMax   int
+}
+
+func NewRetryer(retryDelay, retryMax int) *Retryer {
+	return &Retryer{
+		retryDelay: retryDelay,
+		retryMax:   retryMax,
+	}
 }
 
 // MaxRetries returns the number of maximum returns the service will use to make
 // an individual API request.
 func (d Retryer) MaxRetries() int {
-	return retryMax
+	return d.retryMax
 }
 
 // RetryRules returns the delay duration before retrying this request again
 func (d Retryer) RetryRules(r *request.Request) time.Duration {
-	delay := int(math.Pow(2, float64(r.RetryCount))) * (rand.Intn(retryDelay) + retryDelay)
-	duration := time.Duration(delay) * time.Millisecond
+	duration := d.getDuratoin(r.RetryCount)
 
 	log.Errorf("%s/%s failed, will retry in %s, error %v",
 		r.ClientInfo.ServiceName, r.Operation.Name, duration, r.Error)
@@ -56,25 +59,24 @@ func (d Retryer) RetryRules(r *request.Request) time.Duration {
 	return duration
 }
 
-// globalRetry is for external stuff to handle retries for cases that are
+// Outer is for external stuff to handle retries for cases that are
 // not covered by s3manager https://github.com/aws/aws-sdk-go/issues/466
-func globalRetry(f func() error) error {
+func (d Retryer) Outer(f func() error) error {
 	n := 0
 
 	for {
 		if err := f(); err != nil {
-			if _, ok := err.(awserr.Error); ok {
+			if n == d.retryMax {
+				log.Errorf("Max retries %d reached, error: %s", d.retryMax, err)
+			}
+			if _, ok := err.(awserr.Error); ok || n == d.retryMax {
 				return err
 			}
-			if n == retryMax {
-				return fmt.Errorf("Max retries %d reached, error: %s", retryMax, err)
-			}
 
-			delay := int(math.Pow(2, float64(n))) * (rand.Intn(retryDelay) + retryDelay)
-			duration := time.Duration(delay) * time.Millisecond
+			duration := d.getDuratoin(n)
 			n = n + 1
 
-			log.Errorf("Retry %d/%d after %s, error: %s", n, retryMax, duration, err)
+			log.Errorf("Retry %d/%d after %s, error: %s", n, d.retryMax, duration, err)
 			time.Sleep(duration)
 
 			continue
@@ -84,4 +86,9 @@ func globalRetry(f func() error) error {
 	}
 
 	return nil
+}
+
+func (d Retryer) getDuratoin(n int) time.Duration {
+	delay := int(math.Pow(2, float64(n))) * (rand.Intn(d.retryDelay) + d.retryDelay)
+	return time.Duration(delay) * time.Millisecond
 }
