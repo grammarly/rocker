@@ -23,9 +23,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/fsouza/go-dockerclient"
 )
 
@@ -91,52 +88,10 @@ func RegistryGet(image *ImageName) (img *docker.Image, err error) {
 // RegistryListTags returns the list of images instances obtained from all tags existing in the registry
 func RegistryListTags(image *ImageName) (images []*ImageName, err error) {
 	if image.Registry != "" {
-		if image.Storage == StorageRegistry {
-			return registryListTags(image)
-		} else if image.Storage == StorageS3 {
-			return s3ListTags(image)
-		}
+		return registryListTags(image)
 	}
 
 	return registryListTagsDockerHub(image)
-}
-
-func s3ListTags(image *ImageName) (images []*ImageName, err error) {
-	svc := s3.New(session.New(), &aws.Config{Region: aws.String("us-east-1")})
-
-	params := &s3.ListObjectsInput{
-		Bucket:  aws.String(image.Registry),
-		MaxKeys: aws.Int64(1000),
-		Prefix:  aws.String(image.Name),
-	}
-
-	resp, err := svc.ListObjects(params)
-	if err != nil {
-		return images, err
-	}
-
-	for _, s3Obj := range resp.Contents {
-		split := strings.Split(*s3Obj.Key, "/")
-		if len(split) < 2 {
-			continue
-		}
-
-		imgName := strings.Join(split[:len(split)-1], "/")
-		imgName = fmt.Sprintf("s3:%s/%s", image.Registry, imgName)
-
-		tag := strings.TrimSuffix(split[len(split)-1], ".tar")
-		candidate := New(imgName, tag)
-
-		if candidate.Name != image.Name {
-			continue
-		}
-
-		if image.Contains(candidate) || image.Tag == candidate.Tag {
-			images = append(images, candidate)
-		}
-	}
-
-	return
 }
 
 // registryListTagsDockerHub lists image tags from hub.docker.com

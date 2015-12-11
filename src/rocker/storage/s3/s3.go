@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"rocker/imagename"
+	"strings"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
@@ -51,10 +52,20 @@ type StorageS3 struct {
 // New makes an instance of StorageS3 storage driver
 func New(client *docker.Client, cacheRoot string) *StorageS3 {
 	// TODO: configure region?
+	cfg := &aws.Config{
+		Region:  aws.String("us-east-1"),
+		Retryer: &Retryer{},
+		Logger:  &Logger{},
+	}
+
+	if log.StandardLogger().Level >= log.DebugLevel {
+		cfg.LogLevel = aws.LogLevel(aws.LogDebugWithRequestErrors)
+	}
+
 	return &StorageS3{
 		client:    client,
 		cacheRoot: cacheRoot,
-		s3:        s3.New(session.New(), &aws.Config{Region: aws.String("us-east-1")}),
+		s3:        s3.New(session.New(), cfg),
 	}
 }
 
@@ -110,7 +121,7 @@ func (s *StorageS3) Push(imageName string) (digest string, err error) {
 	if headErr != nil {
 		// Other error, raise then
 		if e, ok := headErr.(awserr.RequestFailure); !ok || e.StatusCode() != 404 {
-			return "", err
+			return "", headErr
 		}
 		// In case we do not have archive
 		if tmpf == "" {
@@ -148,7 +159,10 @@ func (s *StorageS3) Push(imageName string) (digest string, err error) {
 			},
 		}
 
-		if _, err := uploader.Upload(uploadParams); err != nil {
+		if err := globalRetry(func() error {
+			_, err := uploader.Upload(uploadParams)
+			return err
+		}); err != nil {
 			return "", fmt.Errorf("Failed to upload object to S3, error: %s", err)
 		}
 	}
@@ -170,21 +184,21 @@ func (s *StorageS3) Push(imageName string) (digest string, err error) {
 }
 
 // Pull imports docker image from tar artifact stored on S3
-func (s *StorageS3) Pull(name string) (*docker.Image, error) {
+func (s *StorageS3) Pull(name string) error {
 	img := imagename.NewFromString(name)
 
 	if img.Storage != imagename.StorageS3 {
-		return nil, fmt.Errorf("Can only pull images with s3 storage specified, got: %s", img)
+		return fmt.Errorf("Can only pull images with s3 storage specified, got: %s", img)
 	}
 
 	if img.Registry == "" {
-		return nil, fmt.Errorf("Cannot pull image from S3, missing bucket name, got: %s", img)
+		return fmt.Errorf("Cannot pull image from S3, missing bucket name, got: %s", img)
 	}
 
 	// TODO: here we use tmp file, but we can stream from S3 directly to Docker
 	tmpf, err := ioutil.TempFile("", "rocker_image_")
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer os.Remove(tmpf.Name())
 
@@ -204,13 +218,16 @@ func (s *StorageS3) Pull(name string) (*docker.Image, error) {
 
 	log.Infof("| Import s3://%s/%s to %s", img.Registry, imgPath, tmpf.Name())
 
-	if _, err := downloader.Download(tmpf, downloadParams); err != nil {
-		return nil, fmt.Errorf("Failed to download object from S3, error: %s", err)
+	if err := globalRetry(func() error {
+		_, err := downloader.Download(tmpf, downloadParams)
+		return err
+	}); err != nil {
+		return fmt.Errorf("Failed to download object from S3, error: %s", err)
 	}
 
 	fd, err := os.Open(tmpf.Name())
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer fd.Close()
 
@@ -219,15 +236,10 @@ func (s *StorageS3) Pull(name string) (*docker.Image, error) {
 	}
 
 	if err := s.client.LoadImage(loadOptions); err != nil {
-		return nil, fmt.Errorf("Failed to import image, error: %s", err)
+		return fmt.Errorf("Failed to import image, error: %s", err)
 	}
 
-	image, err := s.client.InspectImage(img.String())
-	if err != nil {
-		return nil, fmt.Errorf("Failed to inspect image %s after pull, error: %s", img, err)
-	}
-
-	return image, nil
+	return nil
 }
 
 // MakeTar makes a tar out of docker image and gives a temporary file and a digest
@@ -344,6 +356,45 @@ func (s *StorageS3) MakeTar(imageName string) (tmpfile string, digest string, er
 	}
 
 	return tmpf.Name(), digest, nil
+}
+
+// ListTags returns the list of parsed tags existing for given image name on S3
+func (s *StorageS3) ListTags(imageName string) (images []*imagename.ImageName, err error) {
+	image := imagename.NewFromString(imageName)
+
+	params := &s3.ListObjectsInput{
+		Bucket:  aws.String(image.Registry),
+		MaxKeys: aws.Int64(1000),
+		Prefix:  aws.String(image.Name),
+	}
+
+	resp, err := s.s3.ListObjects(params)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, s3Obj := range resp.Contents {
+		split := strings.Split(*s3Obj.Key, "/")
+		if len(split) < 2 {
+			continue
+		}
+
+		imgName := strings.Join(split[:len(split)-1], "/")
+		imgName = fmt.Sprintf("s3:%s/%s", image.Registry, imgName)
+
+		tag := strings.TrimSuffix(split[len(split)-1], ".tar")
+		candidate := imagename.New(imgName, tag)
+
+		if candidate.Name != image.Name {
+			continue
+		}
+
+		if image.Contains(candidate) || image.Tag == candidate.Tag {
+			images = append(images, candidate)
+		}
+	}
+
+	return
 }
 
 // CacheGet returns cached digest of the image

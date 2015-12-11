@@ -101,10 +101,7 @@ func (c *DockerClient) PullImage(name string) error {
 
 	// e.g. s3:bucket-name/image-name
 	if image.Storage == imagename.StorageS3 {
-		if _, err := c.s3storage.Pull(name); err != nil {
-			return err
-		}
-		return nil
+		return c.s3storage.Pull(name)
 	}
 
 	var (
@@ -160,7 +157,11 @@ func (c *DockerClient) ListImages() (images []*imagename.ImageName, err error) {
 
 // ListImageTags returns the list of images instances obtained from all tags existing in the registry
 func (c *DockerClient) ListImageTags(name string) (images []*imagename.ImageName, err error) {
-	return imagename.RegistryListTags(imagename.NewFromString(name))
+	img := imagename.NewFromString(name)
+	if img.Storage == imagename.StorageS3 {
+		return c.s3storage.ListTags(name)
+	}
+	return imagename.RegistryListTags(img)
 }
 
 // RemoveImage removes docker image

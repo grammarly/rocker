@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
-package storage
+package s3
 
 import (
-	"rocker/imagename"
-
-	"github.com/fsouza/go-dockerclient"
+	log "github.com/Sirupsen/logrus"
 )
 
-// Interface describes an interface of docker image storage driver
-type Interface interface {
-	Push(imageName string) (digest string, err error)
-	Pull(imageName string) (image *docker.Image, err error)
-	ListTags(imageName string) (images []*imagename.ImageName, err error)
+// Logger is an aws logger that prints entries to Logrus
+type Logger struct{}
+
+// Log writes to logrus.Info
+func (l *Logger) Log(args ...interface{}) {
+	if len(args) == 1 {
+		log.Infof(args[0].(string))
+	} else {
+		log.Infof(args[0].(string), args[1:]...)
+	}
 }
