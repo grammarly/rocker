@@ -36,6 +36,7 @@ type Retryer struct {
 	retryMax   int
 }
 
+// NewRetryer returns the instance of Retryer object
 func NewRetryer(retryDelay, retryMax int) *Retryer {
 	return &Retryer{
 		retryDelay: retryDelay,

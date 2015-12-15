@@ -280,12 +280,12 @@ func (s *StorageS3) Pull(name string) error {
 				return fmt.Errorf("Failed to parse `repositories` file json, error: %s", err)
 			}
 
-			var imageId string
+			var imageID string
 
 			// Read first key from repositories
 			for _, tags := range r1 {
 				for _, id := range tags {
-					imageId = id
+					imageID = id
 					break
 				}
 				break
@@ -294,7 +294,7 @@ func (s *StorageS3) Pull(name string) error {
 			// Make a new repositories struct
 			r2 := Repositories{
 				img.NameWithRegistry(): {
-					img.GetTag(): imageId,
+					img.GetTag(): imageID,
 				},
 			}
 
