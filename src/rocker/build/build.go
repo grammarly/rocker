@@ -246,7 +246,7 @@ func (b *Build) getExportsContainer() (c *docker.Container, err error) {
 		return nil, err
 	}
 
-	log.Infof("| Using exports container %.12s", name)
+	log.Infof("| Using exports container %s", name)
 
 	return b.client.InspectContainer(containerID)
 }
