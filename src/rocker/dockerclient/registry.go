@@ -122,20 +122,20 @@ func registryGet(uri string, auth docker.AuthConfiguration, obj interface{}) (er
 		if res, err = client.Do(req); err != nil {
 			return fmt.Errorf("Request to %s failed with %s\n", uri, err)
 		}
-		log.Debugf("Got HTTP %d for %s; tried auth: %t; has Bearer: %t", res.StatusCode, uri, authTry, b != nil)
 
-		if !authTry && auth.Username != "" && res.StatusCode == 401 {
-			if b = parseBearer(res.Header.Get("Www-Authenticate")); b != nil {
-				token, err := getAuthToken(b, auth)
-				if err != nil {
-					return fmt.Errorf("Failed to authenticate to registry %s, error: %s", uri, err)
-				}
+		b = parseBearer(res.Header.Get("Www-Authenticate"))
+		log.Debugf("Got HTTP %d for %s; tried auth: %t; has Bearer: %t, auth username: %q", res.StatusCode, uri, authTry, b != nil, auth.Username)
 
-				req.Header.Add("Authorization", "Bearer "+token)
-
-				authTry = true
-				continue
+		if res.StatusCode == 401 && !authTry && auth.Username != "" && b != nil {
+			token, err := getAuthToken(b, auth)
+			if err != nil {
+				return fmt.Errorf("Failed to authenticate to registry %s, error: %s", uri, err)
 			}
+
+			req.Header.Add("Authorization", "Bearer "+token)
+
+			authTry = true
+			continue
 		}
 
 		break
