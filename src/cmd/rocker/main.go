@@ -283,12 +283,27 @@ func buildCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
-	auth := docker.AuthConfiguration{}
-	authParam := c.String("auth")
-	if strings.Contains(authParam, ":") {
-		userPass := strings.Split(authParam, ":")
-		auth.Username = userPass[0]
-		auth.Password = userPass[1]
+	var auth *docker.AuthConfigurations
+
+	if c.IsSet("auth") {
+		// Obtain auth configuration from cli params
+		authParam := c.String("auth")
+		if strings.Contains(authParam, ":") {
+			userPass := strings.Split(authParam, ":")
+			auth = &docker.AuthConfigurations{
+				Configs: map[string]docker.AuthConfiguration{
+					"*": docker.AuthConfiguration{
+						Username: userPass[0],
+						Password: userPass[1],
+					},
+				},
+			}
+		}
+	} else {
+		// Obtain auth configuration from .docker/config.json
+		if auth, err = docker.NewAuthConfigurationsFromDockerCfg(); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	client := build.NewDockerClient(dockerClient, auth, log.StandardLogger())

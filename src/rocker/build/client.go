@@ -61,7 +61,7 @@ type Client interface {
 // DockerClient implements the client that works with a docker socket
 type DockerClient struct {
 	client *docker.Client
-	auth   docker.AuthConfiguration
+	auth   *docker.AuthConfigurations
 	log    *logrus.Logger
 }
 
@@ -70,7 +70,7 @@ var (
 )
 
 // NewDockerClient makes a new client that works with a docker socket
-func NewDockerClient(dockerClient *docker.Client, auth docker.AuthConfiguration, log *logrus.Logger) *DockerClient {
+func NewDockerClient(dockerClient *docker.Client, auth *docker.AuthConfigurations, log *logrus.Logger) *DockerClient {
 	if log == nil {
 		log = logrus.StandardLogger()
 	}
@@ -121,7 +121,7 @@ func (c *DockerClient) PullImage(name string) error {
 		errch <- jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut)
 	}()
 
-	if err := c.client.PullImage(opts, c.auth); err != nil {
+	if err := c.client.PullImage(opts, dockerclient.GetAuthForRegistry(c.auth, image.Registry)); err != nil {
 		return err
 	}
 
@@ -148,7 +148,7 @@ func (c *DockerClient) ListImages() (images []*imagename.ImageName, err error) {
 
 // ListImageTags returns the list of images instances obtained from all tags existing in the registry
 func (c *DockerClient) ListImageTags(name string) (images []*imagename.ImageName, err error) {
-	return imagename.RegistryListTags(imagename.NewFromString(name))
+	return dockerclient.RegistryListTags(imagename.NewFromString(name), c.auth)
 }
 
 // RemoveImage removes docker image
@@ -439,7 +439,7 @@ func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
 		errch <- jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut)
 	}()
 
-	if err := c.client.PushImage(opts, c.auth); err != nil {
+	if err := c.client.PushImage(opts, dockerclient.GetAuthForRegistry(c.auth, img.Registry)); err != nil {
 		return "", err
 	}
 	pipeWriter.Close()
