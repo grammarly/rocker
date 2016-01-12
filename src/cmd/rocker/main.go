@@ -310,28 +310,7 @@ func buildCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
-	var auth *docker.AuthConfigurations
-
-	if c.IsSet("auth") {
-		// Obtain auth configuration from cli params
-		authParam := c.String("auth")
-		if strings.Contains(authParam, ":") {
-			userPass := strings.Split(authParam, ":")
-			auth = &docker.AuthConfigurations{
-				Configs: map[string]docker.AuthConfiguration{
-					"*": docker.AuthConfiguration{
-						Username: userPass[0],
-						Password: userPass[1],
-					},
-				},
-			}
-		}
-	} else {
-		// Obtain auth configuration from .docker/config.json
-		if auth, err = docker.NewAuthConfigurationsFromDockerCfg(); err != nil {
-			log.Fatal(err)
-		}
-	}
+	auth := initAuth(c)
 
 	cacheDir, err := util.MakeAbsolute(c.String("cache-dir"))
 	if err != nil {
@@ -398,13 +377,7 @@ func pullCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
-	auth := docker.AuthConfiguration{}
-	authParam := c.String("auth")
-	if strings.Contains(authParam, ":") {
-		userPass := strings.Split(authParam, ":")
-		auth.Username = userPass[0]
-		auth.Password = userPass[1]
-	}
+	auth := initAuth(c)
 
 	cacheDir, err := util.MakeAbsolute(c.String("cache-dir"))
 	if err != nil {
@@ -418,6 +391,31 @@ func pullCommand(c *cli.Context) {
 	if err := client.PullImage(args[0]); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func initAuth(c *cli.Context) (auth *docker.AuthConfigurations) {
+	var err error
+	if c.IsSet("auth") {
+		// Obtain auth configuration from cli params
+		authParam := c.String("auth")
+		if strings.Contains(authParam, ":") {
+			userPass := strings.Split(authParam, ":")
+			auth = &docker.AuthConfigurations{
+				Configs: map[string]docker.AuthConfiguration{
+					"*": docker.AuthConfiguration{
+						Username: userPass[0],
+						Password: userPass[1],
+					},
+				},
+			}
+		}
+		return
+	}
+	// Obtain auth configuration from .docker/config.json
+	if auth, err = docker.NewAuthConfigurationsFromDockerCfg(); err != nil {
+		log.Fatal(err)
+	}
+	return
 }
 
 func initLogs(ctx *cli.Context) {
