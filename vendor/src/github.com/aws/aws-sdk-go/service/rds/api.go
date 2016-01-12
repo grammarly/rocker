@@ -3311,6 +3311,19 @@ type CreateDBClusterInput struct {
 	// Example: 5.6.10a
 	EngineVersion *string `type:"string"`
 
+	// The KMS key identifier for an encrypted DB cluster.
+	//
+	// The KMS key identifier is the Amazon Resource Name (ARN) for the KMS encryption
+	// key. If you are creating a DB cluster with the same AWS account that owns
+	// the KMS encryption key used to encrypt the new DB cluster, then you can use
+	// the KMS key alias instead of the ARN for the KM encryption key.
+	//
+	// If the StorageEncrypted parameter is true, and you do not specify a value
+	// for the KmsKeyId parameter, then Amazon RDS will use your default encryption
+	// key. AWS KMS creates the default encryption key for your AWS account. Your
+	// AWS account has a different default encryption key for each AWS region.
+	KmsKeyId *string `type:"string"`
+
 	// The password for the master database user. This password can contain any
 	// printable ASCII character except "/", """, or "@".
 	//
@@ -3366,6 +3379,9 @@ type CreateDBClusterInput struct {
 	//
 	// Constraints: Minimum 30-minute window.
 	PreferredMaintenanceWindow *string `type:"string"`
+
+	// Specifies whether the DB cluster is encrypted.
+	StorageEncrypted *bool `type:"boolean"`
 
 	// A list of tags.
 	Tags []*Tag `locationNameList:"Tag" type:"list"`
@@ -3853,6 +3869,25 @@ type CreateDBInstanceInput struct {
 	// Cannot be a reserved word for the chosen database engine.
 	MasterUsername *string `type:"string"`
 
+	// The interval, in seconds, between points when Enhanced Monitoring metrics
+	// are collected for the DB instance. To disable collecting Enhanced Monitoring
+	// metrics, specify 0. The default is 60.
+	//
+	// If MonitoringRoleArn is specified, then you must also set MonitoringInterval
+	// to a value other than 0.
+	//
+	// Valid Values: 0, 1, 5, 10, 15, 30, 60
+	MonitoringInterval *int64 `type:"integer"`
+
+	// The ARN for the IAM role that permits RDS to send enhanced monitoring metrics
+	// to CloudWatch Logs. For example, arn:aws:iam:123456789012:role/emaccess.
+	// For information on creating a monitoring role, go to To create an IAM role
+	// for Amazon RDS Enhanced Monitoring (http://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Monitoring.html#USER_Monitoring.OS.IAMRole).
+	//
+	// If MonitoringInterval is set to a value other than 0, then you must supply
+	// a MonitoringRoleArn value.
+	MonitoringRoleArn *string `type:"string"`
+
 	// Specifies if the DB instance is a Multi-AZ deployment. You cannot set the
 	// AvailabilityZone parameter if the MultiAZ parameter is set to true. Do not
 	// set this value if you want a Multi-AZ deployment for a SQL Server DB instance.
@@ -4077,6 +4112,25 @@ type CreateDBInstanceReadReplicaInput struct {
 	// The amount of Provisioned IOPS (input/output operations per second) to be
 	// initially allocated for the DB instance.
 	Iops *int64 `type:"integer"`
+
+	// The interval, in seconds, between points when Enhanced Monitoring metrics
+	// are collected for the Read Replica. To disable collecting Enhanced Monitoring
+	// metrics, specify 0. The default is 60.
+	//
+	// If MonitoringRoleArn is specified, then you must also set MonitoringInterval
+	// to a value other than 0.
+	//
+	// Valid Values: 0, 1, 5, 10, 15, 30, 60
+	MonitoringInterval *int64 `type:"integer"`
+
+	// The ARN for the IAM role that permits RDS to send enhanced monitoring metrics
+	// to CloudWatch Logs. For example, arn:aws:iam:123456789012:role/emaccess.
+	// For information on creating a monitoring role, go to To create an IAM role
+	// for Amazon RDS Enhanced Monitoring (http://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Monitoring.html#USER_Monitoring.OS.IAMRole).
+	//
+	// If MonitoringInterval is set to a value other than 0, then you must supply
+	// a MonitoringRoleArn value.
+	MonitoringRoleArn *string `type:"string"`
 
 	// The option group the DB instance will be associated with. If omitted, the
 	// default option group for the engine specified will be used.
@@ -4552,6 +4606,11 @@ type DBCluster struct {
 	// same name is returned for the life of the DB cluster.
 	DatabaseName *string `type:"string"`
 
+	// If StorageEncrypted is true, the region-unique, immutable identifier for
+	// the encrypted DB cluster. This identifier is found in AWS CloudTrail log
+	// entries whenever the KMS key for the DB cluster is accessed.
+	DbClusterResourceId *string `type:"string"`
+
 	// Specifies the earliest time to which a database can be restored with point-in-time
 	// restore.
 	EarliestRestorableTime *time.Time `type:"timestamp" timestampFormat:"iso8601"`
@@ -4567,6 +4626,10 @@ type DBCluster struct {
 
 	// Specifies the ID that Amazon Route 53 assigns when you create a hosted zone.
 	HostedZoneId *string `type:"string"`
+
+	// If StorageEncrypted is true, the KMS key identifier for the encrypted DB
+	// cluster.
+	KmsKeyId *string `type:"string"`
 
 	// Specifies the latest time to which a database can be restored with point-in-time
 	// restore.
@@ -4591,6 +4654,9 @@ type DBCluster struct {
 
 	// Specifies the current state of this DB cluster.
 	Status *string `type:"string"`
+
+	// Specifies whether the DB cluster is encrypted.
+	StorageEncrypted *bool `type:"boolean"`
 
 	// Provides a list of VPC security groups that the DB cluster belongs to.
 	VpcSecurityGroups []*VpcSecurityGroupMembership `locationNameList:"VpcSecurityGroupMembership" type:"list"`
@@ -4738,6 +4804,10 @@ type DBClusterSnapshot struct {
 	// Provides the version of the database engine for this DB cluster snapshot.
 	EngineVersion *string `type:"string"`
 
+	// If StorageEncrypted is true, the KMS key identifier for the encrypted DB
+	// cluster snapshot.
+	KmsKeyId *string `type:"string"`
+
 	// Provides the license model information for this DB cluster snapshot.
 	LicenseModel *string `type:"string"`
 
@@ -4760,6 +4830,9 @@ type DBClusterSnapshot struct {
 
 	// Specifies the status of this DB cluster snapshot.
 	Status *string `type:"string"`
+
+	// Specifies whether the DB cluster snapshot is encrypted.
+	StorageEncrypted *bool `type:"boolean"`
 
 	// Provides the VPC ID associated with the DB cluster snapshot.
 	VpcId *string `type:"string"`
@@ -4909,6 +4982,10 @@ type DBInstance struct {
 	// Indicates the database engine version.
 	EngineVersion *string `type:"string"`
 
+	// The Amazon Resource Name (ARN) of the Amazon CloudWatch Logs log stream that
+	// receives the Enhanced Monitoring metrics data for the DB instance.
+	EnhancedMonitoringResourceArn *string `type:"string"`
+
 	// Provides the date and time the DB instance was created.
 	InstanceCreateTime *time.Time `type:"timestamp" timestampFormat:"iso8601"`
 
@@ -4928,6 +5005,14 @@ type DBInstance struct {
 
 	// Contains the master username for the DB instance.
 	MasterUsername *string `type:"string"`
+
+	// The interval, in seconds, between points when Enhanced Monitoring metrics
+	// are collected for the DB instance.
+	MonitoringInterval *int64 `type:"integer"`
+
+	// The ARN for the IAM role that permits RDS to send Enhanced Monitoring metrics
+	// to CloudWatch Logs.
+	MonitoringRoleArn *string `type:"string"`
 
 	// Specifies if the DB instance is a Multi-AZ deployment.
 	MultiAZ *bool `type:"boolean"`
@@ -8242,6 +8327,12 @@ type ModifyDBInstanceInput struct {
 
 	// The port number on which the database accepts connections.
 	//
+	// The value of the DBPortNumber parameter must not match any of the port values
+	// specified for options in the option group for the DB instance.
+	//
+	// Your database will restart when you change the DBPortNumber value regardless
+	// of the value of the ApplyImmediately parameter.
+	//
 	//  MySQL
 	//
 	//  Default: 3306
@@ -8355,6 +8446,25 @@ type ModifyDBInstanceInput struct {
 	// a way to regain access to a primary instance user if the password is lost.
 	// This includes restoring privileges that might have been accidentally revoked.
 	MasterUserPassword *string `type:"string"`
+
+	// The interval, in seconds, between points when Enhanced Monitoring metrics
+	// are collected for the DB instance. To disable collecting Enhanced Monitoring
+	// metrics, specify 0. The default is 60.
+	//
+	// If MonitoringRoleArn is specified, then you must also set MonitoringInterval
+	// to a value other than 0.
+	//
+	// Valid Values: 0, 1, 5, 10, 15, 30, 60
+	MonitoringInterval *int64 `type:"integer"`
+
+	// The ARN for the IAM role that permits RDS to send enhanced monitoring metrics
+	// to CloudWatch Logs. For example, arn:aws:iam:123456789012:role/emaccess.
+	// For information on creating a monitoring role, go to To create an IAM role
+	// for Amazon RDS Enhanced Monitoring (http://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_Monitoring.html#USER_Monitoring.OS.IAMRole).
+	//
+	// If MonitoringInterval is set to a value other than 0, then you must supply
+	// a MonitoringRoleArn value.
+	MonitoringRoleArn *string `type:"string"`
 
 	// Specifies if the DB instance is a Multi-AZ deployment. Changing this parameter
 	// does not result in an outage and the change is applied during the next maintenance
@@ -9046,6 +9156,10 @@ type OrderableDBInstanceOption struct {
 	// Indicates the storage type for this orderable DB instance.
 	StorageType *string `type:"string"`
 
+	// Indicates whether the DB instance supports enhanced monitoring at intervals
+	// from 1 to 60 seconds.
+	SupportsEnhancedMonitoring *bool `type:"boolean"`
+
 	// Indicates whether this orderable DB instance supports provisioned IOPS.
 	SupportsIops *bool `type:"boolean"`
 
@@ -9719,6 +9833,25 @@ type RestoreDBClusterFromSnapshotInput struct {
 	// The version of the database engine to use for the new DB cluster.
 	EngineVersion *string `type:"string"`
 
+	// The KMS key identifier to use when restoring an encrypted DB cluster from
+	// an encrypted DB cluster snapshot.
+	//
+	// The KMS key identifier is the Amazon Resource Name (ARN) for the KMS encryption
+	// key. If you are restoring a DB cluster with the same AWS account that owns
+	// the KMS encryption key used to encrypt the new DB cluster, then you can use
+	// the KMS key alias instead of the ARN for the KMS encryption key.
+	//
+	// If you do not specify a value for the KmsKeyId parameter, then the following
+	// will occur:
+	//
+	//  If the DB cluster snapshot is encrypted, then the restored DB cluster is
+	// encrypted using the KMS key that was used to encrypt the DB cluster snapshot.
+	// If the DB cluster snapshot is not encrypted, then the restored DB cluster
+	// is not encrypted.  If SnapshotIdentifier refers to a DB cluster snapshot
+	// that is not encrypted, and you specify a value for the KmsKeyId parameter,
+	// then the restore request is rejected.
+	KmsKeyId *string `type:"string"`
+
 	// The name of the option group to use for the restored DB cluster.
 	OptionGroupName *string `type:"string"`
 
@@ -9788,6 +9921,29 @@ type RestoreDBClusterToPointInTimeInput struct {
 
 	// The DB subnet group name to use for the new DB cluster.
 	DBSubnetGroupName *string `type:"string"`
+
+	// The KMS key identifier to use when restoring an encrypted DB cluster from
+	// an encrypted DB cluster.
+	//
+	// The KMS key identifier is the Amazon Resource Name (ARN) for the KMS encryption
+	// key. If you are restoring a DB cluster with the same AWS account that owns
+	// the KMS encryption key used to encrypt the new DB cluster, then you can use
+	// the KMS key alias instead of the ARN for the KMS encryption key.
+	//
+	// You can restore to a new DB cluster and encrypt the new DB cluster with
+	// a KMS key that is different than the KMS key used to encrypt the source DB
+	// cluster. The new DB cluster will be encrypted with the KMS key identified
+	// by the KmsKeyId parameter.
+	//
+	// If you do not specify a value for the KmsKeyId parameter, then the following
+	// will occur:
+	//
+	//  If the DB cluster is encrypted, then the restored DB cluster is encrypted
+	// using the KMS key that was used to encrypt the source DB cluster.  If the
+	// DB cluster is not encrypted, then the restored DB cluster is not encrypted.
+	// If DBClusterIdentifier refers to a DB cluster that is note encrypted, then
+	// the restore request is rejected.
+	KmsKeyId *string `type:"string"`
 
 	// The name of the option group for the new DB cluster.
 	OptionGroupName *string `type:"string"`

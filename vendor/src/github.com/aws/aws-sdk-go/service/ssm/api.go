@@ -731,9 +731,9 @@ func (s CommandInvocation) GoString() string {
 type CommandPlugin struct {
 	_ struct{} `type:"structure"`
 
-	// The name of the plugin. Must be one of the following: AWS-JoinDirectoryServiceDomain,
-	// AWS-InstallApplication, AWS-RunPowerShellScript, AWS-InstallPowerShellModule,
-	// AWS-ConfigureCloudWatch.
+	// The name of the plugin. Must be one of the following: aws:updateAgent, aws:domainjoin,
+	// aws:applications, aws:runPowerShellScript, aws:psmodule, aws:cloudWatch,
+	// aws:runShellScript, or aws:updateSSMAgent.
 	Name *string `min:"4" type:"string"`
 
 	// Output of the plugin execution.
@@ -835,13 +835,13 @@ func (s CreateAssociationBatchRequestEntry) GoString() string {
 type CreateAssociationInput struct {
 	_ struct{} `type:"structure"`
 
-	// The instance ID.
+	// The Windows Server instance ID.
 	InstanceId *string `min:"10" type:"string" required:"true"`
 
 	// The name of the SSM document.
 	Name *string `type:"string" required:"true"`
 
-	// The parameters for the document’s runtime configuration.
+	// The parameters for the documents runtime configuration.
 	Parameters map[string][]*string `type:"map"`
 }
 
@@ -978,7 +978,7 @@ func (s DeleteDocumentOutput) GoString() string {
 type DescribeAssociationInput struct {
 	_ struct{} `type:"structure"`
 
-	// The ID of the instance.
+	// The Windows Server instance ID.
 	InstanceId *string `min:"10" type:"string" required:"true"`
 
 	// The name of the SSM document.
@@ -1373,8 +1373,8 @@ type ListCommandInvocationsInput struct {
 	// (Optional) The invocations for a specific command ID.
 	CommandId *string `min:"36" type:"string"`
 
-	// (Optional) If set this returns the response of the command executions. By
-	// default this is set to False.
+	// (Optional) If set this returns the response of the command executions and
+	// any command output. By default this is set to False.
 	Details *bool `type:"boolean"`
 
 	// (Optional) One or more filters. Use a filter to return a more specific list

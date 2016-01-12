@@ -597,6 +597,8 @@ func ExampleEC2_CopyImage() {
 		ClientToken:   aws.String("String"),
 		Description:   aws.String("String"),
 		DryRun:        aws.Bool(true),
+		Encrypted:     aws.Bool(true),
+		KmsKeyId:      aws.String("String"),
 	}
 	resp, err := svc.CopyImage(params)
 
@@ -820,6 +822,27 @@ func ExampleEC2_CreateKeyPair() {
 	fmt.Println(resp)
 }
 
+func ExampleEC2_CreateNatGateway() {
+	svc := ec2.New(session.New())
+
+	params := &ec2.CreateNatGatewayInput{
+		AllocationId: aws.String("String"), // Required
+		SubnetId:     aws.String("String"), // Required
+		ClientToken:  aws.String("String"),
+	}
+	resp, err := svc.CreateNatGateway(params)
+
+	if err != nil {
+		// Print the error, cast err to awserr.Error to get the Code and
+		// Message from an error.
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Pretty-print the response data.
+	fmt.Println(resp)
+}
+
 func ExampleEC2_CreateNetworkAcl() {
 	svc := ec2.New(session.New())
 
@@ -966,6 +989,7 @@ func ExampleEC2_CreateRoute() {
 		DryRun:                 aws.Bool(true),
 		GatewayId:              aws.String("String"),
 		InstanceId:             aws.String("String"),
+		NatGatewayId:           aws.String("String"),
 		NetworkInterfaceId:     aws.String("String"),
 		VpcPeeringConnectionId: aws.String("String"),
 	}
@@ -1370,6 +1394,25 @@ func ExampleEC2_DeleteKeyPair() {
 		DryRun:  aws.Bool(true),
 	}
 	resp, err := svc.DeleteKeyPair(params)
+
+	if err != nil {
+		// Print the error, cast err to awserr.Error to get the Code and
+		// Message from an error.
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Pretty-print the response data.
+	fmt.Println(resp)
+}
+
+func ExampleEC2_DeleteNatGateway() {
+	svc := ec2.New(session.New())
+
+	params := &ec2.DeleteNatGatewayInput{
+		NatGatewayId: aws.String("String"), // Required
+	}
+	resp, err := svc.DeleteNatGateway(params)
 
 	if err != nil {
 		// Print the error, cast err to awserr.Error to get the Code and
@@ -2472,6 +2515,40 @@ func ExampleEC2_DescribeMovingAddresses() {
 	fmt.Println(resp)
 }
 
+func ExampleEC2_DescribeNatGateways() {
+	svc := ec2.New(session.New())
+
+	params := &ec2.DescribeNatGatewaysInput{
+		Filter: []*ec2.Filter{
+			{ // Required
+				Name: aws.String("String"),
+				Values: []*string{
+					aws.String("String"), // Required
+					// More values...
+				},
+			},
+			// More values...
+		},
+		MaxResults: aws.Int64(1),
+		NatGatewayIds: []*string{
+			aws.String("String"), // Required
+			// More values...
+		},
+		NextToken: aws.String("String"),
+	}
+	resp, err := svc.DescribeNatGateways(params)
+
+	if err != nil {
+		// Print the error, cast err to awserr.Error to get the Code and
+		// Message from an error.
+		fmt.Println(err.Error())
+		return
+	}
+
+	// Pretty-print the response data.
+	fmt.Println(resp)
+}
+
 func ExampleEC2_DescribeNetworkAcls() {
 	svc := ec2.New(session.New())
 
@@ -3259,8 +3336,8 @@ func ExampleEC2_DescribeVpcAttribute() {
 	svc := ec2.New(session.New())
 
 	params := &ec2.DescribeVpcAttributeInput{
-		VpcId:     aws.String("String"), // Required
-		Attribute: aws.String("VpcAttributeName"),
+		Attribute: aws.String("VpcAttributeName"), // Required
+		VpcId:     aws.String("String"),           // Required
 		DryRun:    aws.Bool(true),
 	}
 	resp, err := svc.DescribeVpcAttribute(params)
@@ -4658,6 +4735,7 @@ func ExampleEC2_ReplaceRoute() {
 		DryRun:                 aws.Bool(true),
 		GatewayId:              aws.String("String"),
 		InstanceId:             aws.String("String"),
+		NatGatewayId:           aws.String("String"),
 		NetworkInterfaceId:     aws.String("String"),
 		VpcPeeringConnectionId: aws.String("String"),
 	}

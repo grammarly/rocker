@@ -151,12 +151,6 @@
 			"branch": "master"
 		},
 		{
-			"importpath": "github.com/aws/aws-sdk-go",
-			"repository": "https://github.com/aws/aws-sdk-go",
-			"revision": "d4677067b535e7a06201ce491b41f4b73dcc73a9",
-			"branch": "master"
-		},
-		{
 			"importpath": "github.com/go-ini/ini",
 			"repository": "https://github.com/go-ini/ini",
 			"revision": "9f4d2712cf687b68fad24366f81eaee163079090",
@@ -166,6 +160,12 @@
 			"importpath": "github.com/jmespath/go-jmespath",
 			"repository": "https://github.com/jmespath/go-jmespath",
 			"revision": "c01cf91b011868172fdcd9f41838e80c9d716264",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/aws/aws-sdk-go",
+			"repository": "https://github.com/aws/aws-sdk-go",
+			"revision": "b7b1a098eeebcdf7db0af5818e255dc8569b88ce",
 			"branch": "master"
 		}
 	]
