@@ -412,7 +412,7 @@ func initAuth(c *cli.Context) (auth *docker.AuthConfigurations) {
 		return
 	}
 	// Obtain auth configuration from .docker/config.json
-	if auth, err = docker.NewAuthConfigurationsFromDockerCfg(); err != nil {
+	if auth, err = docker.NewAuthConfigurationsFromDockerCfg(); err != nil && !os.IsNotExist(err) {
 		log.Fatal(err)
 	}
 	return
