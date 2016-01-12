@@ -313,6 +313,7 @@ func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
 
 		if remoteImages, err = b.client.ListImageTags(imgName.String()); err != nil {
 			err = fmt.Errorf("Failed to list tags of image %s from the remote registry, error: %s", imgName, err)
+			return
 		}
 
 		// Since we found the remote image, we want to pull it
