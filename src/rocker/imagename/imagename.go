@@ -21,6 +21,7 @@ package imagename
 
 import (
 	"encoding/json"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -41,6 +42,10 @@ const (
 
 	// StorageS3 is when s3 registry is used as images storage
 	StorageS3 = "s3"
+)
+
+var (
+	ecrRe = regexp.MustCompile("^\\d+\\.dkr\\.ecr\\.[^\\.]+\\.amazonaws\\.com$")
 )
 
 // ImageName is the data structure with describes docker image name
@@ -99,10 +104,8 @@ func New(image string, tag string) *ImageName {
 	}
 
 	// Minor validation
-	if dockerImage.Storage == StorageS3 {
-		if dockerImage.Registry == "" {
-			panic("Image with S3 storage driver requires bucket name to be specified: " + image)
-		}
+	if dockerImage.Storage == StorageS3 && dockerImage.Registry == "" {
+		panic("Image with S3 storage driver requires bucket name to be specified: " + image)
 	}
 
 	return dockerImage
@@ -216,6 +219,11 @@ func (img ImageName) HasVersion() bool {
 // golang        == false
 func (img ImageName) HasVersionRange() bool {
 	return img.Version != nil
+}
+
+// IsECR returns true if the registry is AWS ECR
+func (img ImageName) IsECR() bool {
+	return ecrRe.MatchString(img.Registry)
 }
 
 // TagAsVersion return semver.Version of the current image tag in case it's in semver format

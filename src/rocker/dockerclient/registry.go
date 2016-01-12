@@ -22,7 +22,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"regexp"
 	"rocker/imagename"
 	"strings"
 
@@ -42,28 +41,21 @@ type bearer struct {
 	Scope   string
 }
 
-var (
-	ecrRe = regexp.MustCompile("^\\d+\\.dkr\\.ecr\\.[^\\.]+\\.amazonaws\\.com$")
-)
-
 // RegistryListTags returns the list of images instances obtained from all tags existing in the registry
 func RegistryListTags(image *imagename.ImageName, auth *docker.AuthConfigurations) (images []*imagename.ImageName, err error) {
 	var (
 		name     = image.Name
 		registry = image.Registry
-		regAuth  = GetAuthForRegistry(auth, registry)
 	)
 
-	if registry == "" {
-		registry = "registry-1.docker.io"
-		if !strings.Contains(name, "/") {
-			name = "library/" + name
-		}
+	regAuth, err := GetAuthForRegistry(auth, image)
+	if err != nil {
+		return nil, fmt.Errorf("Failed to get auth token for registry: %s, make sure you are properly logged in using `docker login` or have AWS credentials set in case of using ECR", image)
 	}
 
 	// XXX: AWS ECR Registry API v2 does not support listing tags
 	// wo we just return a single image tag if it exists and no wildcards used
-	if ecrRe.MatchString(registry) {
+	if image.IsECR() {
 		log.Debugf("ECR detected %s", registry)
 		if !image.IsStrict() {
 			return nil, fmt.Errorf("Amazon ECR does not support tags listing, therefore image wildcards are not supported, sorry: %s", image)
@@ -75,6 +67,13 @@ func RegistryListTags(image *imagename.ImageName, auth *docker.AuthConfiguration
 			images = append(images, image)
 		}
 		return
+	}
+
+	if registry == "" {
+		registry = "registry-1.docker.io"
+		if !strings.Contains(name, "/") {
+			name = "library/" + name
+		}
 	}
 
 	var (
@@ -126,7 +125,7 @@ func registryGet(uri string, auth docker.AuthConfiguration, obj interface{}) (er
 		b = parseBearer(res.Header.Get("Www-Authenticate"))
 		log.Debugf("Got HTTP %d for %s; tried auth: %t; has Bearer: %t, auth username: %q", res.StatusCode, uri, authTry, b != nil, auth.Username)
 
-		if res.StatusCode == 401 && !authTry && auth.Username != "" && b != nil {
+		if res.StatusCode == 401 && !authTry && b != nil {
 			token, err := getAuthToken(b, auth)
 			if err != nil {
 				return fmt.Errorf("Failed to authenticate to registry %s, error: %s", uri, err)
@@ -187,7 +186,9 @@ func getAuthToken(b *bearer, auth docker.AuthConfiguration) (token string, err e
 		return "", err
 	}
 
-	req.SetBasicAuth(auth.Username, auth.Password)
+	if auth.Username != "" {
+		req.SetBasicAuth(auth.Username, auth.Password)
+	}
 
 	log.Debugf("Getting auth token from %s", uri)
 
@@ -227,9 +228,13 @@ func ecrImageExists(image *imagename.ImageName, auth docker.AuthConfiguration) (
 
 	req.SetBasicAuth(auth.Username, auth.Password)
 
+	log.Debugf("Request ECR image %s with basic auth %s:****", uri, auth.Username)
+
 	if res, err = client.Do(req); err != nil {
 		return false, fmt.Errorf("Failed to authenticate by realm url %s, error %s", uri, err)
 	}
+
+	log.Debugf("Got status %d", res.StatusCode)
 
 	if res.StatusCode == 404 {
 		return false, nil

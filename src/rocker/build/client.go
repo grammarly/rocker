@@ -130,7 +130,12 @@ func (c *DockerClient) PullImage(name string) error {
 		errch <- jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut)
 	}()
 
-	if err := c.client.PullImage(opts, dockerclient.GetAuthForRegistry(c.auth, image.Registry)); err != nil {
+	auth, err := dockerclient.GetAuthForRegistry(c.auth, image)
+	if err != nil {
+		return fmt.Errorf("Failed to authenticate registry %s, error: %s", image.Registry, err)
+	}
+
+	if err := c.client.PullImage(opts, auth); err != nil {
 		return err
 	}
 
@@ -457,7 +462,12 @@ func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
 		errch <- jsonmessage.DisplayJSONMessagesStream(pipeReader, out, fdOut, isTerminalOut)
 	}()
 
-	if err := c.client.PushImage(opts, dockerclient.GetAuthForRegistry(c.auth, img.Registry)); err != nil {
+	auth, err := dockerclient.GetAuthForRegistry(c.auth, img)
+	if err != nil {
+		return "", fmt.Errorf("Failed to authenticate registry %s, error: %s", img.Registry, err)
+	}
+
+	if err := c.client.PushImage(opts, auth); err != nil {
 		return "", err
 	}
 	pipeWriter.Close()
