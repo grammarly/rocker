@@ -310,8 +310,8 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 
 	signal.Notify(sigch, os.Interrupt)
 
-	/* Signal handler should be reset right after exit of this scope.
-	We don't want this sighanler to stay alive and suppress default signal handler if any*/
+	// Signal handler should be reset right after exit of this scope.
+	// We don't want this sighanler to stay alive and suppress default signal handler if any
 	defer signal.Stop(sigch)
 
 	go func() {
