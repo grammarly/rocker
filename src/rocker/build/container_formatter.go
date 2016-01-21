@@ -17,8 +17,6 @@
 package build
 
 import (
-	"fmt"
-
 	log "github.com/Sirupsen/logrus"
 )
 
@@ -40,9 +38,7 @@ func NewContainerFormatter(containerID string, level log.Level) log.Formatter {
 
 // Format formats a message from container
 func (f *formatter) Format(entry *log.Entry) ([]byte, error) {
-	e := entry.WithFields(log.Fields{
-		"container": fmt.Sprintf("%.12s", f.containerID),
-	})
+	e := entry
 	e.Message = entry.Message
 	e.Level = f.level
 	return f.delegate.Format(e)
