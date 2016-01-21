@@ -322,9 +322,17 @@ func buildCommand(c *cli.Context) {
 		cache = build.NewCacheFS(cacheDir)
 	}
 
-	s3storage := s3.New(dockerClient, cacheDir)
+	var (
+		stdoutContainerFormatter log.Formatter = &log.JSONFormatter{}
+		stderrContainerFormatter log.Formatter = &log.JSONFormatter{}
+	)
+	if !c.GlobalBool("json") {
+		stdoutContainerFormatter = build.NewMonochromeContainerFormatter()
+		stderrContainerFormatter = build.NewColoredContainerFormatter()
+	}
 
-	client := build.NewDockerClient(dockerClient, auth, log.StandardLogger(), s3storage)
+	s3storage := s3.New(dockerClient, cacheDir)
+	client := build.NewDockerClientWithFormatters(dockerClient, auth, log.StandardLogger(), s3storage, stdoutContainerFormatter, stderrContainerFormatter)
 
 	builder := build.New(client, rockerfile, cache, build.Config{
 		InStream:      os.Stdin,
