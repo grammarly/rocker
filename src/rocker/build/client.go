@@ -59,6 +59,16 @@ type Client interface {
 	ResolveHostPath(path string) (resultPath string, err error)
 }
 
+// DockerClientOptions stores options are used to create DockerClient object
+type DockerClientOptions struct {
+	Client                   *docker.Client
+	Auth                     *docker.AuthConfigurations
+	Log                      *logrus.Logger
+	S3storage                *s3.StorageS3
+	StdoutContainerFormatter logrus.Formatter
+	StderrContainerFormatter logrus.Formatter
+}
+
 // DockerClient implements the client that works with a docker socket
 type DockerClient struct {
 	client                   *docker.Client
@@ -74,35 +84,19 @@ var (
 )
 
 // NewDockerClient makes a new client that works with a docker socket
-func NewDockerClient(dockerClient *docker.Client, auth *docker.AuthConfigurations, log *logrus.Logger,
-	s3storage *s3.StorageS3) *DockerClient {
+func NewDockerClient(options DockerClientOptions) *DockerClient {
+	log := options.Log
 	if log == nil {
 		log = logrus.StandardLogger()
 	}
-	return &DockerClient{
-		client:                   dockerClient,
-		auth:                     auth,
-		log:                      log,
-		s3storage:                s3storage,
-		stdoutContainerFormatter: log.Formatter,
-		stderrContainerFormatter: log.Formatter,
-	}
-}
 
-// NewDockerClientWithFormatters makes a new client that works with a docker socket.
-// Additionaly confugured with formatters that are used to throttle containers output.
-func NewDockerClientWithFormatters(dockerClient *docker.Client, auth *docker.AuthConfigurations, log *logrus.Logger,
-	s3storage *s3.StorageS3, stdoutFormatter logrus.Formatter, stderrFormatter logrus.Formatter) *DockerClient {
-	if log == nil {
-		log = logrus.StandardLogger()
-	}
 	return &DockerClient{
-		client:                   dockerClient,
-		auth:                     auth,
+		client:                   options.Client,
+		auth:                     options.Auth,
 		log:                      log,
-		s3storage:                s3storage,
-		stdoutContainerFormatter: stdoutFormatter,
-		stderrContainerFormatter: stderrFormatter,
+		s3storage:                options.S3storage,
+		stdoutContainerFormatter: options.StdoutContainerFormatter,
+		stderrContainerFormatter: options.StderrContainerFormatter,
 	}
 }
 

@@ -310,8 +310,6 @@ func buildCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
-	auth := initAuth(c)
-
 	cacheDir, err := util.MakeAbsolute(c.String("cache-dir"))
 	if err != nil {
 		log.Fatal(err)
@@ -331,8 +329,15 @@ func buildCommand(c *cli.Context) {
 		stderrContainerFormatter = build.NewColoredContainerFormatter()
 	}
 
-	s3storage := s3.New(dockerClient, cacheDir)
-	client := build.NewDockerClientWithFormatters(dockerClient, auth, log.StandardLogger(), s3storage, stdoutContainerFormatter, stderrContainerFormatter)
+	options := build.DockerClientOptions{
+		Client:                   dockerClient,
+		Auth:                     initAuth(c),
+		Log:                      log.StandardLogger(),
+		S3storage:                s3.New(dockerClient, cacheDir),
+		StdoutContainerFormatter: stdoutContainerFormatter,
+		StderrContainerFormatter: stderrContainerFormatter,
+	}
+	client := build.NewDockerClient(options)
 
 	builder := build.New(client, rockerfile, cache, build.Config{
 		InStream:      os.Stdin,
@@ -385,16 +390,20 @@ func pullCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
-	auth := initAuth(c)
-
 	cacheDir, err := util.MakeAbsolute(c.String("cache-dir"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	s3storage := s3.New(dockerClient, cacheDir)
-
-	client := build.NewDockerClient(dockerClient, auth, log.StandardLogger(), s3storage)
+	options := build.DockerClientOptions{
+		Client:                   dockerClient,
+		Auth:                     initAuth(c),
+		Log:                      log.StandardLogger(),
+		S3storage:                s3.New(dockerClient, cacheDir),
+		StdoutContainerFormatter: log.StandardLogger().Formatter,
+		StderrContainerFormatter: log.StandardLogger().Formatter,
+	}
+	client := build.NewDockerClient(options)
 
 	if err := client.PullImage(args[0]); err != nil {
 		log.Fatal(err)
