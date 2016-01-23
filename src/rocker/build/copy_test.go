@@ -380,6 +380,27 @@ func TestCopy_ListFiles_Excludes_FileInAnyDir(t *testing.T) {
 	}
 }
 
+func TestCopy_ListFiles_SymLink(t *testing.T) {
+	tmpDir, err := ioutil.TempDir("", "rocker-copy-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	includes := []string{
+		".",
+	}
+
+	link := tmpDir + "/link"
+	if err := os.Symlink("./", link); err != nil {
+		t.Fatal(err)
+	}
+	matches, err := listFiles(tmpDir, includes, []string{})
+	assert.Equal(t, link, matches[0].src)
+	assert.Equal(t, "link", matches[0].dest)
+
+}
+
 func TestCopy_MakeTarStream_Basic(t *testing.T) {
 	tmpDir := makeTmpDir(t, map[string]string{
 		"a/test.txt": "hello",

@@ -318,12 +318,6 @@ func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, erro
 					return nil
 				}
 
-				// skip checking if symlinks point to non-existing file
-				// also skip named pipes, because they hanging on open
-				if info.Mode()&(os.ModeSymlink|os.ModeNamedPipe) != 0 {
-					return nil
-				}
-
 				if _, ok := seen[relFilePath]; ok {
 					return nil
 				}
