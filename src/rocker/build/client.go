@@ -462,7 +462,7 @@ func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
 		}
 
 		duration := 1 * time.Second // TODO: move to config?
-		n += 1
+		n++
 
 		c.log.Errorf("Retry %d/%d after %s, error: %s", n, c.pushRetryCount, duration, err)
 		time.Sleep(duration)
