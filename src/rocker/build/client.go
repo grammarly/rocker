@@ -59,12 +59,24 @@ type Client interface {
 	ResolveHostPath(path string) (resultPath string, err error)
 }
 
+// DockerClientOptions stores options are used to create DockerClient object
+type DockerClientOptions struct {
+	Client                   *docker.Client
+	Auth                     *docker.AuthConfigurations
+	Log                      *logrus.Logger
+	S3storage                *s3.StorageS3
+	StdoutContainerFormatter logrus.Formatter
+	StderrContainerFormatter logrus.Formatter
+}
+
 // DockerClient implements the client that works with a docker socket
 type DockerClient struct {
-	client    *docker.Client
-	auth      *docker.AuthConfigurations
-	log       *logrus.Logger
-	s3storage *s3.StorageS3
+	client                   *docker.Client
+	auth                     *docker.AuthConfigurations
+	log                      *logrus.Logger
+	s3storage                *s3.StorageS3
+	stdoutContainerFormatter logrus.Formatter
+	stderrContainerFormatter logrus.Formatter
 }
 
 var (
@@ -72,16 +84,19 @@ var (
 )
 
 // NewDockerClient makes a new client that works with a docker socket
-func NewDockerClient(dockerClient *docker.Client, auth *docker.AuthConfigurations, log *logrus.Logger,
-	s3storage *s3.StorageS3) *DockerClient {
+func NewDockerClient(options DockerClientOptions) *DockerClient {
+	log := options.Log
 	if log == nil {
 		log = logrus.StandardLogger()
 	}
+
 	return &DockerClient{
-		client:    dockerClient,
-		auth:      auth,
-		log:       log,
-		s3storage: s3storage,
+		client:                   options.Client,
+		auth:                     options.Auth,
+		log:                      log,
+		s3storage:                options.S3storage,
+		stdoutContainerFormatter: options.StdoutContainerFormatter,
+		stderrContainerFormatter: options.StderrContainerFormatter,
 	}
 }
 
@@ -222,12 +237,12 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 		// Wrap output streams with logger
 		outLogger = &logrus.Logger{
 			Out:       c.log.Out,
-			Formatter: NewContainerFormatter(containerID, logrus.InfoLevel),
+			Formatter: c.stdoutContainerFormatter,
 			Level:     c.log.Level,
 		}
 		errLogger = &logrus.Logger{
 			Out:       c.log.Out,
-			Formatter: NewContainerFormatter(containerID, logrus.ErrorLevel),
+			Formatter: c.stderrContainerFormatter,
 			Level:     c.log.Level,
 		}
 

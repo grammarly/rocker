@@ -310,8 +310,6 @@ func buildCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
-	auth := initAuth(c)
-
 	cacheDir, err := util.MakeAbsolute(c.String("cache-dir"))
 	if err != nil {
 		log.Fatal(err)
@@ -322,9 +320,24 @@ func buildCommand(c *cli.Context) {
 		cache = build.NewCacheFS(cacheDir)
 	}
 
-	s3storage := s3.New(dockerClient, cacheDir)
+	var (
+		stdoutContainerFormatter log.Formatter = &log.JSONFormatter{}
+		stderrContainerFormatter log.Formatter = &log.JSONFormatter{}
+	)
+	if !c.GlobalBool("json") {
+		stdoutContainerFormatter = build.NewMonochromeContainerFormatter()
+		stderrContainerFormatter = build.NewColoredContainerFormatter()
+	}
 
-	client := build.NewDockerClient(dockerClient, auth, log.StandardLogger(), s3storage)
+	options := build.DockerClientOptions{
+		Client:                   dockerClient,
+		Auth:                     initAuth(c),
+		Log:                      log.StandardLogger(),
+		S3storage:                s3.New(dockerClient, cacheDir),
+		StdoutContainerFormatter: stdoutContainerFormatter,
+		StderrContainerFormatter: stderrContainerFormatter,
+	}
+	client := build.NewDockerClient(options)
 
 	builder := build.New(client, rockerfile, cache, build.Config{
 		InStream:      os.Stdin,
@@ -377,16 +390,20 @@ func pullCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
-	auth := initAuth(c)
-
 	cacheDir, err := util.MakeAbsolute(c.String("cache-dir"))
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	s3storage := s3.New(dockerClient, cacheDir)
-
-	client := build.NewDockerClient(dockerClient, auth, log.StandardLogger(), s3storage)
+	options := build.DockerClientOptions{
+		Client:                   dockerClient,
+		Auth:                     initAuth(c),
+		Log:                      log.StandardLogger(),
+		S3storage:                s3.New(dockerClient, cacheDir),
+		StdoutContainerFormatter: log.StandardLogger().Formatter,
+		StderrContainerFormatter: log.StandardLogger().Formatter,
+	}
+	client := build.NewDockerClient(options)
 
 	if err := client.PullImage(args[0]); err != nil {
 		log.Fatal(err)
