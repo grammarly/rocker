@@ -165,6 +165,10 @@ func main() {
 			Name:  "no-garbage",
 			Usage: "remove the images from the tail if not tagged",
 		},
+		cli.IntFlag{
+			Name:  "push-retry",
+			Usage: "number of retries for failed image pushes",
+		},
 	}
 
 	app.Commands = []cli.Command{
@@ -336,6 +340,7 @@ func buildCommand(c *cli.Context) {
 		S3storage:                s3.New(dockerClient, cacheDir),
 		StdoutContainerFormatter: stdoutContainerFormatter,
 		StderrContainerFormatter: stderrContainerFormatter,
+		PushRetryCount:           c.Int("push-retry"),
 	}
 	client := build.NewDockerClient(options)
 
