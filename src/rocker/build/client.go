@@ -22,6 +22,7 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"time"
 
 	"regexp"
 	"rocker/dockerclient"
@@ -67,6 +68,7 @@ type DockerClientOptions struct {
 	S3storage                *s3.StorageS3
 	StdoutContainerFormatter logrus.Formatter
 	StderrContainerFormatter logrus.Formatter
+	PushRetryCount           int
 }
 
 // DockerClient implements the client that works with a docker socket
@@ -77,6 +79,7 @@ type DockerClient struct {
 	s3storage                *s3.StorageS3
 	stdoutContainerFormatter logrus.Formatter
 	stderrContainerFormatter logrus.Formatter
+	pushRetryCount           int
 }
 
 var (
@@ -97,6 +100,7 @@ func NewDockerClient(options DockerClientOptions) *DockerClient {
 		s3storage:                options.S3storage,
 		stdoutContainerFormatter: options.StdoutContainerFormatter,
 		stderrContainerFormatter: options.StderrContainerFormatter,
+		pushRetryCount:           options.PushRetryCount,
 	}
 }
 
@@ -442,8 +446,33 @@ func (c *DockerClient) TagImage(imageID, imageName string) error {
 	return c.client.TagImage(imageID, opts)
 }
 
-// PushImage pushes the image
+// PushImage pushes the image, does retries if configured
 func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
+	n := 0
+
+	for {
+		if digest, err = c.pushImageInner(imageName); err == nil {
+			return
+		}
+		if n == c.pushRetryCount {
+			if c.pushRetryCount > 0 {
+				c.log.Errorf("PUSH max retry count reached (%d), returning error", c.pushRetryCount)
+			}
+			return digest, err
+		}
+
+		duration := 1 * time.Second // TODO: move to config?
+		n += 1
+
+		c.log.Errorf("Retry %d/%d after %s, error: %s", n, c.pushRetryCount, duration, err)
+		time.Sleep(duration)
+	}
+
+	return
+}
+
+// pushImageInner pushes the image is the inner straightforward push without retries
+func (c *DockerClient) pushImageInner(imageName string) (digest string, err error) {
 	img := imagename.NewFromString(imageName)
 
 	// Use direct S3 image pusher instead
