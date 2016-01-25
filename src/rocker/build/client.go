@@ -458,7 +458,7 @@ func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
 			if c.pushRetryCount > 0 {
 				c.log.Errorf("PUSH max retry count reached (%d), returning error", c.pushRetryCount)
 			}
-			return digest, err
+			return
 		}
 
 		duration := 1 * time.Second // TODO: move to config?
@@ -467,8 +467,6 @@ func (c *DockerClient) PushImage(imageName string) (digest string, err error) {
 		c.log.Errorf("Retry %d/%d after %s, error: %s", n, c.pushRetryCount, duration, err)
 		time.Sleep(duration)
 	}
-
-	return
 }
 
 // pushImageInner pushes the image is the inner straightforward push without retries
