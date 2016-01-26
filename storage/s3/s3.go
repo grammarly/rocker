@@ -21,11 +21,11 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"github.com/grammarly/rocker/imagename"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"rocker/imagename"
 	"strings"
 
 	log "github.com/Sirupsen/logrus"

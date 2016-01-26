@@ -18,10 +18,10 @@ package dockerclient
 
 import (
 	"fmt"
+	"github.com/grammarly/rocker/util"
 	"os"
 	"path"
 	"path/filepath"
-	"rocker/util"
 	"strings"
 
 	"github.com/fsouza/go-dockerclient"

@@ -24,11 +24,11 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/grammarly/rocker/dockerclient"
+	"github.com/grammarly/rocker/imagename"
+	"github.com/grammarly/rocker/storage/s3"
+	"github.com/grammarly/rocker/textformatter"
 	"regexp"
-	"rocker/dockerclient"
-	"rocker/imagename"
-	"rocker/storage/s3"
-	"rocker/textformatter"
 
 	"github.com/docker/docker/pkg/units"
 

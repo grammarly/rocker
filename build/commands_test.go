@@ -18,8 +18,8 @@ package build
 
 import (
 	"fmt"
+	"github.com/grammarly/rocker/imagename"
 	"reflect"
-	"rocker/imagename"
 	"testing"
 
 	"github.com/kr/pretty"

@@ -19,7 +19,7 @@ package git
 
 import (
 	"fmt"
-	"rocker/util"
+	"github.com/grammarly/rocker/util"
 	"strings"
 )
 

@@ -18,14 +18,14 @@ package build
 
 import (
 	"fmt"
+	"github.com/grammarly/rocker/imagename"
+	"github.com/grammarly/rocker/shellparser"
+	"github.com/grammarly/rocker/util"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
-	"rocker/imagename"
-	"rocker/shellparser"
-	"rocker/util"
 	"sort"
 	"strings"
 	"time"

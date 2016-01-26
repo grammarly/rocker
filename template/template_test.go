@@ -18,8 +18,8 @@ package template
 
 import (
 	"fmt"
+	"github.com/grammarly/rocker/imagename"
 	"os"
-	"rocker/imagename"
 	"strings"
 	"testing"
 

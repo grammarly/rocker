@@ -19,11 +19,11 @@ package build
 import (
 	"bytes"
 	"fmt"
+	"github.com/grammarly/rocker/parser"
+	"github.com/grammarly/rocker/template"
 	"io"
 	"io/ioutil"
 	"os"
-	"rocker/parser"
-	"rocker/template"
 	"strings"
 )
 

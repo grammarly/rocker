@@ -18,8 +18,8 @@ package build
 
 import (
 	"fmt"
+	"github.com/grammarly/rocker/imagename"
 	"io"
-	"rocker/imagename"
 
 	"github.com/docker/docker/pkg/units"
 	"github.com/fatih/color"

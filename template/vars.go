@@ -19,13 +19,13 @@ package template
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/grammarly/rocker/imagename"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
-	"rocker/imagename"
 	"sort"
 	"strings"
 

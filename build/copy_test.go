@@ -18,11 +18,11 @@ package build
 
 import (
 	"bytes"
+	"github.com/grammarly/rocker/test"
 	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"rocker/test"
 	"strings"
 	"testing"
 

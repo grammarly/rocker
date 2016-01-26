@@ -17,7 +17,7 @@
 package storage
 
 import (
-	"rocker/imagename"
+	"github.com/grammarly/rocker/imagename"
 
 	"github.com/fsouza/go-dockerclient"
 )

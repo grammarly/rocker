@@ -22,8 +22,8 @@
 package s3
 
 import (
+	"github.com/grammarly/rocker/dockerclient"
 	"os"
-	"rocker/dockerclient"
 	"testing"
 
 	"github.com/kr/pretty"

@@ -19,10 +19,10 @@ package dockerclient
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/grammarly/rocker/imagename"
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"rocker/imagename"
 	"strings"
 
 	"github.com/fsouza/go-dockerclient"
