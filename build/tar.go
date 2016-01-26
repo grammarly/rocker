@@ -15,7 +15,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/fsouza/go-dockerclient/vendor/github.com/docker/docker/pkg/system"
+	"github.com/docker/docker/pkg/system"
 )
 
 type tarAppender struct {

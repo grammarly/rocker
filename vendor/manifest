@@ -62,6 +62,13 @@
 			"path": "/pkg/signal"
 		},
 		{
+			"importpath": "github.com/docker/docker/pkg/system",
+			"repository": "https://github.com/docker/docker",
+			"revision": "141a301dca9ff00259157116f479e1c8405a9c14",
+			"branch": "master",
+			"path": "/pkg/system"
+		},
+		{
 			"importpath": "github.com/docker/docker/pkg/tarsum",
 			"repository": "https://github.com/docker/docker",
 			"revision": "148be8bd7efd2cdb74b0cd9466fccb57c4c51834",
