@@ -91,7 +91,14 @@ func runBuildInteg(t *testing.T, rockerfileContent string, cfg Config) (*Build, 
 	logger := logrus.New()
 	logger.Out = io.MultiWriter(&buf, os.Stdout)
 
-	c := NewDockerClient(dockerCli, docker.AuthConfiguration{}, logger)
+	options := DockerClientOptions{
+		Client: dockerCli,
+		Auth:   &docker.AuthConfigurations{},
+		Log:    logger,
+		StdoutContainerFormatter: logger.Formatter,
+		StderrContainerFormatter: logger.Formatter,
+	}
+	c := NewDockerClient(options)
 	b := New(c, r, nil, cfg)
 
 	defer func() {
