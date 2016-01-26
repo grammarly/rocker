@@ -17,9 +17,9 @@
 package build
 
 import (
+	"github.com/grammarly/rocker/src/imagename"
+	"github.com/grammarly/rocker/src/template"
 	"io"
-	"rocker/imagename"
-	"rocker/template"
 	"runtime"
 	"strings"
 	"testing"
