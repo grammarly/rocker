@@ -104,6 +104,12 @@
 			"path": "/pkg/urlutil"
 		},
 		{
+			"importpath": "github.com/docker/go-units",
+			"repository": "https://github.com/docker/go-units",
+			"revision": "5d2041e26a699eaca682e2ea41c8f891e1060444",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/fatih/color",
 			"repository": "https://github.com/fatih/color",
 			"revision": "1b35f289c47d5c73c398cea8e006b7bcb6234a96",
