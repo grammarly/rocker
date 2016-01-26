@@ -19,7 +19,7 @@ package dockerclient
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/grammarly/rocker/imagename"
+	"github.com/grammarly/rocker/src/imagename"
 	"strings"
 	"sync"
 

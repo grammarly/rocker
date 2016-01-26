@@ -18,7 +18,7 @@ package template
 
 import (
 	"fmt"
-	"github.com/grammarly/rocker/imagename"
+	"github.com/grammarly/rocker/src/imagename"
 	"os"
 	"strings"
 	"testing"

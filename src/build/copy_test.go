@@ -18,7 +18,7 @@ package build
 
 import (
 	"bytes"
-	"github.com/grammarly/rocker/test"
+	"github.com/grammarly/rocker/src/test"
 	"io"
 	"io/ioutil"
 	"os"

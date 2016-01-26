@@ -19,8 +19,8 @@ package build
 import (
 	"bytes"
 	"fmt"
-	"github.com/grammarly/rocker/parser"
-	"github.com/grammarly/rocker/template"
+	"github.com/grammarly/rocker/src/parser"
+	"github.com/grammarly/rocker/src/template"
 	"io"
 	"io/ioutil"
 	"os"

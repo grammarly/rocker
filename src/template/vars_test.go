@@ -19,8 +19,8 @@ package template
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/grammarly/rocker/imagename"
-	"github.com/grammarly/rocker/test"
+	"github.com/grammarly/rocker/src/imagename"
+	"github.com/grammarly/rocker/src/test"
 	"io/ioutil"
 	"os"
 	"path"

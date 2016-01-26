@@ -20,8 +20,8 @@ package build
 
 import (
 	"bytes"
-	"github.com/grammarly/rocker/dockerclient"
-	"github.com/grammarly/rocker/template"
+	"github.com/grammarly/rocker/src/dockerclient"
+	"github.com/grammarly/rocker/src/template"
 	"io"
 	"os"
 	"runtime"

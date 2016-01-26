@@ -18,7 +18,7 @@ package dockerclient
 
 import (
 	"fmt"
-	"github.com/grammarly/rocker/util"
+	"github.com/grammarly/rocker/src/util"
 	"os"
 	"path"
 	"path/filepath"

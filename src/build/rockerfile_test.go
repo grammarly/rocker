@@ -17,7 +17,7 @@
 package build
 
 import (
-	"github.com/grammarly/rocker/template"
+	"github.com/grammarly/rocker/src/template"
 	"strings"
 	"testing"
 

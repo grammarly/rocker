@@ -18,7 +18,7 @@ package build
 
 import (
 	"fmt"
-	"github.com/grammarly/rocker/imagename"
+	"github.com/grammarly/rocker/src/imagename"
 	"io"
 
 	"github.com/docker/docker/pkg/units"

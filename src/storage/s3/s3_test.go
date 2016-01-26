@@ -22,7 +22,7 @@
 package s3
 
 import (
-	"github.com/grammarly/rocker/dockerclient"
+	"github.com/grammarly/rocker/src/dockerclient"
 	"os"
 	"testing"
 

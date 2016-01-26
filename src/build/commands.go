@@ -18,9 +18,9 @@ package build
 
 import (
 	"fmt"
-	"github.com/grammarly/rocker/imagename"
-	"github.com/grammarly/rocker/shellparser"
-	"github.com/grammarly/rocker/util"
+	"github.com/grammarly/rocker/src/imagename"
+	"github.com/grammarly/rocker/src/shellparser"
+	"github.com/grammarly/rocker/src/util"
 	"io/ioutil"
 	"os"
 	"path"

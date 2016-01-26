@@ -19,7 +19,7 @@ package template
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/grammarly/rocker/imagename"
+	"github.com/grammarly/rocker/src/imagename"
 	"io/ioutil"
 	"os"
 	"path"
