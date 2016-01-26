@@ -681,7 +681,10 @@ func TestBuildImageParameters(t *testing.T) {
 		Memory:              1024,
 		Memswap:             2048,
 		CPUShares:           10,
+		CPUQuota:            7500,
+		CPUPeriod:           100000,
 		CPUSetCPUs:          "0-3",
+		Ulimits:             []ULimit{{Name: "nofile", Soft: 100, Hard: 200}},
 		InputStream:         &buf,
 		OutputStream:        &buf,
 	}
@@ -700,7 +703,10 @@ func TestBuildImageParameters(t *testing.T) {
 		"memory":     {"1024"},
 		"memswap":    {"2048"},
 		"cpushares":  {"10"},
+		"cpuquota":   {"7500"},
+		"cpuperiod":  {"100000"},
 		"cpusetcpus": {"0-3"},
+		"ulimits":    {"[{\"Name\":\"nofile\",\"Soft\":100,\"Hard\":200}]"},
 	}
 	got := map[string][]string(req.URL.Query())
 	if !reflect.DeepEqual(got, expected) {
@@ -962,6 +968,47 @@ func TestSearchImages(t *testing.T) {
 	}
 	client := newTestClient(&FakeRoundTripper{message: body, status: http.StatusOK})
 	result, err := client.SearchImages("cassandra")
+	if err != nil {
+		t.Error(err)
+	}
+	if !reflect.DeepEqual(result, expected) {
+		t.Errorf("SearchImages: Wrong return value. Want %#v. Got %#v.", expected, result)
+	}
+}
+
+func TestSearchImagesEx(t *testing.T) {
+	body := `[
+	{
+		"description":"A container with Cassandra 2.0.3",
+		"is_official":true,
+		"is_automated":true,
+		"name":"poklet/cassandra",
+		"star_count":17
+	},
+	{
+		"description":"A container with Cassandra 2.0.3",
+		"is_official":true,
+		"is_automated":false,
+		"name":"poklet/cassandra",
+		"star_count":17
+	}
+	,
+	{
+		"description":"A container with Cassandra 2.0.3",
+		"is_official":false,
+		"is_automated":true,
+		"name":"poklet/cassandra",
+		"star_count":17
+	}
+]`
+	var expected []APIImageSearch
+	err := json.Unmarshal([]byte(body), &expected)
+	if err != nil {
+		t.Fatal(err)
+	}
+	client := newTestClient(&FakeRoundTripper{message: body, status: http.StatusOK})
+	auth := AuthConfiguration{}
+	result, err := client.SearchImagesEx("cassandra", auth)
 	if err != nil {
 		t.Error(err)
 	}
