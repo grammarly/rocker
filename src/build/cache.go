@@ -18,6 +18,7 @@ package build
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -47,25 +48,28 @@ func NewCacheFS(root string) *CacheFS {
 
 // Get fetches cache
 func (c *CacheFS) Get(s State) (res *State, err error) {
-	match := filepath.Join(c.root, s.ImageID)
+	pattern := filepath.Join(c.root, s.ImageID, "*.json")
 
 	latestTime := time.Unix(0, 0)
 
-	err = filepath.Walk(match, func(path string, info os.FileInfo, err error) error {
-		if err != nil && os.IsNotExist(err) {
-			return nil
-		}
-		if info.IsDir() {
-			return nil
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, path := range matches {
+		info, err := os.Stat(path)
+		if err != nil {
+			return nil, fmt.Errorf("Failed to stat cache file %s, error: %s", path, err)
 		}
 
 		s2 := State{}
 		data, err := ioutil.ReadFile(path)
 		if err != nil {
-			return err
+			return nil, fmt.Errorf("Failed to read cache file %s content, error: %s", path, err)
 		}
 		if err := json.Unmarshal(data, &s2); err != nil {
-			return err
+			return nil, fmt.Errorf("Failed to parse cache file %s json, error: %s", path, err)
 		}
 
 		log.Debugf("CACHE COMPARE %s %s %q %q", s.ImageID, s2.ImageID, s.Commits, s2.Commits)
@@ -74,9 +78,7 @@ func (c *CacheFS) Get(s State) (res *State, err error) {
 			latestTime = info.ModTime()
 			res = &s2
 		}
-
-		return nil
-	})
+	}
 
 	return
 }

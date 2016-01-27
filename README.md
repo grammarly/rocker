@@ -26,6 +26,7 @@ What is not supported yet:
   * [PUSH](#push)
   * [Templating](#templating)
   * [ATTACH](#attach)
+* [Other backends for storing images](#other-backends-for-storing-images)
 * [Where to go next?](#where-to-go-next)
 * [Contributing](#contributing)
 * [TODO](#todo)
@@ -380,6 +381,11 @@ With this Rockerfile, you can play with your Ruby application within the source 
 
 * If no argument is specified, the last CMD will be taken
 * `ATTACH`  works only with `rocker build --attach` flag specified. So you can leave the `ATTACH` instructions in the Rockerfile and nobody will be interrupted unless `--attach` is specified.
+
+# Other backends for storing images
+
+Starting from v1.1.0 Rocker supports pushing to alternative storages other than 
+TODO
 
 # Where to go next?
 
