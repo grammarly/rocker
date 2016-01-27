@@ -5,11 +5,10 @@ FROM golang:1.5.1
 {{ $beta := "0.2.4" }}
 {{ $v1 := "1." }}
 
-ADD . /src
-WORKDIR /src
+ADD . /go/src/github.com/grammarly/rocker
+WORKDIR /go/src/github.com/grammarly/rocker
 
-
-ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO15VENDOREXPERIMENT=1
 
 {{ if .test }}
 MOUNT /var/run/docker.sock:/var/run/docker.sock
@@ -20,13 +19,14 @@ ATTACH ["bash"]
 RUN make test
 {{ end }}
 
+ATTACH ["bash"]
+
 RUN \
   TIME=$(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT") \
-  GOPATH=/src:/src/vendor \
   go build \
     -a -installsuffix cgo \
     -ldflags "-X main.Version={{ .Version }} -X main.GitCommit=$commit -X main.GitBranch=$branch -X main.BuildTime=$TIME" \
-    -v -o /bin/rocker src/cmd/rocker/main.go
+    -v -o /bin/rocker
 
 EXPORT /bin/rocker
 
