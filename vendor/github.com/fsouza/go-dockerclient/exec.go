@@ -38,16 +38,16 @@ type CreateExecOptions struct {
 // See https://goo.gl/1KSIb7 for more details
 func (c *Client) CreateExec(opts CreateExecOptions) (*Exec, error) {
 	path := fmt.Sprintf("/containers/%s/exec", opts.Container)
-	resp, err := c.do("POST", path, doOptions{data: opts})
+	body, status, err := c.do("POST", path, doOptions{data: opts})
+	if status == http.StatusNotFound {
+		return nil, &NoSuchContainer{ID: opts.Container}
+	}
 	if err != nil {
-		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
-			return nil, &NoSuchContainer{ID: opts.Container}
-		}
 		return nil, err
 	}
-	defer resp.Body.Close()
 	var exec Exec
-	if err := json.NewDecoder(resp.Body).Decode(&exec); err != nil {
+	err = json.Unmarshal(body, &exec)
+	if err != nil {
 		return nil, err
 	}
 
@@ -83,38 +83,21 @@ type StartExecOptions struct {
 //
 // See https://goo.gl/iQCnto for more details
 func (c *Client) StartExec(id string, opts StartExecOptions) error {
-	cw, err := c.StartExecNonBlocking(id, opts)
-	if err != nil {
-		return err
-	}
-	if cw != nil {
-		return cw.Wait()
-	}
-	return nil
-}
-
-// StartExecNonBlocking starts a previously set up exec instance id. If opts.Detach is
-// true, it returns after starting the exec command. Otherwise, it sets up an
-// interactive session with the exec command.
-//
-// See https://goo.gl/iQCnto for more details
-func (c *Client) StartExecNonBlocking(id string, opts StartExecOptions) (CloseWaiter, error) {
 	if id == "" {
-		return nil, &NoSuchExec{ID: id}
+		return &NoSuchExec{ID: id}
 	}
 
 	path := fmt.Sprintf("/exec/%s/start", id)
 
 	if opts.Detach {
-		resp, err := c.do("POST", path, doOptions{data: opts})
-		if err != nil {
-			if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
-				return nil, &NoSuchExec{ID: id}
-			}
-			return nil, err
+		_, status, err := c.do("POST", path, doOptions{data: opts})
+		if status == http.StatusNotFound {
+			return &NoSuchExec{ID: id}
 		}
-		defer resp.Body.Close()
-		return nil, nil
+		if err != nil {
+			return err
+		}
+		return nil
 	}
 
 	return c.hijack("POST", path, hijackOptions{
@@ -138,12 +121,8 @@ func (c *Client) ResizeExecTTY(id string, height, width int) error {
 	params.Set("w", strconv.Itoa(width))
 
 	path := fmt.Sprintf("/exec/%s/resize?%s", id, params.Encode())
-	resp, err := c.do("POST", path, doOptions{})
-	if err != nil {
-		return err
-	}
-	resp.Body.Close()
-	return nil
+	_, _, err := c.do("POST", path, doOptions{})
+	return err
 }
 
 // ExecProcessConfig is a type describing the command associated to a Exec
@@ -177,16 +156,16 @@ type ExecInspect struct {
 // See https://goo.gl/gPtX9R for more details
 func (c *Client) InspectExec(id string) (*ExecInspect, error) {
 	path := fmt.Sprintf("/exec/%s/json", id)
-	resp, err := c.do("GET", path, doOptions{})
+	body, status, err := c.do("GET", path, doOptions{})
+	if status == http.StatusNotFound {
+		return nil, &NoSuchExec{ID: id}
+	}
 	if err != nil {
-		if e, ok := err.(*Error); ok && e.Status == http.StatusNotFound {
-			return nil, &NoSuchExec{ID: id}
-		}
 		return nil, err
 	}
-	defer resp.Body.Close()
 	var exec ExecInspect
-	if err := json.NewDecoder(resp.Body).Decode(&exec); err != nil {
+	err = json.Unmarshal(body, &exec)
+	if err != nil {
 		return nil, err
 	}
 	return &exec, nil

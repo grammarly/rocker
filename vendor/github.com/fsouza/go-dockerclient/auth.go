@@ -106,7 +106,7 @@ func authConfigs(confs map[string]dockerConfig) (*AuthConfigurations, error) {
 		if err != nil {
 			return nil, err
 		}
-		userpass := strings.SplitN(string(data), ":", 2)
+		userpass := strings.Split(string(data), ":")
 		if len(userpass) != 2 {
 			return nil, ErrCannotParseDockercfg
 		}
@@ -127,10 +127,12 @@ func (c *Client) AuthCheck(conf *AuthConfiguration) error {
 	if conf == nil {
 		return fmt.Errorf("conf is nil")
 	}
-	resp, err := c.do("POST", "/auth", doOptions{data: conf})
+	body, statusCode, err := c.do("POST", "/auth", doOptions{data: conf})
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	if statusCode > 400 {
+		return fmt.Errorf("auth error (%d): %s", statusCode, body)
+	}
 	return nil
 }

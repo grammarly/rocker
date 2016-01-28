@@ -349,26 +349,21 @@ func GetExecUser(userSpec string, defaults *ExecUser, passwd, group io.Reader) (
 	return user, nil
 }
 
-// GetAdditionalGroups looks up a list of groups by name or group id
-// against the given /etc/group formatted data. If a group name cannot
-// be found, an error will be returned. If a group id cannot be found,
-// or the given group data is nil, the id will be returned as-is
-// provided it is in the legal range.
+// GetAdditionalGroups looks up a list of groups by name or group id against
+// against the given /etc/group formatted data. If a group name cannot be found,
+// an error will be returned. If a group id cannot be found, it will be returned
+// as-is.
 func GetAdditionalGroups(additionalGroups []string, group io.Reader) ([]int, error) {
-	var groups = []Group{}
-	if group != nil {
-		var err error
-		groups, err = ParseGroupFilter(group, func(g Group) bool {
-			for _, ag := range additionalGroups {
-				if g.Name == ag || strconv.Itoa(g.Gid) == ag {
-					return true
-				}
+	groups, err := ParseGroupFilter(group, func(g Group) bool {
+		for _, ag := range additionalGroups {
+			if g.Name == ag || strconv.Itoa(g.Gid) == ag {
+				return true
 			}
-			return false
-		})
-		if err != nil {
-			return nil, fmt.Errorf("Unable to find additional groups %v: %v", additionalGroups, err)
 		}
+		return false
+	})
+	if err != nil {
+		return nil, fmt.Errorf("Unable to find additional groups %v: %v", additionalGroups, err)
 	}
 
 	gidMap := make(map[int]struct{})
@@ -406,13 +401,13 @@ func GetAdditionalGroups(additionalGroups []string, group io.Reader) ([]int, err
 	return gids, nil
 }
 
-// GetAdditionalGroupsPath is a wrapper around GetAdditionalGroups
-// that opens the groupPath given and gives it as an argument to
-// GetAdditionalGroups.
+// Wrapper around GetAdditionalGroups that opens the groupPath given and gives
+// it as an argument to GetAdditionalGroups.
 func GetAdditionalGroupsPath(additionalGroups []string, groupPath string) ([]int, error) {
 	group, err := os.Open(groupPath)
-	if err == nil {
-		defer group.Close()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to open group file: %v", err)
 	}
+	defer group.Close()
 	return GetAdditionalGroups(additionalGroups, group)
 }

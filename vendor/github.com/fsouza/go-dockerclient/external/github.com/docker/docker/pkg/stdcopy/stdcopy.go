@@ -9,26 +9,19 @@ import (
 )
 
 const (
-	stdWriterPrefixLen = 8
-	stdWriterFdIndex   = 0
-	stdWriterSizeIndex = 4
-
-	startingBufLen = 32*1024 + stdWriterPrefixLen + 1
+	StdWriterPrefixLen = 8
+	StdWriterFdIndex   = 0
+	StdWriterSizeIndex = 4
 )
 
-// StdType prefixes type and length to standard stream.
-type StdType [stdWriterPrefixLen]byte
+type StdType [StdWriterPrefixLen]byte
 
 var (
-	// Stdin represents standard input stream type.
-	Stdin = StdType{0: 0}
-	// Stdout represents standard output stream type.
-	Stdout = StdType{0: 1}
-	// Stderr represents standard error steam type.
-	Stderr = StdType{0: 2}
+	Stdin  StdType = StdType{0: 0}
+	Stdout StdType = StdType{0: 1}
+	Stderr StdType = StdType{0: 2}
 )
 
-// StdWriter is wrapper of io.Writer with extra customized info.
 type StdWriter struct {
 	io.Writer
 	prefix  StdType
@@ -43,10 +36,10 @@ func (w *StdWriter) Write(buf []byte) (n int, err error) {
 	binary.BigEndian.PutUint32(w.prefix[4:], uint32(len(buf)))
 	n1, err = w.Writer.Write(w.prefix[:])
 	if err != nil {
-		n = n1 - stdWriterPrefixLen
+		n = n1 - StdWriterPrefixLen
 	} else {
 		n2, err = w.Writer.Write(buf)
-		n = n1 + n2 - stdWriterPrefixLen
+		n = n1 + n2 - StdWriterPrefixLen
 	}
 	if n < 0 {
 		n = 0
@@ -68,7 +61,7 @@ func NewStdWriter(w io.Writer, t StdType) *StdWriter {
 	}
 }
 
-var errInvalidStdHeader = errors.New("Unrecognized input header")
+var ErrInvalidStdHeader = errors.New("Unrecognized input header")
 
 // StdCopy is a modified version of io.Copy.
 //
@@ -82,7 +75,7 @@ var errInvalidStdHeader = errors.New("Unrecognized input header")
 // `written` will hold the total number of bytes written to `dstout` and `dsterr`.
 func StdCopy(dstout, dsterr io.Writer, src io.Reader) (written int64, err error) {
 	var (
-		buf       = make([]byte, startingBufLen)
+		buf       = make([]byte, 32*1024+StdWriterPrefixLen+1)
 		bufLen    = len(buf)
 		nr, nw    int
 		er, ew    error
@@ -92,12 +85,12 @@ func StdCopy(dstout, dsterr io.Writer, src io.Reader) (written int64, err error)
 
 	for {
 		// Make sure we have at least a full header
-		for nr < stdWriterPrefixLen {
+		for nr < StdWriterPrefixLen {
 			var nr2 int
 			nr2, er = src.Read(buf[nr:])
 			nr += nr2
 			if er == io.EOF {
-				if nr < stdWriterPrefixLen {
+				if nr < StdWriterPrefixLen {
 					logrus.Debugf("Corrupted prefix: %v", buf[:nr])
 					return written, nil
 				}
@@ -110,7 +103,7 @@ func StdCopy(dstout, dsterr io.Writer, src io.Reader) (written int64, err error)
 		}
 
 		// Check the first byte to know where to write
-		switch buf[stdWriterFdIndex] {
+		switch buf[StdWriterFdIndex] {
 		case 0:
 			fallthrough
 		case 1:
@@ -120,30 +113,30 @@ func StdCopy(dstout, dsterr io.Writer, src io.Reader) (written int64, err error)
 			// Write on stderr
 			out = dsterr
 		default:
-			logrus.Debugf("Error selecting output fd: (%d)", buf[stdWriterFdIndex])
-			return 0, errInvalidStdHeader
+			logrus.Debugf("Error selecting output fd: (%d)", buf[StdWriterFdIndex])
+			return 0, ErrInvalidStdHeader
 		}
 
 		// Retrieve the size of the frame
-		frameSize = int(binary.BigEndian.Uint32(buf[stdWriterSizeIndex : stdWriterSizeIndex+4]))
+		frameSize = int(binary.BigEndian.Uint32(buf[StdWriterSizeIndex : StdWriterSizeIndex+4]))
 		logrus.Debugf("framesize: %d", frameSize)
 
 		// Check if the buffer is big enough to read the frame.
 		// Extend it if necessary.
-		if frameSize+stdWriterPrefixLen > bufLen {
-			logrus.Debugf("Extending buffer cap by %d (was %d)", frameSize+stdWriterPrefixLen-bufLen+1, len(buf))
-			buf = append(buf, make([]byte, frameSize+stdWriterPrefixLen-bufLen+1)...)
+		if frameSize+StdWriterPrefixLen > bufLen {
+			logrus.Debugf("Extending buffer cap by %d (was %d)", frameSize+StdWriterPrefixLen-bufLen+1, len(buf))
+			buf = append(buf, make([]byte, frameSize+StdWriterPrefixLen-bufLen+1)...)
 			bufLen = len(buf)
 		}
 
 		// While the amount of bytes read is less than the size of the frame + header, we keep reading
-		for nr < frameSize+stdWriterPrefixLen {
+		for nr < frameSize+StdWriterPrefixLen {
 			var nr2 int
 			nr2, er = src.Read(buf[nr:])
 			nr += nr2
 			if er == io.EOF {
-				if nr < frameSize+stdWriterPrefixLen {
-					logrus.Debugf("Corrupted frame: %v", buf[stdWriterPrefixLen:nr])
+				if nr < frameSize+StdWriterPrefixLen {
+					logrus.Debugf("Corrupted frame: %v", buf[StdWriterPrefixLen:nr])
 					return written, nil
 				}
 				break
@@ -155,7 +148,7 @@ func StdCopy(dstout, dsterr io.Writer, src io.Reader) (written int64, err error)
 		}
 
 		// Write the retrieved frame (without header)
-		nw, ew = out.Write(buf[stdWriterPrefixLen : frameSize+stdWriterPrefixLen])
+		nw, ew = out.Write(buf[StdWriterPrefixLen : frameSize+StdWriterPrefixLen])
 		if ew != nil {
 			logrus.Debugf("Error writing frame: %s", ew)
 			return 0, ew
@@ -168,8 +161,8 @@ func StdCopy(dstout, dsterr io.Writer, src io.Reader) (written int64, err error)
 		written += int64(nw)
 
 		// Move the rest of the buffer to the beginning
-		copy(buf, buf[frameSize+stdWriterPrefixLen:])
+		copy(buf, buf[frameSize+StdWriterPrefixLen:])
 		// Move the index
-		nr -= frameSize + stdWriterPrefixLen
+		nr -= frameSize + StdWriterPrefixLen
 	}
 }
