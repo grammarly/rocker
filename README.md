@@ -384,8 +384,56 @@ With this Rockerfile, you can play with your Ruby application within the source 
 
 # Other backends for storing images
 
-Starting from v1.1.0 Rocker supports pushing to alternative storages other than 
-TODO
+Starting from v1.1.0 Rocker supports pushing to alternative storages other than common Docker Registry.
+
+### Amazon S3
+
+It is possible to store images directly on S3, so there is no complex logic of layers uploading in the pipeline.
+
+```bash
+FROM alpine:3.2
+…
+PUSH s3:bucket-name/image-name:1.2.3
+```
+
+Rocker will push the image directly to S3, without event using Docker daemon for that.
+
+You can pull images directly from S3 as well:
+
+```bash
+FROM s3:my-images/alpine:3.2
+…
+```
+
+Since you can't just easily `docker pull` the image that is stored on S3, you can be creative and do something like this, because why the hell not:
+
+```bash
+echo "FROM s3:my-images/alpine:3.2" | rocker build -f -
+```
+
+Or just use `rocker pull` command :)
+
+```bash
+rocker pull s3:my-images/alpine:3.2
+```
+
+There should be AWS credentials in place, either exported as environment variables or present in `~/.aws/credentials`. For more information how to set up an environment, see [this doc](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html).
+
+### Amazon ECR
+
+Rocker also brings convenience to the usage of [Amazon ECR](https://aws.amazon.com/ecr/). The issue is that ECR uses an [external authentication mechanism](http://docs.aws.amazon.com/AmazonECR/latest/userguide/Registries.html#registry_auth). It is not always convenient, especially for using with continuous integration tools. That is why Rocker does all of the external machinery for you behind the scenes, all you need is to have appropriate AWS credentials present, same as for S3.
+
+For more information about working with ECR, [follow their documentation](http://aws.amazon.com/documentation/ecr/).
+
+Example:
+
+```bash
+FROM 12345.dkr.ecr.us-east-1.amazonaws.com/alpine:3.2
+…
+PUSH 12345.dkr.ecr.us-east-1.amazonaws.com/my-web-app
+```
+
+(where `12345` is your account id)
 
 # Where to go next?
 
