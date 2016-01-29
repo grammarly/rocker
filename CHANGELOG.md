@@ -1,5 +1,26 @@
 # Change Log
 
+## [1.1.0](https://github.com/grammarly/rocker/tree/1.1.0) (2016-01-29)
+[Full Changelog](https://github.com/grammarly/rocker/compare/1.0.1...1.1.0)
+
+**Implemented enhancements:**
+
+- Use GO15VENDOREXPERIMENT, get rid of gb, restructure the project layout [\#67](https://github.com/grammarly/rocker/issues/67)
+- Configurable push retries [\#66](https://github.com/grammarly/rocker/issues/66)
+- Print rocker version when -cmd \(-C\) flag specified [\#64](https://github.com/grammarly/rocker/issues/64)
+- Support credentials stored by "docker login" for authentication [\#57](https://github.com/grammarly/rocker/issues/57)
+- Ability to directly PUSH and PULL from S3, without using Registry [\#53](https://github.com/grammarly/rocker/issues/53)
+- Do not wrap proxied output from containers with logger [\#47](https://github.com/grammarly/rocker/issues/47)
+- Configurable push retries [\#62](https://github.com/grammarly/rocker/pull/62) ([ybogdanov](https://github.com/ybogdanov))
+
+**Fixed bugs:**
+
+- Some kind of error stack trace [\#49](https://github.com/grammarly/rocker/issues/49)
+- COPY/ADD does not copy symlinks [\#60](https://github.com/grammarly/rocker/issues/60)
+- "bufio.Scanner: token too long" while passing output from a container [\#54](https://github.com/grammarly/rocker/issues/54)
+- Cannot ^C while pulling an image [\#16](https://github.com/grammarly/rocker/issues/16)
+- Exit with non-zero code when get unexpected EOF on PUSH [\#52](https://github.com/grammarly/rocker/pull/52) ([ctrlok](https://github.com/ctrlok))
+
 ## [1.0.1](https://github.com/grammarly/rocker/tree/1.0.1) (2015-11-26)
 [Full Changelog](https://github.com/grammarly/rocker/compare/1.0.0...1.0.1)
 
