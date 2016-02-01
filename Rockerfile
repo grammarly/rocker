@@ -1,9 +1,8 @@
 FROM golang:1.5.1
 
-{{ assert .Version }}
-{{ $stable := "0.2.3" }}
-{{ $beta := "0.2.4" }}
-{{ $v1 := "1." }}
+{{ $commit := (or .Env.GIT_COMMIT "") }}
+{{ $branch := (or .Env.GIT_BRANCH "") }}
+{{ $version:= (or .Version "local") }}
 
 ADD . /go/src/github.com/grammarly/rocker
 WORKDIR /go/src/github.com/grammarly/rocker
@@ -25,7 +24,7 @@ RUN \
   TIME=$(TZ=GMT date "+%Y-%m-%d_%H:%M_GMT") \
   go build \
     -a -installsuffix cgo \
-    -ldflags "-X main.Version={{ .Version }} -X main.GitCommit=$commit -X main.GitBranch=$branch -X main.BuildTime=$TIME" \
+    -ldflags "-X main.Version={{$version}} -X main.GitCommit={{$commit}} -X main.GitBranch={{$branch}} -X main.BuildTime=$TIME" \
     -v -o /bin/rocker
 
 EXPORT /bin/rocker
@@ -47,12 +46,12 @@ ENV PATH=/opt/rocker/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin
 
 CMD ["/opt/rocker/bin/rocker"]
 
-PUSH dockerhub.grammarly.io/rocker:{{ .Version }}
+{{ if $version }}
+    {{ if $branch }}
 
-{{ if hasPrefix .Version $stable }}
-  PUSH dockerhub.grammarly.io/rocker:stable
-{{ else if hasPrefix .Version $beta }}
-  PUSH dockerhub.grammarly.io/rocker:beta
-{{ else if hasPrefix .Version $v1 }}
-  PUSH dockerhub.grammarly.io/rocker:v1
+        PUSH dockerhub.grammarly.io/rocker:{{ $branch }}-{{ $version }}
+        PUSH dockerhub.grammarly.io/rocker:{{ $branch }}
+
+    {{ end }}
 {{ end }}
+
