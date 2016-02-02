@@ -45,7 +45,7 @@ ENV PATH=/opt/rocker/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin
 
 CMD ["/opt/rocker/bin/rocker"]
 
-{{ if $version }}
+{{ if ne $version "local" }}
     {{ if $branch }}
 
         PUSH dockerhub.grammarly.io/rocker:{{ $branch }}-{{ $version }}
