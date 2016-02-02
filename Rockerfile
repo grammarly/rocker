@@ -1,7 +1,7 @@
 FROM golang:1.5.1
 
 {{ $commit := (or .Env.GIT_COMMIT "") }}
-{{ $branch := (or .Env.GIT_BRANCH "") }}
+{{ $branch := (or .Env.GIT_BRANCH "none") }}
 {{ $version:= (or .Version "local") }}
 
 ADD . /go/src/github.com/grammarly/rocker
@@ -45,12 +45,9 @@ ENV PATH=/opt/rocker/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin
 
 CMD ["/opt/rocker/bin/rocker"]
 
-{{ if ne $version "local" }}
-    {{ if $branch }}
+PUSH dockerhub.grammarly.io/rocker:{{ $branch }}
 
-        PUSH dockerhub.grammarly.io/rocker:{{ $branch }}-{{ $version }}
-        PUSH dockerhub.grammarly.io/rocker:{{ $branch }}
-
-    {{ end }}
+{{ if and (ne $version "local") (eq $branch "master") }}
+    PUSH dockerhub.grammarly.io/rocker:{{ $version }}
 {{ end }}
 
