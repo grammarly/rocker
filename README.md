@@ -57,7 +57,7 @@ curl -SL https://github.com/grammarly/rocker/releases/download/1.1.0/rocker-1.1.
 You can build rocker locally assuming [$GOPATH](https://github.com/golang/go/wiki/GOPATH) env variable is set:
 
 ```bash
-+GO15VENDOREXPERIMENT=1 go get github.com/grammarly/rocker
+GO15VENDOREXPERIMENT=1 go get github.com/grammarly/rocker
 ```
 binary will be available at $GOPATH/bin/rocker
 
