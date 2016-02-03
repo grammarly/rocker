@@ -1,5 +1,13 @@
 # Change Log
 
+## [1.1.1](https://github.com/grammarly/rocker/tree/1.1.1)
+
+[Full Changelog](https://github.com/grammarly/rocker/compare/1.1.0...1.1.1)
+
+**Merged pull requests:**
+
+- Use git branch names as tags for docker images [\#70](https://github.com/grammarly/rocker/pull/70) ([romank87](https://github.com/romank87))
+
 ## [1.1.0](https://github.com/grammarly/rocker/tree/1.1.0) (2016-01-29)
 [Full Changelog](https://github.com/grammarly/rocker/compare/1.0.1...1.1.0)
 
