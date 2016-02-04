@@ -10,7 +10,7 @@ PKGS := $(foreach pkg, $(sort $(dir $(SRCS))), $(pkg))
 TESTARGS ?=
 
 default:
-	go build
+	GO15VENDOREXPERIMENT=1 go build -v
 
 install:
 	cp rocker /usr/local/bin/rocker
