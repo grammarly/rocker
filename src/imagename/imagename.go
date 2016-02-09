@@ -44,6 +44,11 @@ const (
 	StorageS3 = "s3"
 )
 
+const (
+	s3_prefix     = "s3.amazonaws.com/"
+	s3_old_prefix = "s3:"
+)
+
 var (
 	ecrRe = regexp.MustCompile("^\\d+\\.dkr\\.ecr\\.[^\\.]+\\.amazonaws\\.com$")
 )
@@ -63,6 +68,13 @@ func NewFromString(image string) *ImageName {
 	return New(name, tag)
 }
 
+func makeOldS3Compatible(image string) string {
+	if strings.HasPrefix(image, s3_old_prefix) {
+		return strings.Replace(image, s3_old_prefix, s3_prefix, 1)
+	}
+	return image
+}
+
 // New parses a given 'image' and 'tag' strings and returns ImageName
 func New(image string, tag string) *ImageName {
 	dockerImage := &ImageName{}
@@ -74,19 +86,17 @@ func New(image string, tag string) *ImageName {
 	// default storage driver
 	dockerImage.Storage = StorageRegistry
 
-	// In case storage is specified, e.g. s3://bucket-name/image-name
-	storages := []string{StorageRegistry, StorageS3}
+	//Replace 's3:' to 's3.amazonaws.com/' if any.
+	//We are doing it for backward compatibility reasons
+	//In future this function should be removed
+	image = makeOldS3Compatible(image)
+
 	firstIsHost := false
 
-	for _, storage := range storages {
-		prefix := storage + ":"
-
-		if strings.HasPrefix(image, prefix) {
-			image = strings.TrimPrefix(image, prefix)
-			dockerImage.Storage = storage
-			firstIsHost = true
-			break
-		}
+	if strings.HasPrefix(image, s3_prefix) {
+		dockerImage.Storage = StorageS3
+		firstIsHost = true
+		image = strings.TrimPrefix(image, s3_prefix)
 	}
 
 	nameParts := strings.SplitN(image, "/", 2)
