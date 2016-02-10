@@ -997,7 +997,7 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 		filePath := filepath.Join(b.cfg.ArtifactsPath, artifact.GetFileName())
 
 		artifacts := imagename.Artifacts{
-			[]imagename.Artifact{artifact},
+			RockerArtifacts: []imagename.Artifact{artifact},
 		}
 		content, err := yaml.Marshal(artifacts)
 		if err != nil {

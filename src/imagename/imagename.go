@@ -46,8 +46,8 @@ const (
 )
 
 const (
-	s3_prefix     = "s3.amazonaws.com/"
-	s3_old_prefix = "s3:"
+	s3Prefix    = "s3.amazonaws.com/"
+	s3OldPrefix = "s3:"
 )
 
 var (
@@ -71,12 +71,12 @@ func NewFromString(image string) *ImageName {
 	return New(name, tag)
 }
 
-//Check whether an s3 image is referenced by old schema
+// isOldS3ImageName Check whether an s3 image is referenced by old schema
 func isOldS3ImageName(imageName string) bool {
-	return strings.HasPrefix(imageName, s3_old_prefix)
+	return strings.HasPrefix(imageName, s3OldPrefix)
 }
 
-//Check whether old image format is used. Also return warning message if yes
+// WarnIfOldS3ImageName Check whether old image format is used. Also return warning message if yes
 func WarnIfOldS3ImageName(imageName string) (bool, string) {
 	if !isOldS3ImageName(imageName) {
 		return false, ""
@@ -90,10 +90,10 @@ func WarnIfOldS3ImageName(imageName string) (bool, string) {
 	return true, warning
 }
 
-func (s *ImageName) makeOldS3Compatible(image string) string {
+func (img *ImageName) makeOldS3Compatible(image string) string {
 	if isOldS3ImageName(image) {
-		s.isOld = true
-		return strings.Replace(image, s3_old_prefix, s3_prefix, 1)
+		img.isOld = true
+		return strings.Replace(image, s3OldPrefix, s3Prefix, 1)
 	}
 	return image
 }
@@ -116,10 +116,10 @@ func New(image string, tag string) *ImageName {
 
 	firstIsHost := false
 
-	if strings.HasPrefix(image, s3_prefix) {
+	if strings.HasPrefix(image, s3Prefix) {
 		dockerImage.Storage = StorageS3
 		firstIsHost = true
-		image = strings.TrimPrefix(image, s3_prefix)
+		image = strings.TrimPrefix(image, s3Prefix)
 	}
 
 	nameParts := strings.SplitN(image, "/", 2)
@@ -277,7 +277,7 @@ func (img ImageName) NameWithRegistry() string {
 		registryPrefix = img.Registry + "/"
 	}
 	if img.Storage == StorageS3 {
-		registryPrefix = s3_prefix + registryPrefix
+		registryPrefix = s3Prefix + registryPrefix
 	}
 	return registryPrefix + img.Name
 }
