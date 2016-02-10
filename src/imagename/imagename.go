@@ -21,6 +21,7 @@ package imagename
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -44,6 +45,11 @@ const (
 	StorageS3 = "s3"
 )
 
+const (
+	s3Prefix    = "s3.amazonaws.com/"
+	s3OldPrefix = "s3:"
+)
+
 var (
 	ecrRe = regexp.MustCompile("^\\d+\\.dkr\\.ecr\\.[^\\.]+\\.amazonaws\\.com$")
 )
@@ -55,12 +61,41 @@ type ImageName struct {
 	Tag      string
 	Storage  string
 	Version  *semver.Range
+
+	isOld bool
 }
 
 // NewFromString parses a given string and returns ImageName
 func NewFromString(image string) *ImageName {
 	name, tag := ParseRepositoryTag(image)
 	return New(name, tag)
+}
+
+// isOldS3ImageName Check whether an s3 image is referenced by old schema
+func isOldS3ImageName(imageName string) bool {
+	return strings.HasPrefix(imageName, s3OldPrefix)
+}
+
+// WarnIfOldS3ImageName Check whether old image format is used. Also return warning message if yes
+func WarnIfOldS3ImageName(imageName string) (bool, string) {
+	if !isOldS3ImageName(imageName) {
+		return false, ""
+	}
+
+	warning := fmt.Sprintf("Your image '%s' is using old name style (s3:<repo>/<image>) for s3 images."+
+		" This style isn't supported by docker 1.10 and would be removed from rocker in the future as well."+
+		" Please consider changing to the new schema (s3.amazonaws.com/<repo>/<image>)."+
+		" For now, I'll do the conversion internally to not break your old Rockerfiles", imageName)
+
+	return true, warning
+}
+
+func (img *ImageName) makeOldS3Compatible(image string) string {
+	if isOldS3ImageName(image) {
+		img.isOld = true
+		return strings.Replace(image, s3OldPrefix, s3Prefix, 1)
+	}
+	return image
 }
 
 // New parses a given 'image' and 'tag' strings and returns ImageName
@@ -74,19 +109,17 @@ func New(image string, tag string) *ImageName {
 	// default storage driver
 	dockerImage.Storage = StorageRegistry
 
-	// In case storage is specified, e.g. s3://bucket-name/image-name
-	storages := []string{StorageRegistry, StorageS3}
+	//Replace 's3:' to 's3.amazonaws.com/' if any.
+	//We are doing it for backward compatibility reasons
+	//In future this function should be removed
+	image = dockerImage.makeOldS3Compatible(image)
+
 	firstIsHost := false
 
-	for _, storage := range storages {
-		prefix := storage + ":"
-
-		if strings.HasPrefix(image, prefix) {
-			image = strings.TrimPrefix(image, prefix)
-			dockerImage.Storage = storage
-			firstIsHost = true
-			break
-		}
+	if strings.HasPrefix(image, s3Prefix) {
+		dockerImage.Storage = StorageS3
+		firstIsHost = true
+		image = strings.TrimPrefix(image, s3Prefix)
 	}
 
 	nameParts := strings.SplitN(image, "/", 2)
@@ -234,7 +267,7 @@ func (img ImageName) TagAsVersion() (ver *semver.Version) {
 
 // IsSameKind returns true if current image and the given one are same but may have different versions (tags)
 func (img ImageName) IsSameKind(b ImageName) bool {
-	return img.Registry == b.Registry && img.Name == b.Name
+	return img.Registry == b.Registry && img.Name == b.Name && img.isOld == b.isOld
 }
 
 // NameWithRegistry returns the [registry/]name of the current image name
@@ -243,8 +276,8 @@ func (img ImageName) NameWithRegistry() string {
 	if img.Registry != "" {
 		registryPrefix = img.Registry + "/"
 	}
-	if img.Storage != StorageRegistry {
-		registryPrefix = img.Storage + ":" + registryPrefix
+	if img.Storage == StorageS3 {
+		registryPrefix = s3Prefix + registryPrefix
 	}
 	return registryPrefix + img.Name
 }

@@ -155,7 +155,7 @@ func (s *StorageS3) Push(imageName string) (digest string, err error) {
 		}
 		defer fd.Close()
 
-		log.Infof("| Uploading image to s3://%s/%s", img.Registry, imgPathDigest)
+		log.Infof("| Uploading image to s3.amazonaws.com/%s/%s", img.Registry, imgPathDigest)
 
 		uploadParams := &s3manager.UploadInput{
 			Bucket:      aws.String(img.Registry),
@@ -184,7 +184,7 @@ func (s *StorageS3) Push(imageName string) (digest string, err error) {
 		Key:        aws.String(imgPathTag),
 	}
 
-	log.Infof("| Make alias s3://%s/%s", img.Registry, imgPathTag)
+	log.Infof("| Make alias s3.amazonaws.com/%s/%s", img.Registry, imgPathTag)
 
 	if _, err = s.s3.CopyObject(copyParams); err != nil {
 		return "", fmt.Errorf("Failed to PUT object to S3, error: %s", err)
@@ -226,7 +226,7 @@ func (s *StorageS3) Pull(name string) error {
 		}
 	)
 
-	log.Infof("| Import s3://%s/%s to %s", img.Registry, imgPath, tmpf.Name())
+	log.Infof("| Import s3.amazonaws.com/%s/%s to %s", img.Registry, imgPath, tmpf.Name())
 
 	if err := s.retryer.Outer(func() error {
 		_, err := downloader.Download(tmpf, downloadParams)
@@ -483,7 +483,7 @@ func (s *StorageS3) ListTags(imageName string) (images []*imagename.ImageName, e
 		}
 
 		imgName := strings.Join(split[:len(split)-1], "/")
-		imgName = fmt.Sprintf("s3:%s/%s", image.Registry, imgName)
+		imgName = fmt.Sprintf("s3.amazonaws.com/%s/%s", image.Registry, imgName)
 
 		tag := strings.TrimSuffix(split[len(split)-1], ".tar")
 		candidate := imagename.New(imgName, tag)
