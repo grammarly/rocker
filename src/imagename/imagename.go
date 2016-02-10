@@ -21,6 +21,7 @@ package imagename
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"sort"
 	"strings"
@@ -60,6 +61,8 @@ type ImageName struct {
 	Tag      string
 	Storage  string
 	Version  *semver.Range
+
+	isOld bool
 }
 
 // NewFromString parses a given string and returns ImageName
@@ -68,8 +71,28 @@ func NewFromString(image string) *ImageName {
 	return New(name, tag)
 }
 
-func makeOldS3Compatible(image string) string {
-	if strings.HasPrefix(image, s3_old_prefix) {
+//Check whether an s3 image is referenced by old schema
+func isOldS3ImageName(imageName string) bool {
+	return strings.HasPrefix(imageName, s3_old_prefix)
+}
+
+//Check whether old image format is used. Also return warning message if yes
+func WarnIfOldS3ImageName(imageName string) (bool, string) {
+	if !isOldS3ImageName(imageName) {
+		return false, ""
+	}
+
+	warning := fmt.Sprintf("Your image '%s' is using old name style (s3:<repo>/<image>) for s3 images."+
+		" This style isn't supported by docker 1.10 and would be removed from rocker in the future as well."+
+		" Please consider changing to the new schema (s3.amazonaws.com/<repo>/<image>)."+
+		" For now, I'll do the conversion internally to not break your old Rockerfiles", imageName)
+
+	return true, warning
+}
+
+func (s *ImageName) makeOldS3Compatible(image string) string {
+	if isOldS3ImageName(image) {
+		s.isOld = true
 		return strings.Replace(image, s3_old_prefix, s3_prefix, 1)
 	}
 	return image
@@ -89,7 +112,7 @@ func New(image string, tag string) *ImageName {
 	//Replace 's3:' to 's3.amazonaws.com/' if any.
 	//We are doing it for backward compatibility reasons
 	//In future this function should be removed
-	image = makeOldS3Compatible(image)
+	image = dockerImage.makeOldS3Compatible(image)
 
 	firstIsHost := false
 
@@ -244,7 +267,7 @@ func (img ImageName) TagAsVersion() (ver *semver.Version) {
 
 // IsSameKind returns true if current image and the given one are same but may have different versions (tags)
 func (img ImageName) IsSameKind(b ImageName) bool {
-	return img.Registry == b.Registry && img.Name == b.Name
+	return img.Registry == b.Registry && img.Name == b.Name && img.isOld == b.isOld
 }
 
 // NameWithRegistry returns the [registry/]name of the current image name
@@ -253,8 +276,8 @@ func (img ImageName) NameWithRegistry() string {
 	if img.Registry != "" {
 		registryPrefix = img.Registry + "/"
 	}
-	if img.Storage != StorageRegistry {
-		registryPrefix = img.Storage + ":" + registryPrefix
+	if img.Storage == StorageS3 {
+		registryPrefix = s3_prefix + registryPrefix
 	}
 	return registryPrefix + img.Name
 }
