@@ -270,6 +270,9 @@ func (b *Build) getExportsContainer() (c *docker.Container, err error) {
 //
 // See also TestBuild_LookupImage_* test cases in build_test.go
 func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
+	if is_old, warning := imagename.WarnIfOldS3ImageName(name); is_old {
+		log.Warn(warning)
+	}
 	var (
 		candidate, remoteCandidate *imagename.ImageName
 
