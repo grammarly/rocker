@@ -483,7 +483,7 @@ func (s *StorageS3) ListTags(imageName string) (images []*imagename.ImageName, e
 		}
 
 		imgName := strings.Join(split[:len(split)-1], "/")
-		imgName = fmt.Sprintf("s3:%s/%s", image.Registry, imgName)
+		imgName = fmt.Sprintf("s3.amazonaws.com/%s/%s", image.Registry, imgName)
 
 		tag := strings.TrimSuffix(split[len(split)-1], ".tar")
 		candidate := imagename.New(imgName, tag)
