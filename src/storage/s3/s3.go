@@ -155,7 +155,7 @@ func (s *StorageS3) Push(imageName string) (digest string, err error) {
 		}
 		defer fd.Close()
 
-		log.Infof("| Uploading image to s3://%s/%s", img.Registry, imgPathDigest)
+		log.Infof("| Uploading image to s3.amazonaws.com/%s/%s", img.Registry, imgPathDigest)
 
 		uploadParams := &s3manager.UploadInput{
 			Bucket:      aws.String(img.Registry),
@@ -184,7 +184,7 @@ func (s *StorageS3) Push(imageName string) (digest string, err error) {
 		Key:        aws.String(imgPathTag),
 	}
 
-	log.Infof("| Make alias s3://%s/%s", img.Registry, imgPathTag)
+	log.Infof("| Make alias s3.amazonaws.com/%s/%s", img.Registry, imgPathTag)
 
 	if _, err = s.s3.CopyObject(copyParams); err != nil {
 		return "", fmt.Errorf("Failed to PUT object to S3, error: %s", err)
