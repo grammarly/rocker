@@ -304,7 +304,7 @@ func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
 			return nil, err
 		}
 		// Resolve local candidate
-		candidate = imgName.ResolveVersion(localImages)
+		candidate = imgName.ResolveVersion(localImages, true)
 	}
 
 	// In case we want to include external images as well, pulling list of available
@@ -320,7 +320,7 @@ func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
 		}
 
 		// Since we found the remote image, we want to pull it
-		if remoteCandidate = imgName.ResolveVersion(remoteImages); remoteCandidate != nil {
+		if remoteCandidate = imgName.ResolveVersion(remoteImages, false); remoteCandidate != nil {
 			pull = true
 			candidate = remoteCandidate
 		}

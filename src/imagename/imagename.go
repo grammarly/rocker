@@ -267,7 +267,7 @@ func (img ImageName) TagAsVersion() (ver *semver.Version) {
 
 // IsSameKind returns true if current image and the given one are same but may have different versions (tags)
 func (img ImageName) IsSameKind(b ImageName) bool {
-	return img.Registry == b.Registry && img.Name == b.Name && img.isOld == b.isOld
+	return img.Registry == b.Registry && img.Name == b.Name
 }
 
 // NameWithRegistry returns the [registry/]name of the current image name
@@ -310,10 +310,15 @@ func (img ImageName) Contains(b *ImageName) bool {
 }
 
 // ResolveVersion finds an applicable tag for current image among the list of available tags
-func (img *ImageName) ResolveVersion(list []*ImageName) (result *ImageName) {
+func (img *ImageName) ResolveVersion(list []*ImageName, strictS3match bool) (result *ImageName) {
 	for _, candidate := range list {
 		// If these are different images (different names/repos)
 		if !img.IsSameKind(*candidate) {
+			continue
+		}
+
+		//If we care whether s3 path was converted from old format or no
+		if strictS3match && img.isOld != candidate.isOld {
 			continue
 		}
 
