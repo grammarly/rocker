@@ -62,7 +62,7 @@ type ImageName struct {
 	Storage  string
 	Version  *semver.Range
 
-	isOldS3Name bool
+	IsOldS3Name bool
 }
 
 // NewFromString parses a given string and returns ImageName
@@ -99,11 +99,11 @@ func New(image string, tag string) *ImageName {
 	prefix := ""
 
 	if strings.HasPrefix(image, s3Prefix) {
-		dockerImage.isOldS3Name = false
+		dockerImage.IsOldS3Name = false
 		prefix = s3Prefix
 
 	} else if strings.HasPrefix(image, s3OldPrefix) {
-		dockerImage.isOldS3Name = true
+		dockerImage.IsOldS3Name = true
 		prefix = s3OldPrefix
 	}
 
@@ -268,7 +268,7 @@ func (img ImageName) NameWithRegistry() string {
 		registryPrefix = img.Registry + "/"
 	}
 	if img.Storage == StorageS3 {
-		if img.isOldS3Name {
+		if img.IsOldS3Name {
 			registryPrefix = s3OldPrefix + registryPrefix
 		} else {
 			registryPrefix = s3Prefix + registryPrefix
@@ -312,7 +312,7 @@ func (img *ImageName) ResolveVersion(list []*ImageName, strictS3Match bool) (res
 			continue
 		}
 
-		if strictS3Match && img.isOldS3Name != candidate.isOldS3Name {
+		if strictS3Match && img.IsOldS3Name != candidate.IsOldS3Name {
 			continue
 		}
 
