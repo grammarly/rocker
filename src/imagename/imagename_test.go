@@ -270,7 +270,7 @@ func TestImageResolveVersion_Strict(t *testing.T) {
 		NewFromString("golang:1.5.3"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:1.5.2", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:1.5.2", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_Wildcard(t *testing.T) {
@@ -281,7 +281,7 @@ func TestImageResolveVersion_Wildcard(t *testing.T) {
 		NewFromString("golang:1.5.3"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:1.5.3", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:1.5.3", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_WildcardMulti(t *testing.T) {
@@ -293,7 +293,7 @@ func TestImageResolveVersion_WildcardMulti(t *testing.T) {
 		NewFromString("golang:1.5.2"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:1.4.2", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:1.4.2", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_WildcardMatchX(t *testing.T) {
@@ -306,7 +306,7 @@ func TestImageResolveVersion_WildcardMatchX(t *testing.T) {
 		NewFromString("golang:1.5.2"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:1.4.x", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:1.4.x", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_WildcardMatchX2(t *testing.T) {
@@ -319,7 +319,7 @@ func TestImageResolveVersion_WildcardMatchX2(t *testing.T) {
 		NewFromString("golang:1.5.2"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:1.5.2", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:1.5.2", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_WildcardMatchX3(t *testing.T) {
@@ -333,7 +333,7 @@ func TestImageResolveVersion_WildcardMatchX3(t *testing.T) {
 		NewFromString("golang:1.5.2"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:1.x", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:1.x", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_All(t *testing.T) {
@@ -343,7 +343,7 @@ func TestImageResolveVersion_All(t *testing.T) {
 		NewFromString("golang:1.5.1"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:1.5.1", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:1.5.1", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_Latest(t *testing.T) {
@@ -353,7 +353,7 @@ func TestImageResolveVersion_Latest(t *testing.T) {
 		NewFromString("golang:1.5.1"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:latest", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:latest", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_OtherTag(t *testing.T) {
@@ -364,7 +364,7 @@ func TestImageResolveVersion_OtherTag(t *testing.T) {
 		NewFromString("golang:stable"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:stable", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:stable", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_NoTag(t *testing.T) {
@@ -375,7 +375,7 @@ func TestImageResolveVersion_NoTag(t *testing.T) {
 		NewFromString("golang:stable"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:latest", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:latest", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_NoTagOnlyLatest(t *testing.T) {
@@ -384,7 +384,7 @@ func TestImageResolveVersion_NoTagOnlyLatest(t *testing.T) {
 		NewFromString("golang:stable"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:latest", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:latest", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_PatchExact(t *testing.T) {
@@ -397,7 +397,7 @@ func TestImageResolveVersion_PatchExact(t *testing.T) {
 		NewFromString("golang:1.5.2"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:1.4.1", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:1.4.1", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_PatchMatch(t *testing.T) {
@@ -409,7 +409,7 @@ func TestImageResolveVersion_PatchMatch(t *testing.T) {
 		NewFromString("golang:1.5.2"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:1.4.1-p2", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:1.4.1-p2", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_PatchStrict(t *testing.T) {
@@ -422,7 +422,7 @@ func TestImageResolveVersion_PatchStrict(t *testing.T) {
 		NewFromString("golang:1.5.2"),
 		NewFromString("golang:latest"),
 	}
-	assert.Equal(t, "golang:1.4.1-p1", img.ResolveVersion(list).String())
+	assert.Equal(t, "golang:1.4.1-p1", img.ResolveVersion(list, false).String())
 }
 
 func TestImageResolveVersion_NotFound(t *testing.T) {
@@ -432,7 +432,7 @@ func TestImageResolveVersion_NotFound(t *testing.T) {
 		NewFromString("golang:stable"),
 		NewFromString("golang:latest"),
 	}
-	assert.Nil(t, img.ResolveVersion(list))
+	assert.Nil(t, img.ResolveVersion(list, false))
 }
 
 func TestImageIsSameKind(t *testing.T) {
@@ -499,8 +499,8 @@ func TestImagename_S3_Basic_Old(t *testing.T) {
 	assert.Equal(t, "image-name", img.Name)
 	assert.Equal(t, false, img.TagIsSha())
 	assert.Equal(t, "1.2.3", img.GetTag())
-	assert.Equal(t, "s3.amazonaws.com/bucket-name/image-name", img.NameWithRegistry())
-	assert.Equal(t, "s3.amazonaws.com/bucket-name/image-name:1.2.3", img.String())
+	assert.Equal(t, "s3:bucket-name/image-name", img.NameWithRegistry())
+	assert.Equal(t, "s3:bucket-name/image-name:1.2.3", img.String())
 }
 
 func TestImagename_S3_Digest_Old(t *testing.T) {
@@ -509,9 +509,9 @@ func TestImagename_S3_Digest_Old(t *testing.T) {
 	assert.Equal(t, "image-name", img.Name)
 	assert.Equal(t, true, img.TagIsSha())
 	assert.Equal(t, true, img.TagIsDigest())
-	assert.Equal(t, "s3.amazonaws.com/bucket-name/image-name", img.NameWithRegistry())
+	assert.Equal(t, "s3:bucket-name/image-name", img.NameWithRegistry())
 	assert.Equal(t, "sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.GetTag())
-	assert.Equal(t, "s3.amazonaws.com/bucket-name/image-name@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.String())
+	assert.Equal(t, "s3:bucket-name/image-name@sha256:ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.String())
 }
 
 func TestImagename_S3_Sha_Old(t *testing.T) {
@@ -520,9 +520,9 @@ func TestImagename_S3_Sha_Old(t *testing.T) {
 	assert.Equal(t, "image-name", img.Name)
 	assert.Equal(t, true, img.TagIsSha())
 	assert.Equal(t, false, img.TagIsDigest())
-	assert.Equal(t, "s3.amazonaws.com/bucket-name/image-name", img.NameWithRegistry())
+	assert.Equal(t, "s3:bucket-name/image-name", img.NameWithRegistry())
 	assert.Equal(t, "sha256-ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.GetTag())
-	assert.Equal(t, "s3.amazonaws.com/bucket-name/image-name:sha256-ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.String())
+	assert.Equal(t, "s3:bucket-name/image-name:sha256-ead434cd278824865d6e3b67e5d4579ded02eb2e8367fc165efa21138b225f11", img.String())
 }
 
 func TestImagename_S3_Basic(t *testing.T) {

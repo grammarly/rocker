@@ -187,9 +187,6 @@ func (c *DockerClient) ListImages() (images []*imagename.ImageName, err error) {
 func (c *DockerClient) ListImageTags(name string) (images []*imagename.ImageName, err error) {
 	img := imagename.NewFromString(name)
 	if img.Storage == imagename.StorageS3 {
-		if isOld, warning := imagename.WarnIfOldS3ImageName(name); isOld {
-			c.log.Warn(warning)
-		}
 		return c.s3storage.ListTags(name)
 	}
 	return dockerclient.RegistryListTags(imagename.NewFromString(name), c.auth)

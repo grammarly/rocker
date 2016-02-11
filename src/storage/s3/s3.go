@@ -226,7 +226,7 @@ func (s *StorageS3) Pull(name string) error {
 		}
 	)
 
-	log.Infof("| Import s3.amazonaws.com/%s/%s to %s", img.Registry, imgPath, tmpf.Name())
+	log.Infof("| Import %s/%s.tar to %s", img.NameWithRegistry(), img.Tag, tmpf.Name())
 
 	if err := s.retryer.Outer(func() error {
 		_, err := downloader.Download(tmpf, downloadParams)
