@@ -323,10 +323,10 @@ func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
 		if remoteCandidate = imgName.ResolveVersion(remoteImages, false); remoteCandidate != nil {
 			pull = true
 			candidate = remoteCandidate
-		}
 
-		//If we've found needed image on s3 it should be pulled in the same name style as lookuped image
-		candidate.IsOldS3Name = imgName.IsOldS3Name
+			// If we've found needed image on s3 it should be pulled in the same name style as lookuped image
+			candidate.IsOldS3Name = imgName.IsOldS3Name
+		}
 	}
 
 	// If not candidate found, it's an error
