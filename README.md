@@ -393,7 +393,7 @@ It is possible to store images directly on S3, so there is no complex logic of l
 ```bash
 FROM alpine:3.2
 …
-PUSH s3:bucket-name/image-name:1.2.3
+PUSH s3.amazonaws.com/bucket-name/image-name:1.2.3
 ```
 
 Rocker will push the image directly to S3, without event using Docker daemon for that.
@@ -401,20 +401,20 @@ Rocker will push the image directly to S3, without event using Docker daemon for
 You can pull images directly from S3 as well:
 
 ```bash
-FROM s3:my-images/alpine:3.2
+FROM s3.amazonaws.com/my-images/alpine:3.2
 …
 ```
 
 Since you can't just easily `docker pull` the image that is stored on S3, you can be creative and do something like this, because why the hell not:
 
 ```bash
-echo "FROM s3:my-images/alpine:3.2" | rocker build -f -
+echo "FROM s3.amazonaws.com/my-images/alpine:3.2" | rocker build -f -
 ```
 
 Or just use `rocker pull` command :)
 
 ```bash
-rocker pull s3:my-images/alpine:3.2
+rocker pull s3.amazonaws.com/my-images/alpine:3.2
 ```
 
 There should be AWS credentials in place, either exported as environment variables or present in `~/.aws/credentials`. For more information how to set up an environment, see [this doc](http://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html).
