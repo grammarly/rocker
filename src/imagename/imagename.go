@@ -62,7 +62,7 @@ type ImageName struct {
 	Storage  string
 	Version  *semver.Range
 
-	isOld bool
+	isOldS3Name bool
 }
 
 // NewFromString parses a given string and returns ImageName
@@ -71,31 +71,17 @@ func NewFromString(image string) *ImageName {
 	return New(name, tag)
 }
 
-// isOldS3ImageName Check whether an s3 image is referenced by old schema
-func isOldS3ImageName(imageName string) bool {
-	return strings.HasPrefix(imageName, s3OldPrefix)
-}
-
 // WarnIfOldS3ImageName Check whether old image format is used. Also return warning message if yes
 func WarnIfOldS3ImageName(imageName string) (bool, string) {
-	if !isOldS3ImageName(imageName) {
+	if !strings.HasPrefix(imageName, s3OldPrefix) {
 		return false, ""
 	}
 
 	warning := fmt.Sprintf("Your image '%s' is using old name style (s3:<repo>/<image>) for s3 images."+
 		" This style isn't supported by docker 1.10 and would be removed from rocker in the future as well."+
-		" Please consider changing to the new schema (s3.amazonaws.com/<repo>/<image>)."+
-		" For now, I'll do the conversion internally to not break your old Rockerfiles", imageName)
+		" Please consider changing to the new schema (s3.amazonaws.com/<repo>/<image>).", imageName)
 
 	return true, warning
-}
-
-func (img *ImageName) makeOldS3Compatible(image string) string {
-	if isOldS3ImageName(image) {
-		img.isOld = true
-		return strings.Replace(image, s3OldPrefix, s3Prefix, 1)
-	}
-	return image
 }
 
 // New parses a given 'image' and 'tag' strings and returns ImageName
@@ -109,17 +95,22 @@ func New(image string, tag string) *ImageName {
 	// default storage driver
 	dockerImage.Storage = StorageRegistry
 
-	//Replace 's3:' to 's3.amazonaws.com/' if any.
-	//We are doing it for backward compatibility reasons
-	//In future this function should be removed
-	image = dockerImage.makeOldS3Compatible(image)
-
 	firstIsHost := false
+	prefix := ""
 
 	if strings.HasPrefix(image, s3Prefix) {
+		dockerImage.isOldS3Name = false
+		prefix = s3Prefix
+
+	} else if strings.HasPrefix(image, s3OldPrefix) {
+		dockerImage.isOldS3Name = true
+		prefix = s3OldPrefix
+	}
+
+	if strings.HasPrefix(image, s3Prefix) || strings.HasPrefix(image, s3OldPrefix) {
+		image = strings.TrimPrefix(image, prefix)
 		dockerImage.Storage = StorageS3
 		firstIsHost = true
-		image = strings.TrimPrefix(image, s3Prefix)
 	}
 
 	nameParts := strings.SplitN(image, "/", 2)
@@ -277,7 +268,11 @@ func (img ImageName) NameWithRegistry() string {
 		registryPrefix = img.Registry + "/"
 	}
 	if img.Storage == StorageS3 {
-		registryPrefix = s3Prefix + registryPrefix
+		if img.isOldS3Name {
+			registryPrefix = s3OldPrefix + registryPrefix
+		} else {
+			registryPrefix = s3Prefix + registryPrefix
+		}
 	}
 	return registryPrefix + img.Name
 }
@@ -310,15 +305,14 @@ func (img ImageName) Contains(b *ImageName) bool {
 }
 
 // ResolveVersion finds an applicable tag for current image among the list of available tags
-func (img *ImageName) ResolveVersion(list []*ImageName, strictS3match bool) (result *ImageName) {
+func (img *ImageName) ResolveVersion(list []*ImageName, strictS3Match bool) (result *ImageName) {
 	for _, candidate := range list {
 		// If these are different images (different names/repos)
 		if !img.IsSameKind(*candidate) {
 			continue
 		}
 
-		//If we care whether s3 path was converted from old format or no
-		if strictS3match && img.isOld != candidate.isOld {
+		if strictS3Match && img.isOldS3Name != candidate.isOldS3Name {
 			continue
 		}
 
