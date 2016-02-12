@@ -1,5 +1,14 @@
 # Change Log
 
+## [1.1.2](https://github.com/grammarly/rocker/tree/1.1.2)
+
+[Full Changelog](https://github.com/grammarly/rocker/compare/1.1.1...1.1.2)
+
+**Merged pull requests:**
+
+- New S3 naming schema works in parallel to the old one [\#76](https://github.com/grammarly/rocker/pull/76) ([romank87](https://github.com/romank87))
+- Adopt S3 naming schema for Docker v1.10 [\#75](https://github.com/grammarly/rocker/pull/75) ([romank87](https://github.com/romank87))
+
 ## [1.1.1](https://github.com/grammarly/rocker/tree/1.1.1)
 
 [Full Changelog](https://github.com/grammarly/rocker/compare/1.1.0...1.1.1)
