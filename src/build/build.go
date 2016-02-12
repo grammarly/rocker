@@ -281,6 +281,9 @@ func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
 
 	// If hub is true, then there is no sense to inspect the local image
 	if !hub || isSha {
+		if isOld, warning := imagename.WarnIfOldS3ImageName(name); isOld {
+			log.Warn(warning)
+		}
 		// Try to inspect image as is, without version resolution
 		if img, err := b.client.InspectImage(imgName.String()); err != nil || img != nil {
 			return img, err
@@ -301,7 +304,7 @@ func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
 			return nil, err
 		}
 		// Resolve local candidate
-		candidate = imgName.ResolveVersion(localImages)
+		candidate = imgName.ResolveVersion(localImages, true)
 	}
 
 	// In case we want to include external images as well, pulling list of available
@@ -317,9 +320,12 @@ func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
 		}
 
 		// Since we found the remote image, we want to pull it
-		if remoteCandidate = imgName.ResolveVersion(remoteImages); remoteCandidate != nil {
+		if remoteCandidate = imgName.ResolveVersion(remoteImages, false); remoteCandidate != nil {
 			pull = true
 			candidate = remoteCandidate
+
+			// If we've found needed image on s3 it should be pulled in the same name style as lookuped image
+			candidate.IsOldS3Name = imgName.IsOldS3Name
 		}
 	}
 

@@ -120,6 +120,10 @@ func (c *DockerClient) PullImage(name string) error {
 
 	// e.g. s3:bucket-name/image-name
 	if image.Storage == imagename.StorageS3 {
+		if isOld, warning := imagename.WarnIfOldS3ImageName(name); isOld {
+			c.log.Warn(warning)
+		}
+
 		return c.s3storage.Pull(name)
 	}
 
@@ -432,6 +436,9 @@ func (c *DockerClient) UploadToContainer(containerID string, stream io.Reader, p
 // TagImage adds tag to the image
 func (c *DockerClient) TagImage(imageID, imageName string) error {
 	img := imagename.NewFromString(imageName)
+	if isOld, warning := imagename.WarnIfOldS3ImageName(imageName); isOld {
+		c.log.Warn(warning)
+	}
 
 	c.log.Infof("| Tag %.12s -> %s", imageID, img)
 
@@ -475,6 +482,9 @@ func (c *DockerClient) pushImageInner(imageName string) (digest string, err erro
 
 	// Use direct S3 image pusher instead
 	if img.Storage == imagename.StorageS3 {
+		if isOld, warning := imagename.WarnIfOldS3ImageName(imageName); isOld {
+			c.log.Warn(warning)
+		}
 		return c.s3storage.Push(imageName)
 	}
 
