@@ -21,12 +21,13 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"github.com/grammarly/rocker/src/imagename"
 	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/grammarly/rocker/src/imagename"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
@@ -255,6 +256,7 @@ func (s *StorageS3) Pull(name string) error {
 	)
 
 	go func() {
+		defer pipeReader.Close()
 		errch <- s.client.LoadImage(loadOptions)
 	}()
 
