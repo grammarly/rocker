@@ -257,7 +257,11 @@ func (s *StorageS3) Pull(name string) error {
 
 	go func() {
 		defer pipeReader.Close()
-		errch <- s.client.LoadImage(loadOptions)
+		err := s.client.LoadImage(loadOptions)
+		if err != nil {
+			fmt.Printf("LoadImage error: %v\n", err)
+		}
+		errch <- err
 	}()
 
 	// Iterate through the files in the archive.
