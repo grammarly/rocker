@@ -259,7 +259,7 @@ func (s *StorageS3) Pull(name string) error {
 		defer pipeReader.Close()
 		err := s.client.LoadImage(loadOptions)
 		if err != nil {
-			fmt.Printf("LoadImage error: %v\n", err)
+			log.Errorf("LoadImage error: %v", err)
 		}
 		errch <- err
 	}()
