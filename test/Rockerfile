@@ -1,0 +1,5 @@
+FROM alpine
+RUN touch /tmp/blah
+RUN ls -la /tmp/
+
+TAG foo
