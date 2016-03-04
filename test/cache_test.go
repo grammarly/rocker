@@ -1,57 +1,74 @@
 package tests
 
 import (
-	"bufio"
-	"bytes"
-	"fmt"
-	"io"
-	"os"
-	"os/exec"
-	"strings"
 	"testing"
 )
 
-func runCmd(executable string, stdoutWriter io.Writer /* stderr io.Writer,*/, params ...string) error {
-	cmd := exec.Command(executable, params...)
-	fmt.Printf("Running: %v\n", strings.Join(cmd.Args, " "))
-	//cmd.Stdout = stdoutWriter
-	//cmd.Stderr = stderr
+func TestCacheWorksByDefault(t *testing.T) {
+	tag := "rocker-integratin-test:1.2.3"
 
-	if err := cmd.Run(); err != nil {
-		fmt.Errorf("Failed to run '%v' with arguments '%v'", executable, params)
-		return err
+	err := runRockerBuildWithOptions(`
+FROM alpine
+RUN touch /tmp/foo
+TAG ` + tag)
+
+	if err != nil {
+		t.Fatalf("Test fail: %v\n", err)
 	}
 
-	return nil
+	sha1, err := GetImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = runRockerBuildWithOptions(`
+FROM alpine
+RUN touch /tmp/foo
+TAG ` + tag)
+	if err != nil {
+		t.Fatalf("Test fail: %v\n", err)
+	}
+
+	sha2, err := GetImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if sha1 != sha2 {
+		t.Fail()
+	}
 }
 
-func GetImageShaByName(imageName string) (error, string) {
-	var b bytes.Buffer
+func TestNoCache(t *testing.T) {
+	tag := "rocker-integratin-test:1.2.3"
 
-	if err := runCmd("/usr/local/bin/docker", bufio.NewWriter(&b), " "); err != nil {
-		fmt.Println("Can't execute command:", err)
-		return err, ""
-	}
-	fmt.Printf("Image: %v", b)
-
-	return nil, ""
-}
-
-func runRocker(filename string) error {
-	gopath := os.Getenv("GOPATH")
-	if gopath == "" {
-		panic("$GOPATH is not defined")
+	err := runRockerBuildWithOptions(`
+FROM alpine
+RUN touch /tmp/foo
+TAG ` + tag)
+	if err != nil {
+		t.Fatalf("Test fail: %v\n", err)
 	}
 
-	if err := runCmd(gopath+"/bin/rocker", nil, "build", "--no-cache", "-f", filename); err != nil {
-		fmt.Errorf("Failed to run rocker with filename '%v'", filename)
-		return err
+	sha1, err := GetImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	return nil
-}
+	err = runRockerBuildWithOptions(`
+FROM alpine
+RUN touch /tmp/foo
+TAG `+tag, "--no-cache")
+	if err != nil {
+		t.Fatalf("Test fail: %v\n", err)
+	}
 
-func TestFoot(t *testing.T) {
-	GetImageShaByName("ubuntu")
-	//runRocker("Rockerfile")
+	sha2, err := GetImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if sha1 == sha2 {
+		t.Fatalf("Sha of images are equal but shouldn't. sha1: %s, sha2: %s", sha1, sha2)
+	}
 }
