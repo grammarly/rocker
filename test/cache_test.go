@@ -4,6 +4,40 @@ import (
 	"testing"
 )
 
+func TestCacheWithEnvVariables(t *testing.T) {
+	tag := "rocker-integratin-test:1.2.3"
+
+	err := runRockerBuildWithOptions(`
+FROM alpine
+RUN touch /tmp/foo
+TAG ` + tag)
+
+	if err != nil {
+		t.Fatalf("Test fail: %v\n", err)
+	}
+
+	sha1, err := getImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = runRockerBuildWithOptions(`
+FROM alpine
+RUN ENV_VAR=foo touch /tmp/foo
+TAG ` + tag)
+	if err != nil {
+		t.Fatalf("Test fail: %v\n", err)
+	}
+
+	sha2, err := getImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if sha1 == sha2 {
+		t.Fatal("Env variable should invalidate cache")
+	}
+}
 func TestCacheWorksByDefault(t *testing.T) {
 	tag := "rocker-integratin-test:1.2.3"
 
