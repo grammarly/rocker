@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-func GetGOPATH() string {
+func getGOPATH() string {
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
 		panic("$GOPATH is not defined")
@@ -37,7 +37,7 @@ func runCmd(executable string, stdoutWriter io.Writer /* stderr io.Writer,*/, pa
 	return nil
 }
 
-func GetImageShaByName(imageName string) (string, error) {
+func getImageShaByName(imageName string) (string, error) {
 	var b bytes.Buffer
 
 	if err := runCmd("docker", bufio.NewWriter(&b), "images", "-q", imageName); err != nil {
@@ -70,7 +70,7 @@ func runRockerWithFile(filename string) error {
 	return nil
 }
 
-func CreateTempFile(content string) (string, error) {
+func createTempFile(content string) (string, error) {
 	tmpfile, err := ioutil.TempFile("/tmp/", "rocker_integration_test_")
 	if err != nil {
 		return "", err
@@ -86,13 +86,13 @@ func CreateTempFile(content string) (string, error) {
 }
 
 func runRockerBuildWithOptions(content string, opts ...string) error {
-	filename, err := CreateTempFile(content)
+	filename, err := createTempFile(content)
 	if err != nil {
 		return err
 	}
 	//defer os.Remove(filename)
 
-	gopath := GetGOPATH()
+	gopath := getGOPATH()
 
 	p := []string{"build", "-f", filename}
 	params := append(p, opts...)

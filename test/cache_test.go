@@ -16,7 +16,7 @@ TAG ` + tag)
 		t.Fatalf("Test fail: %v\n", err)
 	}
 
-	sha1, err := GetImageShaByName(tag)
+	sha1, err := getImageShaByName(tag)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +29,7 @@ TAG ` + tag)
 		t.Fatalf("Test fail: %v\n", err)
 	}
 
-	sha2, err := GetImageShaByName(tag)
+	sha2, err := getImageShaByName(tag)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ TAG ` + tag)
 		t.Fatalf("Test fail: %v\n", err)
 	}
 
-	sha1, err := GetImageShaByName(tag)
+	sha1, err := getImageShaByName(tag)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ TAG `+tag, "--no-cache")
 		t.Fatalf("Test fail: %v\n", err)
 	}
 
-	sha2, err := GetImageShaByName(tag)
+	sha2, err := getImageShaByName(tag)
 	if err != nil {
 		t.Fatal(err)
 	}
