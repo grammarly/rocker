@@ -7,7 +7,7 @@ import (
 func TestCacheWithEnvVariables(t *testing.T) {
 	tag := "rocker-integratin-test:1.2.3"
 
-	err := runRockerBuildWithOptions(`
+	err := runRockerBuild(`
 FROM alpine
 RUN touch /tmp/foo
 TAG ` + tag)
@@ -21,7 +21,7 @@ TAG ` + tag)
 		t.Fatal(err)
 	}
 
-	err = runRockerBuildWithOptions(`
+	err = runRockerBuild(`
 FROM alpine
 RUN ENV_VAR=foo touch /tmp/foo
 TAG ` + tag)
@@ -41,7 +41,7 @@ TAG ` + tag)
 func TestCacheWorksByDefault(t *testing.T) {
 	tag := "rocker-integratin-test:1.2.3"
 
-	err := runRockerBuildWithOptions(`
+	err := runRockerBuild(`
 FROM alpine
 RUN touch /tmp/foo
 TAG ` + tag)
@@ -55,7 +55,7 @@ TAG ` + tag)
 		t.Fatal(err)
 	}
 
-	err = runRockerBuildWithOptions(`
+	err = runRockerBuild(`
 FROM alpine
 RUN touch /tmp/foo
 TAG ` + tag)
@@ -76,7 +76,7 @@ TAG ` + tag)
 func TestNoCache(t *testing.T) {
 	tag := "rocker-integratin-test:1.2.3"
 
-	err := runRockerBuildWithOptions(`
+	err := runRockerBuild(`
 FROM alpine
 RUN touch /tmp/foo
 TAG ` + tag)

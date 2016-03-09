@@ -103,3 +103,7 @@ func runRockerBuildWithOptions(content string, opts ...string) error {
 
 	return nil
 }
+
+func runRockerBuild(content string) error {
+	return runRockerBuildWithOptions(content)
+}
