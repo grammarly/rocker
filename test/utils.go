@@ -37,6 +37,10 @@ func runCmd(executable string, stdoutWriter io.Writer /* stderr io.Writer,*/, pa
 	return nil
 }
 
+func removeImage(imageName string) error {
+	return runCmd("docker", nil, "rmi", imageName)
+}
+
 func getImageShaByName(imageName string) (string, error) {
 	var b bytes.Buffer
 

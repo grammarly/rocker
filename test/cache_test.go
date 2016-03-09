@@ -6,6 +6,7 @@ import (
 
 func TestCacheWithEnvVariables(t *testing.T) {
 	tag := "rocker-integratin-test:1.2.3"
+	defer removeImage(tag)
 
 	err := runRockerBuild(`
 FROM alpine
@@ -40,6 +41,7 @@ TAG ` + tag)
 }
 func TestCacheWorksByDefault(t *testing.T) {
 	tag := "rocker-integratin-test:1.2.3"
+	defer removeImage(tag)
 
 	err := runRockerBuild(`
 FROM alpine
@@ -75,6 +77,7 @@ TAG ` + tag)
 
 func TestNoCache(t *testing.T) {
 	tag := "rocker-integratin-test:1.2.3"
+	defer removeImage(tag)
 
 	err := runRockerBuild(`
 FROM alpine
