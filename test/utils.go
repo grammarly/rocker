@@ -94,7 +94,7 @@ func runRockerBuildWithOptions(content string, opts ...string) error {
 	if err != nil {
 		return err
 	}
-	defer os.Remove(filename)
+	//defer os.Remove(filename)
 
 	gopath := getGOPATH()
 

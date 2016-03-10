@@ -23,7 +23,7 @@ func TestMountLocal(t *testing.T) {
 
 	content, err := ioutil.ReadFile(dir + "/foo")
 	if err != nil {
-		t.Fatalf("Can't read tmp file. Error: %v", err)
+		t.Fatalf("Can't read temp file. Error: %v", err)
 	}
 
 	if "foobar" != string(content) {
