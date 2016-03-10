@@ -27,6 +27,6 @@ func TestMountLocal(t *testing.T) {
 	}
 
 	if "foobar" != string(content) {
-		t.Fatal("Content doesn't match, expected: '%s', got: '%s'", "foobar", string(content))
+		t.Fatalf("Content doesn't match, expected: 'foobar', got: '%s'", string(content))
 	}
 }
