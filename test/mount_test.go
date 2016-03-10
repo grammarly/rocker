@@ -21,9 +21,12 @@ func TestMountLocal(t *testing.T) {
 		t.Fatalf("Test fail: %v\n", err)
 	}
 
-	content, _ := ioutil.ReadFile(dir + "/foo")
+	content, err := ioutil.ReadFile(dir + "/foo")
+	if err != nil {
+		t.Fatalf("Can't read tmp file. Error: %v", err)
+	}
 
 	if "foobar" != string(content) {
-		t.Fatal("Content doesn't match")
+		t.Fatal("Content doesn't match, expected: '%s', got: '%s'", "foobar", string(content))
 	}
 }
