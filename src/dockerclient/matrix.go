@@ -40,8 +40,8 @@ func IsInMatrix() (bool, error) {
 	return true, err
 }
 
-// MyDockerID returns id of the current container the process is running within, if any
-func MyDockerID() (string, error) {
+// getMyDockerID returns id of the current container the process is running within, if any
+func getMyDockerID() (string, error) {
 	if _, err := os.Stat("/proc/self/cgroup"); os.IsNotExist(err) {
 		return "", nil
 	}
@@ -82,7 +82,7 @@ func ResolveHostPath(mountPath string, client *docker.Client) (string, error) {
 		return mountPath, nil
 	}
 
-	myDockerID, err := MyDockerID()
+	myDockerID, err := getMyDockerID()
 	if err != nil {
 		return "", err
 	}
