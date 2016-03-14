@@ -31,33 +31,6 @@ const (
 	initFile = "/.dockerinit"
 )
 
-// IsInMatrix returns true if current process is running inside of a docker container
-func IsInMatrix() (bool, error) {
-	_, err := os.Stat(initFile)
-	if err != nil && os.IsNotExist(err) {
-		return false, nil
-	}
-	return true, err
-}
-
-// getMyDockerID returns id of the current container the process is running within, if any
-func getMyDockerID() (string, error) {
-	if _, err := os.Stat("/proc/self/cgroup"); os.IsNotExist(err) {
-		return "", nil
-	}
-	output, exitStatus, err := util.ExecPipe(&util.Cmd{
-		Args: []string{"/bin/bash", "-c", `cat /proc/self/cgroup | grep "docker" | sed s/\\//\\n/g | tail -1`},
-	})
-	if err != nil {
-		return "", err
-	}
-	if exitStatus != 0 {
-		return "", fmt.Errorf("Failed to obtain docker id due error: %s", output)
-	}
-
-	return strings.Trim(output, "\n"), nil
-}
-
 // ResolveHostPath resolves any given path from the current context so
 // it is mountable by any container.
 //
@@ -73,7 +46,7 @@ func ResolveHostPath(mountPath string, client *docker.Client) (string, error) {
 
 	// In case we are running inside of a docker container
 	// we have to provide our fs path right from host machine
-	isMatrix, err := IsInMatrix()
+	isMatrix, err := isInMatrix()
 	if err != nil {
 		return "", err
 	}
@@ -128,4 +101,31 @@ func ResolveHostPath(mountPath string, client *docker.Client) (string, error) {
 	}
 
 	return mountPath, nil
+}
+
+// isInMatrix returns true if current process is running inside of a docker container
+func isInMatrix() (bool, error) {
+	_, err := os.Stat(initFile)
+	if err != nil && os.IsNotExist(err) {
+		return false, nil
+	}
+	return true, err
+}
+
+// getMyDockerID returns id of the current container the process is running within, if any
+func getMyDockerID() (string, error) {
+	if _, err := os.Stat("/proc/self/cgroup"); os.IsNotExist(err) {
+		return "", nil
+	}
+	output, exitStatus, err := util.ExecPipe(&util.Cmd{
+		Args: []string{"/bin/bash", "-c", `cat /proc/self/cgroup | grep "docker" | sed s/\\//\\n/g | tail -1`},
+	})
+	if err != nil {
+		return "", err
+	}
+	if exitStatus != 0 {
+		return "", fmt.Errorf("Failed to obtain docker id due error: %s", output)
+	}
+
+	return strings.Trim(output, "\n"), nil
 }
