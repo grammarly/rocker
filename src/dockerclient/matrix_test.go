@@ -19,7 +19,7 @@ package dockerclient
 import "testing"
 
 func TestDockerIsInMatrix(t *testing.T) {
-	result, err := IsInMatrix()
+	result, err := isInMatrix()
 	if err != nil {
 		t.Fatal(err)
 	}
