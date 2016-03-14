@@ -64,7 +64,7 @@ gocyclo:
 test: testdeps fmtcheck vet lint
 	GO15VENDOREXPERIMENT=1 go test ./src/... $(TESTARGS)
 
-integ:
-	GO15VENDOREXPERIMENT=1 go test ./src/... -tags="integration" -run TestInteg_
+test_integration:
+	GO15VENDOREXPERIMENT=1 go test ./test/...
 
 .PHONY: clean test fmtcheck lint vet gocyclo default

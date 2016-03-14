@@ -1,4 +1,4 @@
-FROM golang:1.5.1
+FROM golang:1.6-alpine
 
 {{ $commit := (or .Env.GIT_COMMIT "") }}
 {{ $branch := (or .Env.GIT_BRANCH "none") }}
@@ -9,27 +9,26 @@ WORKDIR /go/src/github.com/grammarly/rocker
 
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO15VENDOREXPERIMENT=1
 
+RUN go install \
+    -a -v -installsuffix cgo \
+    -ldflags "-X main.Version={{$version}} -X main.GitCommit={{$commit}} -X main.GitBranch={{$branch}} -X main.BuildTime=$(TZ=GMT date '+%Y-%m-%d_%H:%M_GMT')"
+
 {{ if .test }}
-MOUNT /var/run/docker.sock:/var/run/docker.sock
-{{ if .TestArgs }}
-ENV TESTARGS="{{ .TestArgs }}"
+    MOUNT /var/run/docker.sock:/var/run/docker.sock
+    RUN apk --update add make git bash docker
+
+    {{ if .TestArgs }}
+        ENV TESTARGS="{{ .TestArgs }}"
+    {{ end }}
+
+    ATTACH ["bash"]
+    RUN make test
+    RUN make test_integration
 {{ end }}
-ATTACH ["bash"]
-RUN make test
-{{ end }}
 
-ATTACH ["bash"]
-
-RUN \
-  go build \
-    -a -installsuffix cgo \
-    -ldflags "-X main.Version={{$version}} -X main.GitCommit={{$commit}} -X main.GitBranch={{$branch}} -X main.BuildTime=$(TZ=GMT date '+%Y-%m-%d_%H:%M_GMT')" \
-    -v -o /bin/rocker
-
-EXPORT /bin/rocker
+EXPORT /go/bin/rocker
 
 #========
-
 FROM alpine:3.2
 
 RUN apk --update add git bash
