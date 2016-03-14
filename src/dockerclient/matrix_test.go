@@ -28,7 +28,7 @@ func TestDockerIsInMatrix(t *testing.T) {
 }
 
 func TestDockerMyDockerId(t *testing.T) {
-	id, err := MyDockerID()
+	id, err := getMyDockerID()
 	if err != nil {
 		t.Fatal(err)
 	}
