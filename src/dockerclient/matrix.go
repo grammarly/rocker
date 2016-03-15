@@ -43,7 +43,7 @@ const (
 // resolves the given path according to the container's rootfs on the host
 // machine. It also considers the mounted directories to the current container, so
 // if given path is pointing to the mounted directory, it resolves correctly.
-func ResolveHostPath(mountPath string, client *docker.Client, unix_sock string) (string, error) {
+func ResolveHostPath(mountPath string, client *docker.Client, unixSock string) (string, error) {
 	// Accept only absolute path
 	if !filepath.IsAbs(mountPath) {
 		return "", fmt.Errorf("ResolveHostPath accepts only absolute paths, given: %s", mountPath)
@@ -94,7 +94,7 @@ func ResolveHostPath(mountPath string, client *docker.Client, unix_sock string) 
 	// Resolve the container mountpoint for overlay storage driver
 	if container.Driver == "overlay" {
 		var mountDirOnDockerHost string
-		if mountDirOnDockerHost, err = getMountPathForOverlay(myDockerID, unix_sock); err != nil {
+		if mountDirOnDockerHost, err = getMountPathForOverlay(myDockerID, unixSock); err != nil {
 			fmt.Printf("Can't get mount path, %v\n", err)
 			return "", err
 		}
@@ -132,15 +132,15 @@ func getMyDockerID() (string, error) {
 	return strings.Trim(output, "\n"), nil
 }
 
-func getMountPathForOverlay(container_id string, unix_sock string) (string, error) {
-	req, err := http.NewRequest("GET", "/containers/"+container_id+"/json", nil)
+func getMountPathForOverlay(containerID string, unixSock string) (string, error) {
+	req, err := http.NewRequest("GET", "/containers/"+containerID+"/json", nil)
 	if err != nil {
 		return "", err
 	}
 	req.Header.Set("User-Agent", "Thomas Anderson")
 
 	dialer := net.Dialer{}
-	conn, err := dialer.Dial("unix", unix_sock)
+	conn, err := dialer.Dial("unix", unixSock)
 	if err != nil {
 		return "", err
 	}
@@ -166,10 +166,10 @@ func getMountPathForOverlay(container_id string, unix_sock string) (string, erro
 		return "", fmt.Errorf("Can't get mount point. statusCode: '%v', body:'%v'", resp.StatusCode, body)
 	}
 
-	return getMountPathForOverlayFromJson(body)
+	return getMountPathForOverlayFromJSON(body)
 }
 
-func getMountPathForOverlayFromJson(jsonData []byte) (string, error) {
+func getMountPathForOverlayFromJSON(jsonData []byte) (string, error) {
 	type Data struct {
 		GraphDriver struct {
 			Data struct {
@@ -183,5 +183,4 @@ func getMountPathForOverlayFromJson(jsonData []byte) (string, error) {
 		return "", err
 	}
 	return data.GraphDriver.Data.MergedDir, nil
-
 }

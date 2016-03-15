@@ -43,7 +43,7 @@ func TestResolveHostPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	result, err := ResolveHostPath("/bin/rsync", client)
+	result, err := ResolveHostPath("/bin/rsync", client, "/var/run/docker.sock")
 	if err != nil {
 		t.Fatal(err)
 	}
