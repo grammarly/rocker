@@ -7,7 +7,7 @@ import (
 )
 
 func TestMountLocal(t *testing.T) {
-	t.Skip("skipping till bug will be fixed")
+	//t.Skip("skipping till bug will be fixed")
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_mount_dir")
 	if err != nil {
 		t.Fatalf("Can't create temp dir, err : %v", err)
