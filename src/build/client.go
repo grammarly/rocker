@@ -543,7 +543,7 @@ func (c *DockerClient) pushImageInner(imageName string) (digest string, err erro
 
 // ResolveHostPath proxy for the dockerclient.ResolveHostPath
 func (c *DockerClient) ResolveHostPath(path string) (resultPath string, err error) {
-	return dockerclient.ResolveHostPath(path, c.client)
+	return dockerclient.ResolveHostPath(path, c.client, "/var/run/docker.sock")
 }
 
 // EnsureImage checks if the image exists and pulls if not
