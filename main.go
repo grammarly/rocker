@@ -310,7 +310,10 @@ func buildCommand(c *cli.Context) {
 		}
 	}
 
-	dockerClient, err := dockerclient.NewFromCli(c)
+	var config *dockerclient.Config
+	config = dockerclient.NewConfigFromCli(c)
+
+	dockerClient, err := dockerclient.NewFromConfig(config)
 	if err != nil {
 		log.Fatal(err)
 	}
