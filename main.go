@@ -345,6 +345,7 @@ func buildCommand(c *cli.Context) {
 		StdoutContainerFormatter: stdoutContainerFormatter,
 		StderrContainerFormatter: stderrContainerFormatter,
 		PushRetryCount:           c.Int("push-retry"),
+		Host:                     config.Host,
 	}
 	client := build.NewDockerClient(options)
 
