@@ -310,7 +310,10 @@ func buildCommand(c *cli.Context) {
 		}
 	}
 
-	dockerClient, err := dockerclient.NewFromCli(c)
+	var config *dockerclient.Config
+	config = dockerclient.NewConfigFromCli(c)
+
+	dockerClient, err := dockerclient.NewFromConfig(config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -342,6 +345,7 @@ func buildCommand(c *cli.Context) {
 		StdoutContainerFormatter: stdoutContainerFormatter,
 		StderrContainerFormatter: stderrContainerFormatter,
 		PushRetryCount:           c.Int("push-retry"),
+		Host:                     config.Host,
 	}
 	client := build.NewDockerClient(options)
 

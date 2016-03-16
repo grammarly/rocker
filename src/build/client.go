@@ -28,6 +28,7 @@ import (
 	"github.com/grammarly/rocker/src/imagename"
 	"github.com/grammarly/rocker/src/storage/s3"
 	"github.com/grammarly/rocker/src/textformatter"
+	"net/url"
 	"regexp"
 
 	"github.com/docker/docker/pkg/units"
@@ -69,6 +70,7 @@ type DockerClientOptions struct {
 	StdoutContainerFormatter logrus.Formatter
 	StderrContainerFormatter logrus.Formatter
 	PushRetryCount           int
+	Host                     string
 }
 
 // DockerClient implements the client that works with a docker socket
@@ -80,6 +82,8 @@ type DockerClient struct {
 	stdoutContainerFormatter logrus.Formatter
 	stderrContainerFormatter logrus.Formatter
 	pushRetryCount           int
+	isUnixSocket             bool
+	unixSockPath             string
 }
 
 var (
@@ -93,6 +97,14 @@ func NewDockerClient(options DockerClientOptions) *DockerClient {
 		log = logrus.StandardLogger()
 	}
 
+	u, err := url.Parse(options.Host)
+	if err != nil {
+		log.Errorf("Wrong host, can't parse: '%s'", options.Host)
+	}
+
+	isUnixSocket := ("unix" == u.Scheme)
+	unixSockPath := u.Path
+
 	return &DockerClient{
 		client:                   options.Client,
 		auth:                     options.Auth,
@@ -101,6 +113,8 @@ func NewDockerClient(options DockerClientOptions) *DockerClient {
 		stdoutContainerFormatter: options.StdoutContainerFormatter,
 		stderrContainerFormatter: options.StderrContainerFormatter,
 		pushRetryCount:           options.PushRetryCount,
+		isUnixSocket:             isUnixSocket,
+		unixSockPath:             unixSockPath,
 	}
 }
 
@@ -543,7 +557,7 @@ func (c *DockerClient) pushImageInner(imageName string) (digest string, err erro
 
 // ResolveHostPath proxy for the dockerclient.ResolveHostPath
 func (c *DockerClient) ResolveHostPath(path string) (resultPath string, err error) {
-	return dockerclient.ResolveHostPath(path, c.client)
+	return dockerclient.ResolveHostPath(path, c.client, c.isUnixSocket, c.unixSockPath)
 }
 
 // EnsureImage checks if the image exists and pulls if not
