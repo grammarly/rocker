@@ -43,7 +43,7 @@ const (
 // resolves the given path according to the container's rootfs on the host
 // machine. It also considers the mounted directories to the current container, so
 // if given path is pointing to the mounted directory, it resolves correctly.
-func ResolveHostPath(mountPath string, client *docker.Client, unixSock string) (string, error) {
+func ResolveHostPath(mountPath string, client *docker.Client, isUnixSocket bool, unixSocketPath string) (string, error) {
 	// Accept only absolute path
 	if !filepath.IsAbs(mountPath) {
 		return "", fmt.Errorf("ResolveHostPath accepts only absolute paths, given: %s", mountPath)
@@ -58,6 +58,10 @@ func ResolveHostPath(mountPath string, client *docker.Client, unixSock string) (
 	// Not in a container, return the path as is
 	if !isMatrix {
 		return mountPath, nil
+	}
+
+	if !isUnixSocket {
+		return "", fmt.Errorf("Connection to docker not via unix socket, Not make sense to resolve host path in matrix")
 	}
 
 	myDockerID, err := getMyDockerID()
@@ -94,7 +98,7 @@ func ResolveHostPath(mountPath string, client *docker.Client, unixSock string) (
 	// Resolve the container mountpoint for overlay storage driver
 	if container.Driver == "overlay" {
 		var mountDirOnDockerHost string
-		if mountDirOnDockerHost, err = getMountPathForOverlay(myDockerID, unixSock); err != nil {
+		if mountDirOnDockerHost, err = getMountPathForOverlay(myDockerID, unixSocketPath); err != nil {
 			fmt.Printf("Can't get mount path, %v\n", err)
 			return "", err
 		}

@@ -557,10 +557,7 @@ func (c *DockerClient) pushImageInner(imageName string) (digest string, err erro
 
 // ResolveHostPath proxy for the dockerclient.ResolveHostPath
 func (c *DockerClient) ResolveHostPath(path string) (resultPath string, err error) {
-	if !c.isUnixSocket {
-		return "", fmt.Errorf("Connection to docker not via unix socket, Not make sense to resolve host path")
-	}
-	return dockerclient.ResolveHostPath(path, c.client, c.unixSockPath)
+	return dockerclient.ResolveHostPath(path, c.client, c.isUnixSocket, c.unixSockPath)
 }
 
 // EnsureImage checks if the image exists and pulls if not
