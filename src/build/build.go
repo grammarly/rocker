@@ -94,12 +94,12 @@ func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build 
 func (b *Build) Run(plan Plan) (err error) {
 
 	for k := 0; k < len(plan); k++ {
-		c := plan[k]
+		command := plan[k]
 
-		log.Debugf("Step %d: %# v", k+1, pretty.Formatter(c))
+		log.Debugf("Step %d: %# v", k+1, pretty.Formatter(command))
 
 		var doRun bool
-		if doRun, err = c.ShouldRun(b); err != nil {
+		if doRun, err = command.ShouldRun(b); err != nil {
 			return err
 		}
 		if !doRun {
@@ -107,13 +107,13 @@ func (b *Build) Run(plan Plan) (err error) {
 		}
 
 		// Replace env for the command if appropriate
-		if c, ok := c.(EnvReplacableCommand); ok {
-			c.ReplaceEnv(b.state.Config.Env)
+		if command, ok := command.(EnvReplacableCommand); ok {
+			command.ReplaceEnv(b.state.Config.Env)
 		}
 
-		log.Infof("%s", color.New(color.FgWhite, color.Bold).SprintFunc()(c))
+		log.Infof("%s", color.New(color.FgWhite, color.Bold).SprintFunc()(command))
 
-		if b.state, err = c.Execute(b); err != nil {
+		if b.state, err = command.Execute(b); err != nil {
 			return err
 		}
 
