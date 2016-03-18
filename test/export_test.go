@@ -117,6 +117,7 @@ func TestExportSmolinIssue(t *testing.T) {
 }
 
 func TestExportSameFileFewFroms(t *testing.T) {
+	t.Skip()
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_")
 	assert.Nil(t, err, "Can't create tmp dir")
 	defer os.RemoveAll(dir)
