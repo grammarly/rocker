@@ -87,30 +87,24 @@ func TestExportSmolinIssue(t *testing.T) {
 
 	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
 	assert.Nil(t, err)
-
 	err = runRockerBuildWithFile(rockerfile, "--reload-cache")
 	assert.Nil(t, err)
-
 	content, err := ioutil.ReadFile(dir + "/imported_file")
 	assert.Nil(t, err)
 	assert.Equal(t, "first", string(content))
 
 	err = ioutil.WriteFile(rockerfile, rockerContentSecond, 0644)
 	assert.Nil(t, err)
-
 	err = runRockerBuildWithFile(rockerfile)
 	assert.Nil(t, err)
-
 	content, err = ioutil.ReadFile(dir + "/imported_file")
 	assert.Nil(t, err)
 	assert.Equal(t, "second", string(content))
 
 	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
 	assert.Nil(t, err)
-
 	err = runRockerBuildWithFile(rockerfile)
 	assert.Nil(t, err)
-
 	content, err = ioutil.ReadFile(dir + "/imported_file")
 	assert.Nil(t, err, "Can't read file")
 	assert.Equal(t, "first", string(content))
