@@ -28,7 +28,40 @@ func TestExportSimple(t *testing.T) {
 	assert.Equal(t, "test_export", string(content))
 }
 
-func TestExportSeparateFiles(t *testing.T) {
+func TestExportSeparateFilesDifferentExport(t *testing.T) {
+	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_")
+	assert.Nil(t, err, "Can't create tmp dir")
+	defer os.RemoveAll(dir)
+
+	rockerContentFirst := `FROM alpine:latest
+						   EXPORT /etc/hostname
+						   RUN echo -n "first_diff" > /exported_file
+						   EXPORT /exported_file
+
+						   FROM alpine
+						   MOUNT ` + dir + `:/datadir
+						   IMPORT /exported_file /datadir/imported_file`
+
+	rockerContentSecond := `FROM alpine:latest
+						    EXPORT /etc/issue
+						    RUN echo -n "second_diff" > /exported_file
+						    EXPORT /exported_file `
+
+	err = runRockerBuildWithOptions(rockerContentFirst, "--reload-cache")
+	assert.Nil(t, err)
+
+	err = runRockerBuildWithOptions(rockerContentSecond, "--reload-cache")
+	assert.Nil(t, err)
+
+	err = runRockerBuildWithOptions(rockerContentFirst)
+	assert.Nil(t, err)
+
+	content, err := ioutil.ReadFile(dir + "/imported_file")
+	assert.Nil(t, err)
+	assert.Equal(t, "first_diff", string(content))
+}
+
+func TestExportSeparateFilesSameExport(t *testing.T) {
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_")
 	assert.Nil(t, err, "Can't create tmp dir")
 	defer os.RemoveAll(dir)
@@ -50,7 +83,7 @@ func TestExportSeparateFiles(t *testing.T) {
 	err = runRockerBuildWithOptions(rockerContentFirst, "--reload-cache")
 	assert.Nil(t, err)
 
-	err = runRockerBuildWithOptions(rockerContentSecond)
+	err = runRockerBuildWithOptions(rockerContentSecond, "--reload-cache")
 	assert.Nil(t, err)
 
 	err = runRockerBuildWithOptions(rockerContentFirst)
