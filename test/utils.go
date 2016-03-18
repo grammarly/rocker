@@ -89,6 +89,17 @@ func createTempFile(content string) (string, error) {
 	return tmpfile.Name(), nil
 }
 
+func runRockerBuildWithFile(filename string, opts ...string) error {
+	gopath := getGOPATH()
+
+	p := []string{"build", "-f", filename}
+	params := append(p, opts...)
+	if err := runCmd(gopath+"/bin/rocker", nil, params...); err != nil {
+		return err
+	}
+
+	return nil
+}
 func runRockerBuildWithOptions(content string, opts ...string) error {
 	filename, err := createTempFile(content)
 	if err != nil {
@@ -101,7 +112,6 @@ func runRockerBuildWithOptions(content string, opts ...string) error {
 	p := []string{"build", "-f", filename}
 	params := append(p, opts...)
 	if err := runCmd(gopath+"/bin/rocker", nil, params...); err != nil {
-		//fmt.Printf("Failed to run rocker with filename '%v'", filename)
 		return err
 	}
 
