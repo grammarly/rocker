@@ -28,6 +28,9 @@ func TestExportSimple(t *testing.T) {
 	assert.Equal(t, "test_export", string(content))
 }
 
+func TestExportMultipleFrom(t *testing.T) {
+}
+
 func TestExportSmolinIssue(t *testing.T) {
 	t.Skip()
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_")
@@ -55,7 +58,7 @@ func TestExportSmolinIssue(t *testing.T) {
 	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
 	assert.Nil(t, err)
 
-	err = runRockerBuildWithFile(rockerfile)
+	err = runRockerBuildWithFile(rockerfile, "--reload-cache")
 	assert.Nil(t, err)
 
 	content, err := ioutil.ReadFile(dir + "/imported_file")
