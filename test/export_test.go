@@ -37,21 +37,21 @@ func TestExportSmolinIssue(t *testing.T) {
 	assert.Nil(t, err, "Can't create temp file")
 	defer os.RemoveAll(rockerfile)
 
-	rocker_content_first := []byte(`FROM alpine
+	rockerContentFirst := []byte(`FROM alpine
 						 	 RUN echo -n "first" > /exported_file
 						 	 EXPORT /exported_file
 						 	 FROM alpine
 						 	 MOUNT ` + dir + `:/datadir
 						 	 IMPORT /exported_file /datadir/imported_file`)
 
-	rocker_content_second := []byte(`FROM alpine
+	rockerContentSecond := []byte(`FROM alpine
 							  RUN echo -n "second" > /exported_file
 							  EXPORT /exported_file
 							  FROM alpine
 							  MOUNT ` + dir + `:/datadir
 							  IMPORT /exported_file /datadir/imported_file`)
 
-	err = ioutil.WriteFile(rockerfile, rocker_content_first, 0644)
+	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
 	assert.Nil(t, err)
 
 	err = runRockerBuildWithFile(rockerfile)
@@ -61,7 +61,7 @@ func TestExportSmolinIssue(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "first", string(content))
 
-	err = ioutil.WriteFile(rockerfile, rocker_content_second, 0644)
+	err = ioutil.WriteFile(rockerfile, rockerContentSecond, 0644)
 	assert.Nil(t, err)
 
 	err = runRockerBuildWithFile(rockerfile)
@@ -71,7 +71,7 @@ func TestExportSmolinIssue(t *testing.T) {
 	assert.Nil(t, err)
 	assert.Equal(t, "second", string(content))
 
-	err = ioutil.WriteFile(rockerfile, rocker_content_first, 0644)
+	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
 	assert.Nil(t, err)
 
 	err = runRockerBuildWithFile(rockerfile)
