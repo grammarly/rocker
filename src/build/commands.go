@@ -1192,7 +1192,14 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	// EXPORT /my/dir /stuff/ --> /EXPORT_VOLUME/stuff/my_dir
 	// EXPORT /my/dir/* / --> /EXPORT_VOLUME/stuff/my_dir
 
-	exportsContainer, err := b.getExportsContainer()
+	s.Commit("EXPORT %q to %s[prev_export_container:%s]", src, dest, b.prevExportContainer)
+
+	name := exportsContainerName(s.ImageID, s.GetCommits())
+	if b.currentExportContainerName == "" {
+		b.currentExportContainerName = name
+	}
+
+	exportsContainer, err := b.getExportsContainer(b.currentExportContainerName)
 	if err != nil {
 		return s, err
 	}
@@ -1203,14 +1210,13 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		return s, fmt.Errorf("Invalid EXPORT destination: %s", dest)
 	}
 
-	s.Commit("EXPORT %q to %.12s:%s", src, exportsContainer.ID, dest)
-
 	s, hit, err := b.probeCache(s)
 	if err != nil {
 		return s, err
 	}
 	if hit {
 		b.exports = append(b.exports, s.ExportsID)
+		b.prevExportContainer = s.ExportsID
 		return s, nil
 	}
 
@@ -1222,6 +1228,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		s = origState
 		s.ExportsID = exportsID
 		b.exports = append(b.exports, exportsID)
+		b.prevExportContainer = exportsID
 	}()
 
 	// Append exports container as a volume
@@ -1286,13 +1293,16 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	// 			 because it was built earlier with the same prerequisites, but the actual
 	// 			 data in the exports container may be from the latest EXPORT of different
 	// 			 build. So we need to prefix ~/.rocker_exports dir with some id somehow.
+	if b.currentExportContainerName == "" {
+		return s, fmt.Errorf("You have to EXPORT something first to do IMPORT")
+	}
 
-	exportsContainer, err := b.getExportsContainer()
+	exportsContainer, err := b.getExportsContainer(b.currentExportContainerName)
 	if err != nil {
 		return s, err
 	}
 
-	log.Infof("| Import from %s (%.12s)", b.exportsContainerName(), exportsContainer.ID)
+	log.Infof("| Import from %s (%.12s)", b.currentExportContainerName, exportsContainer.ID)
 
 	// If only one argument was given to IMPORT, use the same path for destination
 	// IMPORT /my/dir/file.tar --> ADD ./EXPORT_VOLUME/my/dir/file.tar /my/dir/file.tar

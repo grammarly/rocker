@@ -75,6 +75,9 @@ type Build struct {
 	// A little hack to support cross-FROM cache for EXPORTS
 	// maybe rethink it later
 	exports []string
+
+	currentExportContainerName string
+	prevExportContainer        string
 }
 
 // New creates the new build object
@@ -228,8 +231,7 @@ func (b *Build) getVolumeContainer(path string) (c *docker.Container, err error)
 	return b.client.InspectContainer(name)
 }
 
-func (b *Build) getExportsContainer() (c *docker.Container, err error) {
-	name := b.exportsContainerName()
+func (b *Build) getExportsContainer(name string) (c *docker.Container, err error) {
 
 	config := &docker.Config{
 		Image: RsyncImage,
