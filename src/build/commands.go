@@ -1192,7 +1192,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	// EXPORT /my/dir /stuff/ --> /EXPORT_VOLUME/stuff/my_dir
 	// EXPORT /my/dir/* / --> /EXPORT_VOLUME/stuff/my_dir
 
-	s.Commit("EXPORT %q to %s[prev_export_container:%s]", src, dest, b.prevExportContainer)
+	s.Commit("EXPORT %q to %s, prev_export_container: %s", src, dest, b.prevExportContainer)
 
 	name := exportsContainerName(s.ImageID, s.GetCommits())
 	if b.currentExportContainerName == "" {
@@ -1215,7 +1215,6 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		return s, err
 	}
 	if hit {
-		b.exports = append(b.exports, s.ExportsID)
 		b.prevExportContainer = s.ExportsID
 		return s, nil
 	}
@@ -1227,7 +1226,6 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	defer func() {
 		s = origState
 		s.ExportsID = exportsID
-		b.exports = append(b.exports, exportsID)
 		b.prevExportContainer = exportsID
 	}()
 
@@ -1284,7 +1282,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	if len(args) == 0 {
 		return s, fmt.Errorf("IMPORT requires at least one argument")
 	}
-	if len(b.exports) == 0 {
+	if b.prevExportContainer == "" {
 		return s, fmt.Errorf("You have to EXPORT something first in order to IMPORT")
 	}
 
@@ -1320,8 +1318,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 		src = append(src, argResolved)
 	}
 
-	sort.Strings(b.exports)
-	s.Commit("IMPORT %q : %q %s", b.exports, src, dest)
+	s.Commit("IMPORT %q : %q %s", b.prevExportContainer, src, dest)
 
 	// Check cache
 	s, hit, err := b.probeCache(s)
