@@ -201,6 +201,6 @@ func TestCacheAndExportImport(t *testing.T) {
 	content, err = ioutil.ReadFile(dir + "/foobar")
 	assert.Equal(t, string(content), randomData)
 
-	assert.Equal(t, shaExport1, shaExport2)
-	assert.Equal(t, shaImport1, shaImport2)
+	assert.Equal(t, shaExport1, shaExport2, "Export doesn't match")
+	assert.Equal(t, shaImport1, shaImport2, "Import doesn't match")
 }
