@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/grammarly/rocker/src/imagename"
 	"io"
+	"strings"
 
 	"github.com/docker/docker/pkg/units"
 	"github.com/fatih/color"
@@ -265,6 +266,33 @@ func (b *Build) getExportsContainerWithBinds(name string, binds []string) (c *do
 
 	return b.client.InspectContainer(containerID)
 }
+
+func (b *Build) getExportsContainerAndSync(currentName, previousName string) (c *docker.Container, err error) {
+	//If it the first `EXPORT` in the file
+	//we don't need to sync data from previous container
+	if previousName == "" {
+		return b.getExportsContainer(currentName)
+	}
+
+	prevContainer, err := b.getExportsContainer(previousName)
+	if err != nil {
+		return nil, err
+	}
+
+	binds := mountsToBinds(prevContainer.Mounts, "_source")
+
+	currContainer, err := b.getExportsContainerWithBinds(currentName, binds)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Infof("| Running in %.12s: %s", currContainer.ID, strings.Join(currContainer.Config.Cmd, " "))
+	if err = b.client.RunContainer(currContainer.ID, false); err != nil {
+		return nil, err
+	}
+	return currContainer, nil
+}
+
 func (b *Build) getExportsContainer(name string) (c *docker.Container, err error) {
 	return b.getExportsContainerWithBinds(name, []string{})
 }
