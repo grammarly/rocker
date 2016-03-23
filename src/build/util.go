@@ -40,11 +40,11 @@ func (b *Build) getIdentifier() string {
 }
 
 // mountsToBinds turns the list of mounts to the list of binds
-func mountsToBinds(mounts []docker.Mount) []string {
+func mountsToBinds(mounts []docker.Mount, prefix string) []string {
 	result := make([]string, len(mounts))
 	for i, m := range mounts {
 		// TODO: Mode?
-		result[i] = mountToBind(m, m.RW)
+		result[i] = mountToBind(m, m.RW, prefix)
 	}
 	return result
 }
@@ -57,11 +57,11 @@ func exportsContainerName(imageID string, commits string) string {
 }
 
 // mountToBind turns docker.Mount into a bind string
-func mountToBind(m docker.Mount, rw bool) string {
+func mountToBind(m docker.Mount, rw bool, prefix string) string {
 	if rw {
-		return m.Source + ":" + m.Destination + ":rw"
+		return m.Source + ":" + m.Destination + prefix + ":rw"
 	}
-	return m.Source + ":" + m.Destination + ":ro"
+	return m.Source + ":" + m.Destination + prefix + ":ro"
 }
 
 // readerVoidCloser is a hack of the improved go-dockerclient's hijacking behavior
