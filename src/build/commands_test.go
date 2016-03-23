@@ -160,9 +160,10 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 	assert.Equal(t, "", state.NoCache.ContainerID)
 }
 
-func TestCommandCommit_NoCommitMsgs(t *testing.T) {
+func TestCommandCommit_OnCached(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
 	cmd := &CommandCommit{}
+	b.state = State{NoCache: StateNoCache{IsCached: true}}
 
 	_, err := cmd.Execute(b)
 	assert.Nil(t, err)
@@ -669,7 +670,7 @@ func TestCommandMount_VolumeContainer(t *testing.T) {
 
 	containerName := b.mountsContainerName("/cache")
 
-	c.On("EnsureContainer", containerName, mock.AnythingOfType("*docker.Config"), "/cache").Return("123", nil).Run(func(args mock.Arguments) {
+	c.On("EnsureContainer", containerName, mock.AnythingOfType("*docker.Config"), mock.AnythingOfType("*docker.HostConfig"), "/cache").Return("123", nil).Run(func(args mock.Arguments) {
 		arg := args.Get(1).(*docker.Config)
 		assert.Equal(t, MountVolumeImage, arg.Image)
 		expectedVolumes := map[string]struct{}{

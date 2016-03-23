@@ -339,8 +339,8 @@ func (m *MockClient) EnsureImage(imageName string) error {
 	return args.Error(0)
 }
 
-func (m *MockClient) EnsureContainer(containerName string, config *docker.Config, purpose string) (containerID string, err error) {
-	args := m.Called(containerName, config, purpose)
+func (m *MockClient) EnsureContainer(containerName string, config *docker.Config, hostConfig *docker.HostConfig, purpose string) (containerID string, err error) {
+	args := m.Called(containerName, config, hostConfig, purpose)
 	return args.String(0), args.Error(1)
 }
 
