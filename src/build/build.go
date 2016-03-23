@@ -286,7 +286,7 @@ func (b *Build) getExportsContainerAndSync(currentName, previousName string) (c 
 		return nil, err
 	}
 
-	log.Infof("| Running in %.12s: %s", currContainer.ID, strings.Join(currContainer.Config.Cmd, " "))
+	log.Infof("| Running in %s: %s", currentName, strings.Join(currContainer.Config.Cmd, " "))
 	if err = b.client.RunContainer(currContainer.ID, false); err != nil {
 		return nil, err
 	}

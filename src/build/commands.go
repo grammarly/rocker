@@ -1206,14 +1206,16 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	}
 	if hit {
 		b.prevExportContainerID = s.ExportsID
-		b.currentExportContainerName = exportsContainerName(s.ImageID, s.GetCommits())
-		log.Debugf("===EXPORT CONTAINER NAME CACHED: %s ('%s', '%s')", b.currentExportContainerName, s.ImageID, s.GetCommits())
+		b.currentExportContainerName = exportsContainerName(s.ParentID, s.GetCommits())
+		log.Infof("| Export container: %s", b.currentExportContainerName)
+		log.Debugf("===EXPORT CONTAINER NAME: %s ('%s', '%s')", b.currentExportContainerName, s.ParentID, s.GetCommits())
+
+		s.CleanCommits()
 		return s, nil
 	}
 
 	prevExportContainerName := b.currentExportContainerName
 	b.currentExportContainerName = exportsContainerName(s.ImageID, s.GetCommits())
-	log.Debugf("===EXPORT CONTAINER NAME: %s ('%s', '%s')", b.currentExportContainerName, s.ImageID, s.GetCommits())
 
 	exportsContainer, err := b.getExportsContainerAndSync(b.currentExportContainerName, prevExportContainerName)
 	if err != nil {
