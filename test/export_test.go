@@ -203,3 +203,19 @@ func TestExportSameFileFewFroms(t *testing.T) {
 	assert.Nil(t, err, "Can't read file")
 	assert.Equal(t, "first_few", string(content))
 }
+
+func TestDoubleExport(t *testing.T) {
+	rockerContent := `FROM alpine
+					  EXPORT /etc/issue issue
+					  EXPORT /etc/hostname hostname
+
+					  FROM alpine
+					  IMPORT issue
+					  IMPORT hostname`
+
+	err := runRockerBuildWithOptions(rockerContent, "--reload-cache")
+	assert.Nil(t, err)
+
+	err = runRockerBuildWithOptions(rockerContent)
+	assert.Nil(t, err)
+}
