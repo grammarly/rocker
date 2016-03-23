@@ -277,6 +277,9 @@ func (c *CommandCommit) String() string {
 
 // ShouldRun returns true if the command should be executed
 func (c *CommandCommit) ShouldRun(b *Build) (bool, error) {
+	if b.state.NoCache.IsCached {
+		b.state.CleanCommits()
+	}
 	return !b.state.NoCache.IsCached, nil
 }
 
@@ -285,6 +288,7 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	s = b.state
 
 	if s.NoCache.IsCached {
+		s.CleanCommits()
 		return s, nil
 	}
 	commits := s.GetCommits()
@@ -1209,8 +1213,6 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		b.currentExportContainerName = exportsContainerName(s.ParentID, s.GetCommits())
 		log.Infof("| Export container: %s", b.currentExportContainerName)
 		log.Debugf("===EXPORT CONTAINER NAME: %s ('%s', '%s')", b.currentExportContainerName, s.ParentID, s.GetCommits())
-
-		s.CleanCommits()
 		return s, nil
 	}
 
