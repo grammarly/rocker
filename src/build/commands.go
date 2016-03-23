@@ -1207,14 +1207,13 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	if hit {
 		b.prevExportContainerID = s.ExportsID
 		b.currentExportContainerName = exportsContainerName(s.ImageID, s.GetCommits())
-		log.Infof("===EXPORT CONTAINER NAME CACHED: %s ('%s', '%s')", b.currentExportContainerName, s.ImageID, s.GetCommits())
-		log.Infof("===CACHED STATE: %v", s)
+		log.Debugf("===EXPORT CONTAINER NAME CACHED: %s ('%s', '%s')", b.currentExportContainerName, s.ImageID, s.GetCommits())
 		return s, nil
 	}
 
 	prevExportContainerName := b.currentExportContainerName
 	b.currentExportContainerName = exportsContainerName(s.ImageID, s.GetCommits())
-	log.Infof("===EXPORT CONTAINER NAME: %s ('%s', '%s')", b.currentExportContainerName, s.ImageID, s.GetCommits())
+	log.Debugf("===EXPORT CONTAINER NAME: %s ('%s', '%s')", b.currentExportContainerName, s.ImageID, s.GetCommits())
 
 	exportsContainer, err := b.getExportsContainerAndSync(b.currentExportContainerName, prevExportContainerName)
 	if err != nil {
@@ -1295,7 +1294,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	if b.currentExportContainerName == "" {
 		return s, fmt.Errorf("You have to EXPORT something first to do IMPORT")
 	}
-	log.Infof("===IMPORT CONTAINER NAME CACHED: %s", b.currentExportContainerName)
+	log.Debugf("===IMPORT CONTAINER NAME CACHED: %s", b.currentExportContainerName)
 
 	exportsContainer, err := b.getExportsContainer(b.currentExportContainerName)
 	if err != nil {
