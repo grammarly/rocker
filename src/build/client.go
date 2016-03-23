@@ -56,7 +56,7 @@ type Client interface {
 	CommitContainer(state State, message string) (img *docker.Image, err error)
 	RemoveContainer(containerID string) error
 	UploadToContainer(containerID string, stream io.Reader, path string) error
-	EnsureContainer(containerName string, config *docker.Config, purpose string) (containerID string, err error)
+	EnsureContainer(containerName string, config *docker.Config, hostConfig *docker.HostConfig, purpose string) (containerID string, err error)
 	InspectContainer(containerName string) (*docker.Container, error)
 	ResolveHostPath(path string) (resultPath string, err error)
 }
@@ -576,7 +576,7 @@ func (c *DockerClient) EnsureImage(imageName string) (err error) {
 
 // EnsureContainer checks if container with specified name exists
 // and creates it otherwise
-func (c *DockerClient) EnsureContainer(containerName string, config *docker.Config, purpose string) (containerID string, err error) {
+func (c *DockerClient) EnsureContainer(containerName string, config *docker.Config, hostConfig *docker.HostConfig, purpose string) (containerID string, err error) {
 
 	// Check if container exists
 	container, err := c.client.InspectContainer(containerName)
@@ -597,8 +597,9 @@ func (c *DockerClient) EnsureContainer(containerName string, config *docker.Conf
 	c.log.Infof("| Create container: %s for %s", containerName, purpose)
 
 	opts := docker.CreateContainerOptions{
-		Name:   containerName,
-		Config: config,
+		Name:       containerName,
+		Config:     config,
+		HostConfig: hostConfig,
 	}
 
 	c.log.Debugf("Create container options %# v", opts)
