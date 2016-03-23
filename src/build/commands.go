@@ -277,17 +277,17 @@ func (c *CommandCommit) String() string {
 
 // ShouldRun returns true if the command should be executed
 func (c *CommandCommit) ShouldRun(b *Build) (bool, error) {
-	return b.state.GetCommits() != "", nil
+	return !b.state.NoCache.IsCached, nil
 }
 
 // Execute runs the command
 func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	s = b.state
 
-	commits := s.GetCommits()
-	if commits == "" {
+	if s.NoCache.IsCached {
 		return s, nil
 	}
+	commits := s.GetCommits()
 
 	if s.ImageID == "" && !s.NoBaseImage {
 		return s, fmt.Errorf("Please provide a source image with `from` prior to commit")
@@ -1141,7 +1141,7 @@ func (c *CommandMount) Execute(b *Build) (s State, err error) {
 			}
 
 			s.NoCache.HostConfig.Binds = append(s.NoCache.HostConfig.Binds,
-				mountsToBinds(c.Mounts)...)
+				mountsToBinds(c.Mounts, "")...)
 
 			commitIds = append(commitIds, strings.TrimLeft(c.Name, "/")+":"+arg)
 		}
@@ -1192,17 +1192,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	// EXPORT /my/dir /stuff/ --> /EXPORT_VOLUME/stuff/my_dir
 	// EXPORT /my/dir/* / --> /EXPORT_VOLUME/stuff/my_dir
 
-	s.Commit("EXPORT %q to %s, prev_export_container: %s", src, dest, b.prevExportContainer)
-
-	name := exportsContainerName(s.ImageID, s.GetCommits())
-	if b.currentExportContainerName == "" {
-		b.currentExportContainerName = name
-	}
-
-	exportsContainer, err := b.getExportsContainer(b.currentExportContainerName)
-	if err != nil {
-		return s, err
-	}
+	s.Commit("EXPORT %q to %s, prev_export_container: %s", src, dest, b.prevExportContainerID)
 
 	// build the command
 	cmdDestPath, err := util.ResolvePath(ExportsPath, dest)
@@ -1215,8 +1205,20 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		return s, err
 	}
 	if hit {
-		b.prevExportContainer = s.ExportsID
+		b.prevExportContainerID = s.ExportsID
+		b.currentExportContainerName = exportsContainerName(s.ImageID, s.GetCommits())
+		log.Infof("===EXPORT CONTAINER NAME CACHED: %s ('%s', '%s')", b.currentExportContainerName, s.ImageID, s.GetCommits())
+		log.Infof("===CACHED STATE: %v", s)
 		return s, nil
+	}
+
+	prevExportContainerName := b.currentExportContainerName
+	b.currentExportContainerName = exportsContainerName(s.ImageID, s.GetCommits())
+	log.Infof("===EXPORT CONTAINER NAME: %s ('%s', '%s')", b.currentExportContainerName, s.ImageID, s.GetCommits())
+
+	exportsContainer, err := b.getExportsContainerAndSync(b.currentExportContainerName, prevExportContainerName)
+	if err != nil {
+		return s, err
 	}
 
 	// Remember original stuff so we can restore it when we finished
@@ -1226,13 +1228,12 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	defer func() {
 		s = origState
 		s.ExportsID = exportsID
-		b.prevExportContainer = exportsID
+		b.prevExportContainerID = exportsID
 	}()
 
 	// Append exports container as a volume
 	s.NoCache.HostConfig.Binds = append(s.NoCache.HostConfig.Binds,
-		mountsToBinds(exportsContainer.Mounts)...)
-
+		mountsToBinds(exportsContainer.Mounts, "")...)
 	cmd := []string{"/opt/rsync/bin/rsync", "-a", "--delete-during"}
 
 	if b.cfg.Verbose {
@@ -1259,6 +1260,32 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	return s, nil
 }
 
+func (b *Build) getExportsContainerAndSync(currentName, previousName string) (c *docker.Container, err error) {
+	//If it the first `EXPORT` in the file
+	//we don't need to sync data from previous container
+	if previousName == "" {
+		return b.getExportsContainer(currentName)
+	}
+
+	prevContainer, err := b.getExportsContainer(previousName)
+	if err != nil {
+		return nil, err
+	}
+
+	binds := mountsToBinds(prevContainer.Mounts, "_source")
+
+	currContainer, err := b.getExportsContainerWithBinds(currentName, binds)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Infof("| Running in %.12s: %s", currContainer.ID, strings.Join(currContainer.Config.Cmd, " "))
+	if err = b.client.RunContainer(currContainer.ID, false); err != nil {
+		return nil, err
+	}
+	return currContainer, nil
+}
+
 // CommandImport implements IMPORT
 type CommandImport struct {
 	cfg ConfigCommand
@@ -1282,7 +1309,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	if len(args) == 0 {
 		return s, fmt.Errorf("IMPORT requires at least one argument")
 	}
-	if b.prevExportContainer == "" {
+	if b.prevExportContainerID == "" {
 		return s, fmt.Errorf("You have to EXPORT something first in order to IMPORT")
 	}
 
@@ -1294,6 +1321,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	if b.currentExportContainerName == "" {
 		return s, fmt.Errorf("You have to EXPORT something first to do IMPORT")
 	}
+	log.Infof("===IMPORT CONTAINER NAME CACHED: %s", b.currentExportContainerName)
 
 	exportsContainer, err := b.getExportsContainer(b.currentExportContainerName)
 	if err != nil {
@@ -1318,7 +1346,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 		src = append(src, argResolved)
 	}
 
-	s.Commit("IMPORT %q : %q %s", b.prevExportContainer, src, dest)
+	s.Commit("IMPORT %q : %q %s", b.prevExportContainerID, src, dest)
 
 	// Check cache
 	s, hit, err := b.probeCache(s)
@@ -1353,7 +1381,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 
 	// Append exports container as a volume
 	s.NoCache.HostConfig.Binds = append(s.NoCache.HostConfig.Binds,
-		mountsToBinds(exportsContainer.Mounts)...)
+		mountsToBinds(exportsContainer.Mounts, "")...)
 
 	if importID, err = b.client.CreateContainer(s); err != nil {
 		return s, err

@@ -77,7 +77,7 @@ type Build struct {
 	exports []string
 
 	currentExportContainerName string
-	prevExportContainer        string
+	prevExportContainerID      string
 }
 
 // New creates the new build object
@@ -156,6 +156,8 @@ func (b *Build) GetImageID() string {
 }
 
 func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
+	s.NoCache.IsCached = false
+
 	if b.cache == nil || s.NoCache.CacheBusted {
 		return s, false, nil
 	}
@@ -203,8 +205,9 @@ func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
 
 	// Keep items that should not be cached from the previous state
 	s2.NoCache = s.NoCache
-	// We don't want commits to go through the cache
-	s2.CleanCommits()
+
+	// Mark state as cached
+	s2.NoCache.IsCached = true
 
 	return *s2, true, nil
 }
@@ -222,7 +225,7 @@ func (b *Build) getVolumeContainer(path string) (c *docker.Container, err error)
 
 	log.Debugf("Make MOUNT volume container %s with options %# v", name, config)
 
-	if _, err = b.client.EnsureContainer(name, config, path); err != nil {
+	if _, err = b.client.EnsureContainer(name, config, nil, path); err != nil {
 		return nil, err
 	}
 
@@ -231,7 +234,7 @@ func (b *Build) getVolumeContainer(path string) (c *docker.Container, err error)
 	return b.client.InspectContainer(name)
 }
 
-func (b *Build) getExportsContainer(name string) (c *docker.Container, err error) {
+func (b *Build) getExportsContainerWithBinds(name string, binds []string) (c *docker.Container, err error) {
 
 	config := &docker.Config{
 		Image: RsyncImage,
@@ -239,11 +242,21 @@ func (b *Build) getExportsContainer(name string) (c *docker.Container, err error
 			"/opt/rsync/bin": struct{}{},
 			ExportsPath:      struct{}{},
 		},
+		Cmd:        []string{"/opt/rsync/bin/rsync", "-a", "--delete-during", "/.rocker_exports_source/", "/.rocker_exports/"},
+		Entrypoint: []string{},
+	}
+
+	var hostConfig *docker.HostConfig
+
+	if len(binds) != 0 {
+		hostConfig = &docker.HostConfig{
+			Binds: binds,
+		}
 	}
 
 	log.Debugf("Make EXPORT container %s with options %# v", name, config)
 
-	containerID, err := b.client.EnsureContainer(name, config, "exports")
+	containerID, err := b.client.EnsureContainer(name, config, hostConfig, "exports")
 	if err != nil {
 		return nil, err
 	}
@@ -251,6 +264,9 @@ func (b *Build) getExportsContainer(name string) (c *docker.Container, err error
 	log.Infof("| Using exports container %s", name)
 
 	return b.client.InspectContainer(containerID)
+}
+func (b *Build) getExportsContainer(name string) (c *docker.Container, err error) {
+	return b.getExportsContainerWithBinds(name, []string{})
 }
 
 // lookupImage looks up for the image by name and returns *docker.Image object (result of the inspect)
