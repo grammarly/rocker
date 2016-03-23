@@ -192,7 +192,7 @@ func TestCacheAndExportImport(t *testing.T) {
 	content, err := ioutil.ReadFile(dir + "/foobar")
 	assert.Equal(t, string(content), randomData)
 
-	err = runRockerBuildWithOptions(scenario, "--reload-cache")
+	err = runRockerBuildWithOptions(scenario)
 	assert.Nil(t, err)
 	shaExport2, err := getImageShaByName(tagExport)
 	assert.Nil(t, err)
