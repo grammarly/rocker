@@ -65,6 +65,62 @@ func TestExportSeparateFilesDifferentExport(t *testing.T) {
 	assert.Equal(t, "first_diff", string(content))
 }
 
+func TestExportSmolinIssue(t *testing.T) {
+	tag := "rocker-integratin-test-export-smolin"
+	defer removeImage(tag + ":qa")
+	defer removeImage(tag + ":prod")
+
+	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_smolin")
+	assert.Nil(t, err, "Can't create tmp dir")
+	defer os.RemoveAll(dir)
+
+	rockerfile, err := createTempFile("")
+	assert.Nil(t, err, "Can't create temp file")
+	defer os.RemoveAll(rockerfile)
+
+	rockerContentFirst := []byte(` {{ $env := .env}}
+							 FROM alpine
+							 RUN echo -n "{{ $env }}" > /exported_file
+						 	 EXPORT /exported_file
+
+							 FROM alpine
+							 IMPORT /exported_file /imported_file
+							 TAG ` + tag + ":{{ $env }}")
+
+	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
+	assert.Nil(t, err)
+	err = runRockerBuildWithFile(rockerfile, "--reload-cache", "--var", "env=qa")
+	assert.Nil(t, err)
+
+	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
+	assert.Nil(t, err)
+	err = runRockerBuildWithFile(rockerfile, "--var", "env=prod")
+	assert.Nil(t, err)
+
+	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
+	assert.Nil(t, err)
+	err = runRockerBuildWithFile(rockerfile, "--var", "env=qa")
+	assert.Nil(t, err)
+
+	content := `FROM ` + tag + `:qa
+					   MOUNT ` + dir + `:/data
+					   RUN cp /imported_file /data/qa.file
+
+					   FROM ` + tag + `:prod
+					   MOUNT ` + dir + `:/data
+					   RUN cp /imported_file /data/prod.file`
+	err = runRockerBuildWithOptions(content, "--no-cache")
+	assert.Nil(t, err)
+
+	qaContent, err := ioutil.ReadFile(dir + "/qa.file")
+	assert.Nil(t, err)
+	assert.Equal(t, string(qaContent), "qa")
+
+	prodContent, err := ioutil.ReadFile(dir + "/prod.file")
+	assert.Nil(t, err)
+	assert.Equal(t, string(prodContent), "prod")
+
+}
 func TestExportSeparateFilesSameExport(t *testing.T) {
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_sep")
 	assert.Nil(t, err, "Can't create tmp dir")
@@ -114,7 +170,7 @@ func TestExportSeparateFilesSameExport(t *testing.T) {
 	assert.Equal(t, "first_separate", string(content))
 }
 
-func TestExportSmolinIssue(t *testing.T) {
+func TestExportSameFileDifferentCmd(t *testing.T) {
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_")
 	assert.Nil(t, err, "Can't create tmp dir")
 	defer os.RemoveAll(dir)
@@ -124,21 +180,21 @@ func TestExportSmolinIssue(t *testing.T) {
 	defer os.RemoveAll(rockerfile)
 
 	rockerContentFirst := []byte(`FROM alpine
-						 	 RUN echo -n "first_smolin" > /exported_file
+						 	 RUN echo -n "first_foobar1" > /exported_file
 						 	 EXPORT /exported_file
 						 	 FROM alpine
 						 	 MOUNT ` + dir + `:/datadir
 						 	 IMPORT /exported_file /datadir/imported_file`)
 
 	rockerContentSecond := []byte(`FROM alpine
-							  RUN echo -n "second_smolin" > /exported_file
+							  RUN echo -n "second_foobar1" > /exported_file
 							  EXPORT /exported_file
 							  FROM alpine
 							  MOUNT ` + dir + `:/datadir
 							  IMPORT /exported_file /datadir/imported_file`)
 
 	rockerContentThird := []byte(`FROM alpine
-						 	 RUN echo -n "first_smolin" > /exported_file
+						 	 RUN echo -n "first_foobar1" > /exported_file
 						 	 EXPORT /exported_file
 						 	 FROM alpine
 						 	 MOUNT ` + dir + `:/datadir
@@ -151,7 +207,7 @@ func TestExportSmolinIssue(t *testing.T) {
 	assert.Nil(t, err)
 	content, err := ioutil.ReadFile(dir + "/imported_file")
 	assert.Nil(t, err)
-	assert.Equal(t, "first_smolin", string(content))
+	assert.Equal(t, "first_foobar1", string(content))
 
 	err = ioutil.WriteFile(rockerfile, rockerContentSecond, 0644)
 	assert.Nil(t, err)
@@ -159,7 +215,7 @@ func TestExportSmolinIssue(t *testing.T) {
 	assert.Nil(t, err)
 	content, err = ioutil.ReadFile(dir + "/imported_file")
 	assert.Nil(t, err)
-	assert.Equal(t, "second_smolin", string(content))
+	assert.Equal(t, "second_foobar1", string(content))
 
 	err = ioutil.WriteFile(rockerfile, rockerContentThird, 0644)
 	assert.Nil(t, err)
@@ -167,7 +223,7 @@ func TestExportSmolinIssue(t *testing.T) {
 	assert.Nil(t, err)
 	content, err = ioutil.ReadFile(dir + "/imported_file")
 	assert.Nil(t, err, "Can't read file")
-	assert.Equal(t, "first_smolin", string(content))
+	assert.Equal(t, "first_foobar1", string(content))
 }
 
 func TestExportSameFileFewFroms(t *testing.T) {
