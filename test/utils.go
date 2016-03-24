@@ -23,13 +23,13 @@ func getGOPATH() string {
 
 func runCmd(executable string, stdoutWriter io.Writer /* stderr io.Writer,*/, params ...string) error {
 	cmd := exec.Command(executable, params...)
-	if *verbosity_level >= 1 {
+	if *verbosityLevel >= 1 {
 		fmt.Printf("Running: %v\n", strings.Join(cmd.Args, " "))
 	}
 
 	if stdoutWriter != nil {
 		cmd.Stdout = stdoutWriter
-	} else if *verbosity_level >= 2 {
+	} else if *verbosityLevel >= 2 {
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
