@@ -277,21 +277,17 @@ func (c *CommandCommit) String() string {
 
 // ShouldRun returns true if the command should be executed
 func (c *CommandCommit) ShouldRun(b *Build) (bool, error) {
-	if b.state.NoCache.IsCached {
-		b.state.CleanCommits()
-	}
-	return !b.state.NoCache.IsCached, nil
+	return b.state.GetCommits() != "", nil
 }
 
 // Execute runs the command
 func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	s = b.state
 
-	if s.NoCache.IsCached {
-		s.CleanCommits()
+	commits := s.GetCommits()
+	if commits == "" {
 		return s, nil
 	}
-	commits := s.GetCommits()
 
 	if s.ImageID == "" && !s.NoBaseImage {
 		return s, fmt.Errorf("Please provide a source image with `from` prior to commit")
@@ -1196,7 +1192,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	// EXPORT /my/dir /stuff/ --> /EXPORT_VOLUME/stuff/my_dir
 	// EXPORT /my/dir/* / --> /EXPORT_VOLUME/stuff/my_dir
 
-	s.Commit("EXPORT %q to %s, prev_export_container: %s", src, dest, b.prevExportContainerID)
+	s.Commit("EXPORT %q to %s, prev_export_container_salt: %s", src, dest, b.prevExportContainerID)
 
 	// build the command
 	cmdDestPath, err := util.ResolvePath(ExportsPath, dest)
@@ -1204,7 +1200,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		return s, fmt.Errorf("Invalid EXPORT destination: %s", dest)
 	}
 
-	s, hit, err := b.probeCache(s)
+	s, hit, err := b.probeCacheAndPreserveCommits(s)
 	if err != nil {
 		return s, err
 	}
@@ -1213,6 +1209,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		b.currentExportContainerName = exportsContainerName(s.ParentID, s.GetCommits())
 		log.Infof("| Export container: %s", b.currentExportContainerName)
 		log.Debugf("===EXPORT CONTAINER NAME: %s ('%s', '%s')", b.currentExportContainerName, s.ParentID, s.GetCommits())
+		s.CleanCommits()
 		return s, nil
 	}
 
@@ -1324,6 +1321,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	}
 
 	s.Commit("IMPORT %q : %q %s", b.prevExportContainerID, src, dest)
+	log.Infof("===IMPORT: %q", s.GetCommits())
 
 	// Check cache
 	s, hit, err := b.probeCache(s)

@@ -157,7 +157,14 @@ func (b *Build) GetImageID() string {
 }
 
 func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
-	s.NoCache.IsCached = false
+	cachedState, hit, err = b.probeCacheAndPreserveCommits(s)
+	if hit && err == nil {
+		cachedState.CleanCommits()
+	}
+	return
+}
+
+func (b *Build) probeCacheAndPreserveCommits(s State) (cachedState State, hit bool, err error) {
 
 	if b.cache == nil || s.NoCache.CacheBusted {
 		return s, false, nil
@@ -206,9 +213,6 @@ func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
 
 	// Keep items that should not be cached from the previous state
 	s2.NoCache = s.NoCache
-
-	// Mark state as cached
-	s2.NoCache.IsCached = true
 
 	return *s2, true, nil
 }

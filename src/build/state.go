@@ -46,7 +46,6 @@ type StateNoCache struct {
 	CmdSet       bool
 	ContainerID  string
 	HostConfig   docker.HostConfig
-	IsCached     bool
 }
 
 // NewState makes a fresh state
