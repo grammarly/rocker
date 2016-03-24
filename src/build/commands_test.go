@@ -160,10 +160,9 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 	assert.Equal(t, "", state.NoCache.ContainerID)
 }
 
-func TestCommandCommit_OnCached(t *testing.T) {
+func TestCommandCommit_NoCommitMsgs(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
 	cmd := &CommandCommit{}
-	b.state = State{NoCache: StateNoCache{IsCached: true}}
 
 	_, err := cmd.Execute(b)
 	assert.Nil(t, err)
