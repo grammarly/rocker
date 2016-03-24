@@ -23,11 +23,16 @@ func getGOPATH() string {
 
 func runCmd(executable string, stdoutWriter io.Writer /* stderr io.Writer,*/, params ...string) error {
 	cmd := exec.Command(executable, params...)
-	fmt.Printf("Running: %v\n", strings.Join(cmd.Args, " "))
+	if *verbosity_level >= 1 {
+		fmt.Printf("Running: %v\n", strings.Join(cmd.Args, " "))
+	}
+
 	if stdoutWriter != nil {
 		cmd.Stdout = stdoutWriter
+	} else if *verbosity_level >= 2 {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 	}
-	//cmd.Stderr = stderr
 
 	if err := cmd.Run(); err != nil {
 		//fmt.Printf("Failed to run '%v' with arguments '%v'\n", executable, params)
@@ -94,6 +99,7 @@ func runRockerBuildWithFile(filename string, opts ...string) error {
 
 	p := []string{"build", "-f", filename}
 	params := append(p, opts...)
+
 	if err := runCmd(gopath+"/bin/rocker", nil, params...); err != nil {
 		return err
 	}
