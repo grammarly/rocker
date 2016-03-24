@@ -12,7 +12,7 @@ func TestMountLocal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Can't create temp dir, err : %v", err)
 	}
-	defer os.Remove(dir)
+	defer os.RemoveAll(dir)
 
 	err = runRockerBuildWithOptions("FROM alpine:latest\n"+
 		"MOUNT "+dir+":/datadir\n"+

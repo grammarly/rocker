@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/grammarly/rocker/src/imagename"
 	"io"
+	"strings"
 
 	"github.com/docker/docker/pkg/units"
 	"github.com/fatih/color"
@@ -75,6 +76,9 @@ type Build struct {
 	// A little hack to support cross-FROM cache for EXPORTS
 	// maybe rethink it later
 	exports []string
+
+	currentExportContainerName string
+	prevExportContainerID      string
 }
 
 // New creates the new build object
@@ -94,12 +98,12 @@ func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build 
 func (b *Build) Run(plan Plan) (err error) {
 
 	for k := 0; k < len(plan); k++ {
-		c := plan[k]
+		command := plan[k]
 
-		log.Debugf("Step %d: %# v", k+1, pretty.Formatter(c))
+		log.Debugf("Step %d: %# v", k+1, pretty.Formatter(command))
 
 		var doRun bool
-		if doRun, err = c.ShouldRun(b); err != nil {
+		if doRun, err = command.ShouldRun(b); err != nil {
 			return err
 		}
 		if !doRun {
@@ -107,13 +111,13 @@ func (b *Build) Run(plan Plan) (err error) {
 		}
 
 		// Replace env for the command if appropriate
-		if c, ok := c.(EnvReplacableCommand); ok {
-			c.ReplaceEnv(b.state.Config.Env)
+		if command, ok := command.(EnvReplacableCommand); ok {
+			command.ReplaceEnv(b.state.Config.Env)
 		}
 
-		log.Infof("%s", color.New(color.FgWhite, color.Bold).SprintFunc()(c))
+		log.Infof("%s", color.New(color.FgWhite, color.Bold).SprintFunc()(command))
 
-		if b.state, err = c.Execute(b); err != nil {
+		if b.state, err = command.Execute(b); err != nil {
 			return err
 		}
 
@@ -153,6 +157,15 @@ func (b *Build) GetImageID() string {
 }
 
 func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
+	cachedState, hit, err = b.probeCacheAndPreserveCommits(s)
+	if hit && err == nil {
+		cachedState.CleanCommits()
+	}
+	return
+}
+
+func (b *Build) probeCacheAndPreserveCommits(s State) (cachedState State, hit bool, err error) {
+
 	if b.cache == nil || s.NoCache.CacheBusted {
 		return s, false, nil
 	}
@@ -200,8 +213,6 @@ func (b *Build) probeCache(s State) (cachedState State, hit bool, err error) {
 
 	// Keep items that should not be cached from the previous state
 	s2.NoCache = s.NoCache
-	// We don't want commits to go through the cache
-	s2.CleanCommits()
 
 	return *s2, true, nil
 }
@@ -219,7 +230,7 @@ func (b *Build) getVolumeContainer(path string) (c *docker.Container, err error)
 
 	log.Debugf("Make MOUNT volume container %s with options %# v", name, config)
 
-	if _, err = b.client.EnsureContainer(name, config, path); err != nil {
+	if _, err = b.client.EnsureContainer(name, config, nil, path); err != nil {
 		return nil, err
 	}
 
@@ -228,8 +239,7 @@ func (b *Build) getVolumeContainer(path string) (c *docker.Container, err error)
 	return b.client.InspectContainer(name)
 }
 
-func (b *Build) getExportsContainer() (c *docker.Container, err error) {
-	name := b.exportsContainerName()
+func (b *Build) getExportsContainerWithBinds(name string, binds []string) (c *docker.Container, err error) {
 
 	config := &docker.Config{
 		Image: RsyncImage,
@@ -237,11 +247,21 @@ func (b *Build) getExportsContainer() (c *docker.Container, err error) {
 			"/opt/rsync/bin": struct{}{},
 			ExportsPath:      struct{}{},
 		},
+		Cmd:        []string{"/opt/rsync/bin/rsync", "-a", "--delete-during", "/.rocker_exports_source/", "/.rocker_exports/"},
+		Entrypoint: []string{},
+	}
+
+	var hostConfig *docker.HostConfig
+
+	if len(binds) != 0 {
+		hostConfig = &docker.HostConfig{
+			Binds: binds,
+		}
 	}
 
 	log.Debugf("Make EXPORT container %s with options %# v", name, config)
 
-	containerID, err := b.client.EnsureContainer(name, config, "exports")
+	containerID, err := b.client.EnsureContainer(name, config, hostConfig, "exports")
 	if err != nil {
 		return nil, err
 	}
@@ -249,6 +269,36 @@ func (b *Build) getExportsContainer() (c *docker.Container, err error) {
 	log.Infof("| Using exports container %s", name)
 
 	return b.client.InspectContainer(containerID)
+}
+
+func (b *Build) getExportsContainerAndSync(currentName, previousName string) (c *docker.Container, err error) {
+	//If it the first `EXPORT` in the file
+	//we don't need to sync data from previous container
+	if previousName == "" {
+		return b.getExportsContainer(currentName)
+	}
+
+	prevContainer, err := b.getExportsContainer(previousName)
+	if err != nil {
+		return nil, err
+	}
+
+	binds := mountsToBinds(prevContainer.Mounts, "_source")
+
+	currContainer, err := b.getExportsContainerWithBinds(currentName, binds)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Infof("| Running in %s: %s", currentName, strings.Join(currContainer.Config.Cmd, " "))
+	if err = b.client.RunContainer(currContainer.ID, false); err != nil {
+		return nil, err
+	}
+	return currContainer, nil
+}
+
+func (b *Build) getExportsContainer(name string) (c *docker.Container, err error) {
+	return b.getExportsContainerWithBinds(name, []string{})
 }
 
 // lookupImage looks up for the image by name and returns *docker.Image object (result of the inspect)

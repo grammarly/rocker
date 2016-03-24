@@ -23,11 +23,16 @@ func getGOPATH() string {
 
 func runCmd(executable string, stdoutWriter io.Writer /* stderr io.Writer,*/, params ...string) error {
 	cmd := exec.Command(executable, params...)
-	fmt.Printf("Running: %v\n", strings.Join(cmd.Args, " "))
+	if *verbosityLevel >= 1 {
+		fmt.Printf("Running: %v\n", strings.Join(cmd.Args, " "))
+	}
+
 	if stdoutWriter != nil {
 		cmd.Stdout = stdoutWriter
+	} else if *verbosityLevel >= 2 {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 	}
-	//cmd.Stderr = stderr
 
 	if err := cmd.Run(); err != nil {
 		//fmt.Printf("Failed to run '%v' with arguments '%v'\n", executable, params)
@@ -89,19 +94,30 @@ func createTempFile(content string) (string, error) {
 	return tmpfile.Name(), nil
 }
 
+func runRockerBuildWithFile(filename string, opts ...string) error {
+	gopath := getGOPATH()
+
+	p := []string{"build", "-f", filename}
+	params := append(p, opts...)
+
+	if err := runCmd(gopath+"/bin/rocker", nil, params...); err != nil {
+		return err
+	}
+
+	return nil
+}
 func runRockerBuildWithOptions(content string, opts ...string) error {
 	filename, err := createTempFile(content)
 	if err != nil {
 		return err
 	}
-	//defer os.Remove(filename)
+	defer os.RemoveAll(filename)
 
 	gopath := getGOPATH()
 
 	p := []string{"build", "-f", filename}
 	params := append(p, opts...)
 	if err := runCmd(gopath+"/bin/rocker", nil, params...); err != nil {
-		//fmt.Printf("Failed to run rocker with filename '%v'", filename)
 		return err
 	}
 

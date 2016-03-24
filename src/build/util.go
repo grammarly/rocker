@@ -31,12 +31,6 @@ func (b *Build) mountsContainerName(path string) string {
 	return fmt.Sprintf("rocker_mount_%.6x", md5.Sum([]byte(mountID)))
 }
 
-// exportsContainerName return the name of volume container that will be used for EXPORTs
-func (b *Build) exportsContainerName() string {
-	mountID := b.getIdentifier()
-	return fmt.Sprintf("rocker_exports_%.6x", md5.Sum([]byte(mountID)))
-}
-
 // getIdentifier returns the sequence that is unique to the current Rockerfile
 func (b *Build) getIdentifier() string {
 	if b.cfg.ID != "" {
@@ -46,21 +40,28 @@ func (b *Build) getIdentifier() string {
 }
 
 // mountsToBinds turns the list of mounts to the list of binds
-func mountsToBinds(mounts []docker.Mount) []string {
+func mountsToBinds(mounts []docker.Mount, prefix string) []string {
 	result := make([]string, len(mounts))
 	for i, m := range mounts {
 		// TODO: Mode?
-		result[i] = mountToBind(m, m.RW)
+		result[i] = mountToBind(m, m.RW, prefix)
 	}
 	return result
 }
 
+// exportsContainerName return the name of volume container that will be used for EXPORTs
+func exportsContainerName(imageID string, commits string) string {
+	mountID := imageID + commits
+	name := fmt.Sprintf("rocker_exports_%.12x", md5.Sum([]byte(mountID)))
+	return name
+}
+
 // mountToBind turns docker.Mount into a bind string
-func mountToBind(m docker.Mount, rw bool) string {
+func mountToBind(m docker.Mount, rw bool, prefix string) string {
 	if rw {
-		return m.Source + ":" + m.Destination + ":rw"
+		return m.Source + ":" + m.Destination + prefix + ":rw"
 	}
-	return m.Source + ":" + m.Destination + ":ro"
+	return m.Source + ":" + m.Destination + prefix + ":ro"
 }
 
 // readerVoidCloser is a hack of the improved go-dockerclient's hijacking behavior
