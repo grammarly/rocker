@@ -181,7 +181,8 @@ func TestCacheMountNotCached(t *testing.T) {
 	sha2, err := getImageShaByName(tag)
 	assert.Nil(t, err)
 
-	assert.Equal(t, sha1, sha2)
+	//Despite the `MOUNT` isn't "commited" command it still will invalidate the cache
+	assert.NotEqual(t, sha1, sha2)
 }
 
 func TestCacheAndExportImport(t *testing.T) {
