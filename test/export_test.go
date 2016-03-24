@@ -4,7 +4,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
+	"strconv"
 	"testing"
+	"time"
 )
 
 func TestExportSimple(t *testing.T) {
@@ -77,6 +79,7 @@ func TestExportSmolinIssue(t *testing.T) {
 	rockerfile, err := createTempFile("")
 	assert.Nil(t, err, "Can't create temp file")
 	defer os.RemoveAll(rockerfile)
+	randomData := strconv.Itoa(int(time.Now().UnixNano() % int64(100000001)))
 
 	rockerContentFirst := []byte(` {{ $env := .env}}
 							 FROM alpine
@@ -87,6 +90,16 @@ func TestExportSmolinIssue(t *testing.T) {
 							 IMPORT /exported_file /imported_file
 							 TAG ` + tag + ":{{ $env }}")
 
+	rockerContentSecond := []byte(` {{ $env := .env}}
+							 FROM alpine
+							 RUN echo -n "{{ $env }}" > /exported_file
+						 	 EXPORT /exported_file
+
+							 FROM alpine
+							 RUN echo "invalidate with ` + randomData + `"
+							 IMPORT /exported_file /imported_file
+							 TAG ` + tag + ":{{ $env }}")
+
 	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
 	assert.Nil(t, err)
 	err = runRockerBuildWithFile(rockerfile, "--reload-cache", "--var", "env=qa")
@@ -94,10 +107,10 @@ func TestExportSmolinIssue(t *testing.T) {
 
 	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
 	assert.Nil(t, err)
-	err = runRockerBuildWithFile(rockerfile, "--var", "env=prod")
+	err = runRockerBuildWithFile(rockerfile, "--reload-cache", "--var", "env=prod")
 	assert.Nil(t, err)
 
-	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
+	err = ioutil.WriteFile(rockerfile, rockerContentSecond, 0644)
 	assert.Nil(t, err)
 	err = runRockerBuildWithFile(rockerfile, "--var", "env=qa")
 	assert.Nil(t, err)
