@@ -162,6 +162,28 @@ func TestCacheFewDifferentCommands(t *testing.T) {
 	assert.Equal(t, sha1, sha2)
 }
 
+func TestCacheMountNotCached(t *testing.T) {
+	tag := "rocker-integratin-test:mount_not_cached"
+	defer removeImage(tag)
+	scenario1 := `FROM alpine
+				 TAG ` + tag
+	scenario2 := `FROM alpine
+				 MOUNT /tmp:/tmp
+				 TAG ` + tag
+
+	err := runRockerBuildWithOptions(scenario1, "--reload-cache")
+	assert.Nil(t, err)
+	sha1, err := getImageShaByName(tag)
+	assert.Nil(t, err)
+
+	err = runRockerBuildWithOptions(scenario2)
+	assert.Nil(t, err)
+	sha2, err := getImageShaByName(tag)
+	assert.Nil(t, err)
+
+	assert.Equal(t, sha1, sha2)
+}
+
 func TestCacheAndExportImport(t *testing.T) {
 	tagExport := "rocker-integratin-test:export"
 	tagImport := "rocker-integratin-test:import"
