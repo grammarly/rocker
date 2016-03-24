@@ -1295,7 +1295,6 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	if b.currentExportContainerName == "" {
 		return s, fmt.Errorf("You have to EXPORT something first to do IMPORT")
 	}
-	log.Debugf("===IMPORT CONTAINER NAME CACHED: %s", b.currentExportContainerName)
 
 	exportsContainer, err := b.getExportsContainer(b.currentExportContainerName)
 	if err != nil {
@@ -1321,7 +1320,6 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	}
 
 	s.Commit("IMPORT %q : %q %s", b.prevExportContainerID, src, dest)
-	log.Infof("===IMPORT: %q", s.GetCommits())
 
 	// Check cache
 	s, hit, err := b.probeCache(s)
