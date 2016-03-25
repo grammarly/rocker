@@ -79,16 +79,20 @@ func main() {
 
 	app.Flags = append([]cli.Flag{
 		cli.BoolFlag{
-			Name: "verbose, vv, D",
+			Name:  "verbose, vv, D",
+			Usage: "Be verbose",
 		},
 		cli.BoolFlag{
-			Name: "json",
+			Name:  "json",
+			Usage: "Print output in json",
 		},
 		cli.BoolTFlag{
-			Name: "colors",
+			Name:  "colors",
+			Usage: "Make output colored",
 		},
 		cli.BoolFlag{
-			Name: "cmd, C",
+			Name:  "cmd, C",
+			Usage: "Print command-line that was used to exec",
 		},
 	}, dockerclient.GlobalCliParams()...)
 
