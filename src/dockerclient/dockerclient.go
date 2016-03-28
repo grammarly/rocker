@@ -207,7 +207,7 @@ func infoCommand(c *cli.Context) {
 		s := reflect.ValueOf(info).Elem()
 		typeOfInfo := s.Type()
 
-		fmt.Println("\nDocker advanced info:\n")
+		fmt.Printf("\nDocker advanced info:\n\n")
 		for i := 0; i < s.NumField(); i++ {
 			f := s.Field(i)
 			fmt.Printf("%s: %v\n", typeOfInfo.Field(i).Name, f.Interface())
