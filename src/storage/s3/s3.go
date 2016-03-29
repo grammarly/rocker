@@ -256,9 +256,11 @@ func (s *StorageS3) Pull(name string) error {
 	)
 
 	go func() {
-		defer pipeReader.Close()
 		err := s.client.LoadImage(loadOptions)
 		if err != nil {
+			// We need to close the reader explicitly because if LoadImage failed the tar writer will
+			// hang forever. So we close the pipe so tar writer will also fail.
+			pipeReader.Close()
 			log.Errorf("LoadImage error: %v", err)
 		}
 		errch <- err
