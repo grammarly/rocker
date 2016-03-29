@@ -176,6 +176,7 @@ func (c *DockerClient) PullImage(name string) error {
 		return err
 	}
 
+	pipeWriter.Close()
 	return <-errch
 }
 
