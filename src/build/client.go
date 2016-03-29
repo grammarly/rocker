@@ -53,7 +53,7 @@ type Client interface {
 	EnsureImage(imageName string) error
 	CreateContainer(state State) (id string, err error)
 	RunContainer(containerID string, attachStdin bool) error
-	CommitContainer(state State, message string) (img *docker.Image, err error)
+	CommitContainer(state State) (img *docker.Image, err error)
 	RemoveContainer(containerID string) error
 	UploadToContainer(containerID string, stream io.Reader, path string) error
 	EnsureContainer(containerName string, config *docker.Config, hostConfig *docker.HostConfig, purpose string) (containerID string, err error)
@@ -389,10 +389,9 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 }
 
 // CommitContainer commits docker container
-func (c *DockerClient) CommitContainer(s State, message string) (*docker.Image, error) {
+func (c *DockerClient) CommitContainer(s State) (*docker.Image, error) {
 	commitOpts := docker.CommitContainerOptions{
 		Container: s.NoCache.ContainerID,
-		Message:   message,
 		Run:       &s.Config,
 	}
 

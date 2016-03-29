@@ -116,7 +116,7 @@ func TestCommandCommit_Simple(t *testing.T) {
 	b.state.NoCache.ContainerID = "456"
 	b.state.Commit("a").Commit("b")
 
-	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return(resultImage, nil).Once()
+	c.On("CommitContainer", mock.AnythingOfType("State")).Return(resultImage, nil).Once()
 	c.On("RemoveContainer", "456").Return(nil).Once()
 
 	state, err := cmd.Execute(b)
@@ -145,7 +145,7 @@ func TestCommandCommit_NoContainer(t *testing.T) {
 		assert.Equal(t, []string{"/bin/sh", "-c", "#(nop) a; b"}, arg.Config.Cmd)
 	}).Once()
 
-	c.On("CommitContainer", mock.AnythingOfType("State"), "a; b").Return(resultImage, nil).Once()
+	c.On("CommitContainer", mock.AnythingOfType("State")).Return(resultImage, nil).Once()
 	c.On("RemoveContainer", "456").Return(nil).Once()
 
 	state, err := cmd.Execute(b)
