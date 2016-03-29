@@ -26,6 +26,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/grammarly/rocker/src/imagename"
 
@@ -245,25 +246,27 @@ func (s *StorageS3) Pull(name string) error {
 	// Read through tar reader to patch repositories file since we might
 	// mave a different tag property
 	var (
+		wg sync.WaitGroup
+
 		pipeReader, pipeWriter = io.Pipe()
 		tr                     = tar.NewReader(fd)
 		tw                     = tar.NewWriter(pipeWriter)
-		errch                  = make(chan error, 1)
 
 		loadOptions = docker.LoadImageOptions{
 			InputStream: pipeReader,
 		}
 	)
 
+	wg.Add(1)
+
 	go func() {
-		err := s.client.LoadImage(loadOptions)
-		if err != nil {
+		defer wg.Done()
+		if err := s.client.LoadImage(loadOptions); err != nil {
 			// We need to close the reader explicitly because if LoadImage failed the tar writer will
 			// hang forever. So we close the pipe so tar writer will also fail.
 			pipeReader.Close()
 			log.Errorf("LoadImage error: %v", err)
 		}
-		errch <- err
 	}()
 
 	// Iterate through the files in the archive.
@@ -346,9 +349,7 @@ func (s *StorageS3) Pull(name string) error {
 		return fmt.Errorf("Failed to close tar pipeWriter, error: %s", err)
 	}
 
-	if err := <-errch; err != nil {
-		errch <- fmt.Errorf("Failed to import image, error: %s", err)
-	}
+	wg.Wait()
 
 	return nil
 }
