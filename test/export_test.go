@@ -28,7 +28,7 @@ func TestExportSimple(t *testing.T) {
 	content, err := ioutil.ReadFile(dir + "/imported_file")
 	assert.Nil(t, err, "Can't read file")
 
-	assert.Equal(t, "test_xport", string(content))
+	assert.Equal(t, "test_export", string(content))
 }
 
 func TestExportSeparateFilesDifferentExport(t *testing.T) {
