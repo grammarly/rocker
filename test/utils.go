@@ -12,15 +12,6 @@ import (
 	"strings"
 )
 
-func getGOPATH() string {
-	gopath := os.Getenv("GOPATH")
-	if gopath == "" {
-		panic("$GOPATH is not defined")
-	}
-
-	return gopath
-}
-
 func runCmd(executable string, stdoutWriter io.Writer /* stderr io.Writer,*/, params ...string) error {
 	cmd := exec.Command(executable, params...)
 	if *verbosityLevel >= 1 {
@@ -33,9 +24,7 @@ func runCmd(executable string, stdoutWriter io.Writer /* stderr io.Writer,*/, pa
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 	}
-
 	if err := cmd.Run(); err != nil {
-		//fmt.Printf("Failed to run '%v' with arguments '%v'\n", executable, params)
 		return err
 	}
 
@@ -64,15 +53,23 @@ func getImageShaByName(imageName string) (string, error) {
 
 	return sha, nil
 }
-
-func runRockerWithFile(filename string) error {
+func getRockerBinaryPath() string {
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
 		panic("$GOPATH is not defined")
 	}
+	return gopath + "/bin/rocker"
+}
 
-	if err := runCmd(gopath+"/bin/rocker", nil, "build", "--no-cache", "-f", filename); err != nil {
-		//fmt.Errorf("Failed to run rocker with filename '%v'", filename)
+func runRockerPull(image string) error {
+	if err := runCmd(getRockerBinaryPath(), nil, "pull", image); err != nil {
+		return err
+	}
+
+	return nil
+}
+func runRockerWithFile(filename string) error {
+	if err := runCmd(getRockerBinaryPath(), nil, "build", "--no-cache", "-f", filename); err != nil {
 		return err
 	}
 
@@ -95,12 +92,10 @@ func createTempFile(content string) (string, error) {
 }
 
 func runRockerBuildWithFile(filename string, opts ...string) error {
-	gopath := getGOPATH()
-
 	p := []string{"build", "-f", filename}
 	params := append(p, opts...)
 
-	if err := runCmd(gopath+"/bin/rocker", nil, params...); err != nil {
+	if err := runCmd(getRockerBinaryPath(), nil, params...); err != nil {
 		return err
 	}
 
@@ -113,11 +108,9 @@ func runRockerBuildWithOptions(content string, opts ...string) error {
 	}
 	defer os.RemoveAll(filename)
 
-	gopath := getGOPATH()
-
 	p := []string{"build", "-f", filename}
 	params := append(p, opts...)
-	if err := runCmd(gopath+"/bin/rocker", nil, params...); err != nil {
+	if err := runCmd(getRockerBinaryPath(), nil, params...); err != nil {
 		return err
 	}
 

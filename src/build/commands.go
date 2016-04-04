@@ -329,7 +329,7 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	}(s.NoCache.ContainerID)
 
 	var img *docker.Image
-	if img, err = b.client.CommitContainer(s, commits); err != nil {
+	if img, err = b.client.CommitContainer(s); err != nil {
 		return s, err
 	}
 
