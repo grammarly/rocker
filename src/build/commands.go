@@ -1395,6 +1395,14 @@ func (c *CommandOnbuildWrap) Execute(b *Build) (State, error) {
 	return c.cmd.Execute(b)
 }
 
+// ReplaceEnv implements EnvReplacableCommand interface
+func (c *CommandOnbuildWrap) ReplaceEnv(env []string) error {
+	if command, ok := c.cmd.(EnvReplacableCommand); ok {
+		return command.ReplaceEnv(env)
+	}
+	return nil
+}
+
 ////////// Private stuff //////////
 
 func replaceEnv(args []string, env []string) (err error) {
