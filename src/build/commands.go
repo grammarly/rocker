@@ -1069,7 +1069,7 @@ func (c *CommandAdd) Execute(b *Build) (State, error) {
 	if len(c.cfg.args) < 2 {
 		return b.state, fmt.Errorf("ADD requires at least two arguments")
 	}
-	return copyFiles(b, c.cfg.args, "ADD")
+	return addFiles(b, c.cfg.args)
 }
 
 // CommandMount implements MOUNT

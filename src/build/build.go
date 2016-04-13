@@ -60,6 +60,7 @@ type Config struct {
 	NoCache       bool
 	ReloadCache   bool
 	Push          bool
+	CacheDir      string
 }
 
 // Build is the main object that processes build

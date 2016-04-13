@@ -19,10 +19,14 @@ package build
 import (
 	"archive/tar"
 	"bufio"
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
+	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -49,6 +53,116 @@ type uploadFile struct {
 	dest    string
 	relDest string
 	size    int64
+}
+
+func isURL(u string) bool {
+	return (7 <= len(u) && u[:7] == "http://") ||
+		(8 <= len(u) && u[:8] == "https://")
+}
+
+func makeFileName(base, u string) (r string, err error) {
+	h := sha256.Sum256([]byte(u))
+	name := fmt.Sprintf("%x", h)
+
+	u1, err := url.Parse(u)
+	if err != nil {
+		return "", err
+	}
+
+	baseName := filepath.Base(u1.Path)
+
+	if baseName == "" {
+		return "", fmt.Errorf("unable to determine filename from url: %s", u)
+	}
+
+	return path.Join(base, "add_url_blob", name, baseName), nil
+}
+
+func downloadURL(u, fileName string) (err error) {
+
+	log.Infof("Downloading `%s` into `%s`", u, fileName)
+
+	_, err = url.Parse(u)
+	if err != nil {
+		return err
+	}
+
+	response, err := http.Get(u)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode < 200 || 300 <= response.StatusCode {
+		return fmt.Errorf("Got non-2xx status for `%s`: %s", u, response.Status)
+	}
+
+	err = os.MkdirAll(filepath.Dir(fileName), 0755)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create(fileName)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = io.Copy(f, response.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func addFiles(b *Build, args []string) (s State, err error) {
+
+	s = b.state
+
+	if len(args) < 2 {
+		return s, fmt.Errorf("Invalid ADD format - at least two arguments required")
+	}
+
+	var (
+		src  = args[0 : len(args)-1]
+		dest = filepath.FromSlash(args[len(args)-1]) // last one is always the dest
+	)
+
+	// If destination is not a directory (no leading slash)
+	hasLeadingSlash := strings.HasSuffix(dest, string(os.PathSeparator))
+	if !hasLeadingSlash && len(src) > 1 {
+		return s, fmt.Errorf("When using ADD with more than one source file, the destination must be a directory and end with a /")
+	}
+
+	if !filepath.IsAbs(dest) {
+		dest = filepath.Join(s.Config.WorkingDir, dest)
+		// Add the leading slash back if we had it before
+		if hasLeadingSlash {
+			dest += string(os.PathSeparator)
+		}
+	}
+
+	for i, arg := range args {
+		if !isURL(arg) {
+			continue
+		}
+
+		fileName, err := makeFileName(b.cfg.CacheDir, arg)
+		if err != nil {
+			return s, err
+		}
+
+		if err := downloadURL(arg, fileName); err != nil {
+			return s, err
+		}
+
+		args[i] = fileName
+	}
+
+	return copyFiles(b, args, "ADD")
+
 }
 
 func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
@@ -248,6 +362,8 @@ func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string) (
 
 func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, error) {
 
+	log.Infof("searching patterns, %# v\n", pretty.Formatter(includes))
+
 	result := []*uploadFile{}
 	seen := map[string]struct{}{}
 
@@ -263,6 +379,21 @@ func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, erro
 	excludes, nestedPatterns := findNestedPatterns(excludes)
 
 	for _, pattern := range includes {
+
+		if filepath.IsAbs(pattern) {
+
+			info, err := os.Stat(pattern)
+			if err != nil {
+				return nil, err
+			}
+
+			result = append(result, &uploadFile{
+				src:  pattern,
+				dest: filepath.Base(pattern),
+				size: info.Size(),
+			})
+			continue
+		}
 
 		matches, err := filepath.Glob(filepath.Join(srcPath, pattern))
 		if err != nil {
@@ -345,10 +476,9 @@ func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, erro
 				}
 
 				result = append(result, &uploadFile{
-					src:     path,
-					dest:    resultFilePath,
-					relDest: relFilePath,
-					size:    info.Size(),
+					src:  path,
+					dest: resultFilePath,
+					size: info.Size(),
 				})
 
 				return nil

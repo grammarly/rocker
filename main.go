@@ -367,6 +367,7 @@ func buildCommand(c *cli.Context) {
 		NoCache:       c.Bool("no-cache"),
 		ReloadCache:   c.Bool("reload-cache"),
 		Push:          c.Bool("push"),
+		CacheDir:      cacheDir,
 	})
 
 	plan, err := build.NewPlan(rockerfile.Commands(), true)
