@@ -17,10 +17,8 @@
 package build
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/grammarly/rocker/src/imagename"
-	"github.com/grammarly/rocker/src/shellparser"
-	"github.com/grammarly/rocker/src/util"
 	"io/ioutil"
 	"os"
 	"path"
@@ -30,11 +28,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/grammarly/rocker/src/imagename"
+	"github.com/grammarly/rocker/src/shellparser"
+	"github.com/grammarly/rocker/src/util"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/nat"
 	"github.com/docker/docker/pkg/units"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/go-yaml/yaml"
 	"github.com/kr/pretty"
 )
 
@@ -984,6 +985,12 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 			return b.state, err
 		}
 		artifact.SetDigest(digest)
+
+		if strings.HasPrefix(image.String(), "dockerhub.grammarly.io/grammarly.io/") {
+			artifact.Appc.Image = image.Name
+			artifact.Appc.Tag = image.Tag
+			artifact.Appc.Digest = digest
+		}
 	} else {
 		log.Infof("| Don't push. Pass --push flag to actually push to the registry")
 	}
@@ -999,7 +1006,7 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 		artifacts := imagename.Artifacts{
 			RockerArtifacts: []imagename.Artifact{artifact},
 		}
-		content, err := yaml.Marshal(artifacts)
+		content, err := json.Marshal(artifacts)
 		if err != nil {
 			return b.state, err
 		}

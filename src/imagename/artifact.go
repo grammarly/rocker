@@ -33,6 +33,11 @@ type Artifact struct {
 	ImageID     string     `yaml:"ImageID"`
 	Addressable string     `yaml:"Addressable"`
 	BuildTime   time.Time  `yaml:"BuildTime"`
+	Appc        struct {
+		Image  string
+		Tag    string
+		Digest string
+	} `yaml:"Appc,omitempty",json:"Appc,omitempty"`
 }
 
 // Artifacts is a collection of Artifact entities
@@ -43,7 +48,7 @@ type Artifacts struct {
 // GetFileName constructs the base file name out of the image info
 func (a *Artifact) GetFileName() string {
 	imageName := strings.Replace(a.Name.Name, "/", "_", -1)
-	return fmt.Sprintf("%s_%s.yml", imageName, a.Name.GetTag())
+	return fmt.Sprintf("%s_%s.json", imageName, a.Name.GetTag())
 }
 
 // SetDigest sets the digest and forms the Addressable property

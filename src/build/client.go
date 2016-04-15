@@ -22,14 +22,17 @@ import (
 	"io"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
+	"net/url"
+	"regexp"
+
+	"github.com/grammarly/rocker/src/appc"
 	"github.com/grammarly/rocker/src/dockerclient"
 	"github.com/grammarly/rocker/src/imagename"
 	"github.com/grammarly/rocker/src/storage/s3"
 	"github.com/grammarly/rocker/src/textformatter"
-	"net/url"
-	"regexp"
 
 	"github.com/docker/docker/pkg/units"
 
@@ -67,6 +70,7 @@ type DockerClientOptions struct {
 	Auth                     *docker.AuthConfigurations
 	Log                      *logrus.Logger
 	S3storage                *s3.StorageS3
+	Appc                     *appc.Appc
 	StdoutContainerFormatter logrus.Formatter
 	StderrContainerFormatter logrus.Formatter
 	PushRetryCount           int
@@ -79,6 +83,7 @@ type DockerClient struct {
 	auth                     *docker.AuthConfigurations
 	log                      *logrus.Logger
 	s3storage                *s3.StorageS3
+	appc                     *appc.Appc
 	stdoutContainerFormatter logrus.Formatter
 	stderrContainerFormatter logrus.Formatter
 	pushRetryCount           int
@@ -106,10 +111,11 @@ func NewDockerClient(options DockerClientOptions) *DockerClient {
 	unixSockPath := u.Path
 
 	return &DockerClient{
-		client:                   options.Client,
-		auth:                     options.Auth,
-		log:                      log,
-		s3storage:                options.S3storage,
+		client:    options.Client,
+		auth:      options.Auth,
+		log:       log,
+		s3storage: options.S3storage,
+		appc:      options.Appc,
 		stdoutContainerFormatter: options.StdoutContainerFormatter,
 		stderrContainerFormatter: options.StderrContainerFormatter,
 		pushRetryCount:           options.PushRetryCount,
@@ -550,6 +556,10 @@ func (c *DockerClient) pushImageInner(imageName string) (digest string, err erro
 	matches := captureDigest.FindStringSubmatch(buf.String())
 	if len(matches) > 0 {
 		digest = matches[1]
+	}
+
+	if strings.HasPrefix(imageName, "dockerhub.grammarly.io/grammarly.io/") {
+		return c.appc.Push(imageName, digest)
 	}
 
 	return digest, nil

@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/grammarly/rocker/src/appc"
 	"github.com/grammarly/rocker/src/build"
 	"github.com/grammarly/rocker/src/debugtrap"
 	"github.com/grammarly/rocker/src/dockerclient"
@@ -342,10 +343,11 @@ func buildCommand(c *cli.Context) {
 	}
 
 	options := build.DockerClientOptions{
-		Client:                   dockerClient,
-		Auth:                     initAuth(c),
-		Log:                      log.StandardLogger(),
-		S3storage:                s3.New(dockerClient, cacheDir),
+		Client:    dockerClient,
+		Auth:      initAuth(c),
+		Log:       log.StandardLogger(),
+		S3storage: s3.New(dockerClient, cacheDir),
+		Appc:      appc.New(dockerClient),
 		StdoutContainerFormatter: stdoutContainerFormatter,
 		StderrContainerFormatter: stderrContainerFormatter,
 		PushRetryCount:           c.Int("push-retry"),
