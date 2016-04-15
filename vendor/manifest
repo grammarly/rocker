@@ -8,6 +8,40 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/appc/docker2aci",
+			"repository": "https://github.com/appc/docker2aci",
+			"revision": "a560d94d9c8a026ecf2f4b722d2d6b4e661da983",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/appc/spec/aci",
+			"repository": "https://github.com/appc/spec",
+			"revision": "80ab01d5c927e5daad40de1f0bc322d32e52e0cf",
+			"branch": "master",
+			"path": "/aci"
+		},
+		{
+			"importpath": "github.com/appc/spec/pkg/acirenderer",
+			"repository": "https://github.com/appc/spec",
+			"revision": "80ab01d5c927e5daad40de1f0bc322d32e52e0cf",
+			"branch": "master",
+			"path": "/pkg/acirenderer"
+		},
+		{
+			"importpath": "github.com/appc/spec/pkg/tarheader",
+			"repository": "https://github.com/appc/spec",
+			"revision": "80ab01d5c927e5daad40de1f0bc322d32e52e0cf",
+			"branch": "master",
+			"path": "/pkg/tarheader"
+		},
+		{
+			"importpath": "github.com/appc/spec/schema",
+			"repository": "https://github.com/appc/spec",
+			"revision": "80ab01d5c927e5daad40de1f0bc322d32e52e0cf",
+			"branch": "master",
+			"path": "/schema"
+		},
+		{
 			"importpath": "github.com/aws/aws-sdk-go",
 			"repository": "https://github.com/aws/aws-sdk-go",
 			"revision": "b7b1a098eeebcdf7db0af5818e255dc8569b88ce",
@@ -18,6 +52,33 @@
 			"repository": "https://github.com/codegangsta/cli",
 			"revision": "f9982619ccace7df963bb7f6d1de3a6f014ff709",
 			"branch": "master"
+		},
+		{
+			"importpath": "github.com/coreos/go-semver/semver",
+			"repository": "https://github.com/coreos/go-semver",
+			"revision": "37bb68f88c4418889f0a9bfea4a5333d36bd15d5",
+			"branch": "master",
+			"path": "/semver"
+		},
+		{
+			"importpath": "github.com/coreos/ioprogress",
+			"repository": "https://github.com/coreos/ioprogress",
+			"revision": "4637e494fd9b23c5565ee193e89f91fdc1639bc0",
+			"branch": "master"
+		},
+		{
+			"importpath": "github.com/docker/distribution/digest",
+			"repository": "https://github.com/docker/distribution",
+			"revision": "05b0ab0302ad33f61218e2ecf263cd102b368390",
+			"branch": "master",
+			"path": "/digest"
+		},
+		{
+			"importpath": "github.com/docker/distribution/reference",
+			"repository": "https://github.com/docker/distribution",
+			"revision": "05b0ab0302ad33f61218e2ecf263cd102b368390",
+			"branch": "master",
+			"path": "/reference"
 		},
 		{
 			"importpath": "github.com/docker/docker/pkg/fileutils",
@@ -119,8 +180,7 @@
 			"importpath": "github.com/fsouza/go-dockerclient",
 			"repository": "https://github.com/fsouza/go-dockerclient",
 			"revision": "4ac6ea1aa6ee9be15e66aa694c4b3f909df239f4",
-			"branch": "master",
-			"notests": true
+			"branch": "master"
 		},
 		{
 			"importpath": "github.com/go-ini/ini",
@@ -165,6 +225,12 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/spf13/pflag",
+			"repository": "https://github.com/spf13/pflag",
+			"revision": "8f6a28b0916586e7f22fe931ae2fcfc380b1c0e6",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/stretchr/objx",
 			"repository": "https://github.com/stretchr/objx",
 			"revision": "cbeaeb16a013161a98496fad62933b1d21786672",
@@ -180,6 +246,47 @@
 			"importpath": "github.com/wmark/semver",
 			"repository": "https://github.com/wmark/semver",
 			"revision": "461c06b538be53cc0339815001a398e29ace025b",
+			"branch": "master"
+		},
+		{
+			"importpath": "go4.org/errorutil",
+			"repository": "https://github.com/camlistore/go4",
+			"revision": "03efcb870d84809319ea509714dd6d19a1498483",
+			"branch": "master",
+			"path": "/errorutil"
+		},
+		{
+			"importpath": "golang.org/x/crypto/ssh/terminal",
+			"repository": "https://go.googlesource.com/crypto",
+			"revision": "1777f3ba8c1fed80fcaec3317e3aaa4f627764d2",
+			"branch": "master",
+			"path": "/ssh/terminal"
+		},
+		{
+			"importpath": "k8s.io/kubernetes/pkg/api/resource",
+			"repository": "https://github.com/kubernetes/kubernetes",
+			"revision": "16e2e87a897933a1d7eeacedcb73440d244274b1",
+			"branch": "master",
+			"path": "/pkg/api/resource"
+		},
+		{
+			"importpath": "k8s.io/kubernetes/pkg/conversion",
+			"repository": "https://github.com/kubernetes/kubernetes",
+			"revision": "16e2e87a897933a1d7eeacedcb73440d244274b1",
+			"branch": "master",
+			"path": "/pkg/conversion"
+		},
+		{
+			"importpath": "k8s.io/kubernetes/third_party/forked/reflect",
+			"repository": "https://github.com/kubernetes/kubernetes",
+			"revision": "16e2e87a897933a1d7eeacedcb73440d244274b1",
+			"branch": "master",
+			"path": "/third_party/forked/reflect"
+		},
+		{
+			"importpath": "speter.net/go/exp/math/dec/inf",
+			"repository": "https://code.google.com/p/go-decimal-inf.exp",
+			"revision": "42ca6cd68aa922bc3f32f1e056e61b65945d9ad7",
 			"branch": "master"
 		}
 	]
