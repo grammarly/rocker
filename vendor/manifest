@@ -28,6 +28,13 @@
 			"path": "/pkg/acirenderer"
 		},
 		{
+			"importpath": "github.com/appc/spec/pkg/device",
+			"repository": "https://github.com/appc/spec",
+			"revision": "80ab01d5c927e5daad40de1f0bc322d32e52e0cf",
+			"branch": "master",
+			"path": "/pkg/device"
+		},
+		{
 			"importpath": "github.com/appc/spec/pkg/tarheader",
 			"repository": "https://github.com/appc/spec",
 			"revision": "80ab01d5c927e5daad40de1f0bc322d32e52e0cf",
