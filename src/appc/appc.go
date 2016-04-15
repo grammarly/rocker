@@ -19,18 +19,21 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
+// Appc is appc
 type Appc struct {
 	client  *docker.Client
 	s3      *s3.S3
 	retryer *Retryer
 }
 
+// Manifest is manifest
 type Manifest struct {
 	Config   string
 	RepoTags []string
 	Layers   []string
 }
 
+// New makes new Appc
 func New(client *docker.Client) *Appc {
 	retryer := NewRetryer(400, 6)
 
@@ -52,6 +55,7 @@ func New(client *docker.Client) *Appc {
 	}
 }
 
+// Push converts docker image to ACI and pushes to S3
 func (a *Appc) Push(imageName, digest string) (digest2 string, err error) {
 	img := imagename.NewFromString(imageName)
 
