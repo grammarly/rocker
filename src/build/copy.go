@@ -55,11 +55,6 @@ type uploadFile struct {
 	size    int64
 }
 
-func isURL(u string) bool {
-	return (7 <= len(u) && u[:7] == "http://") ||
-		(8 <= len(u) && u[:8] == "https://")
-}
-
 func makeFileName(base, u string) (r string, err error) {
 	h := sha256.Sum256([]byte(u))
 	name := fmt.Sprintf("%x", h)
