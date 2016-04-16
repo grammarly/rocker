@@ -19,14 +19,10 @@ package build
 import (
 	"archive/tar"
 	"bufio"
-	"crypto/sha256"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net/http"
-	"net/url"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -53,63 +49,6 @@ type uploadFile struct {
 	dest    string
 	relDest string
 	size    int64
-}
-
-func makeFileName(base, u string) (r string, err error) {
-	h := sha256.Sum256([]byte(u))
-	name := fmt.Sprintf("%x", h)
-
-	u1, err := url.Parse(u)
-	if err != nil {
-		return "", err
-	}
-
-	baseName := filepath.Base(u1.Path)
-
-	if baseName == "" {
-		return "", fmt.Errorf("unable to determine filename from url: %s", u)
-	}
-
-	return path.Join(base, "add_url_blob", name, baseName), nil
-}
-
-func downloadURL(u, fileName string) (err error) {
-
-	log.Infof("Downloading `%s` into `%s`", u, fileName)
-
-	_, err = url.Parse(u)
-	if err != nil {
-		return err
-	}
-
-	response, err := http.Get(u)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode < 200 || 300 <= response.StatusCode {
-		return fmt.Errorf("Got non-2xx status for `%s`: %s", u, response.Status)
-	}
-
-	err = os.MkdirAll(filepath.Dir(fileName), 0755)
-	if err != nil {
-		return err
-	}
-
-	f, err := os.Create(fileName)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	_, err = io.Copy(f, response.Body)
-	if err != nil {
-		return err
-	}
-
-	return nil
-
 }
 
 func addFiles(b *Build, args []string) (s State, err error) {
@@ -139,21 +78,17 @@ func addFiles(b *Build, args []string) (s State, err error) {
 		}
 	}
 
+	// XXX create it at the build initialization time
+	uc := b.urlCache
+
 	for i, arg := range args {
 		if !isURL(arg) {
 			continue
 		}
 
-		fileName, err := makeFileName(b.cfg.CacheDir, arg)
-		if err != nil {
+		if _, err = uc.Get(arg); err != nil {
 			return s, err
 		}
-
-		if err := downloadURL(arg, fileName); err != nil {
-			return s, err
-		}
-
-		args[i] = fileName
 	}
 
 	return copyFiles(b, args, "ADD")
@@ -370,22 +305,24 @@ func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, erro
 		return nil, err
 	}
 
+	// XXX How should we get this guy here?
+	urlCache = b.urlCache
+
 	// TODO: here we remove some exclude patterns, how about patDirs?
 	excludes, nestedPatterns := findNestedPatterns(excludes)
 
 	for _, pattern := range includes {
 
-		if filepath.IsAbs(pattern) {
-
-			info, err := os.Stat(pattern)
+		if isUrl(pattern) {
+			ui, err := urlCache.GetInfo(pattern)
 			if err != nil {
 				return nil, err
 			}
 
 			result = append(result, &uploadFile{
-				src:  pattern,
-				dest: filepath.Base(pattern),
-				size: info.Size(),
+				src:  ui.FileName,
+				dest: ui.BaseName,
+				size: ui.Size,
 			})
 			continue
 		}
