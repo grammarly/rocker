@@ -80,6 +80,8 @@ type Build struct {
 
 	currentExportContainerName string
 	prevExportContainerID      string
+
+	urlFetcher URLFetcher
 }
 
 // New creates the new build object
@@ -91,6 +93,9 @@ func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build 
 		client:     client,
 		exports:    []string{},
 	}
+
+	b.urlFetcher = NewURLFetcherFS(cfg.CacheDir)
+
 	b.state = NewState(b)
 	return b
 }

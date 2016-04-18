@@ -78,15 +78,14 @@ func addFiles(b *Build, args []string) (s State, err error) {
 		}
 	}
 
-	// XXX create it at the build initialization time
-	uc := b.urlCache
+	uf := b.urlFetcher
 
-	for i, arg := range args {
+	for _, arg := range args {
 		if !isURL(arg) {
 			continue
 		}
 
-		if _, err = uc.Get(arg); err != nil {
+		if _, err = uf.Get(arg, b.cfg.NoCache); err != nil {
 			return s, err
 		}
 	}
@@ -125,7 +124,7 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 		}
 	}
 
-	if u, err = makeTarStream(b.cfg.ContextDir, dest, cmdName, src, excludes); err != nil {
+	if u, err = makeTarStream(b.cfg.ContextDir, dest, cmdName, src, excludes, b.urlFetcher); err != nil {
 		return s, err
 	}
 
@@ -170,7 +169,7 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 
 	// We need to make a new tar stream, because the previous one has been
 	// read by the tarsum; maybe, optimize this in future
-	if u, err = makeTarStream(b.cfg.ContextDir, dest, cmdName, src, excludes); err != nil {
+	if u, err = makeTarStream(b.cfg.ContextDir, dest, cmdName, src, excludes, b.urlFetcher); err != nil {
 		return s, err
 	}
 
@@ -183,14 +182,14 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 	return s, nil
 }
 
-func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string) (u *upload, err error) {
+func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string, urlFetcher URLFetcher) (u *upload, err error) {
 
 	u = &upload{
 		src:  srcPath,
 		dest: dest,
 	}
 
-	if u.files, err = listFiles(srcPath, includes, excludes); err != nil {
+	if u.files, err = listFiles(srcPath, includes, excludes, urlFetcher); err != nil {
 		return u, err
 	}
 
@@ -290,14 +289,13 @@ func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string) (
 	return u, nil
 }
 
-func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, error) {
+func listFiles(srcPath string, includes, excludes []string, urlFetcher URLFetcher) ([]*uploadFile, error) {
 
 	log.Infof("searching patterns, %# v\n", pretty.Formatter(includes))
 
 	result := []*uploadFile{}
 	seen := map[string]struct{}{}
 
-	// TODO: support urls
 	// TODO: support local archives (and maybe a remote archives as well)
 
 	excludes, patDirs, exceptions, err := fileutils.CleanPatterns(excludes)
@@ -305,16 +303,17 @@ func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, erro
 		return nil, err
 	}
 
-	// XXX How should we get this guy here?
-	urlCache = b.urlCache
-
 	// TODO: here we remove some exclude patterns, how about patDirs?
 	excludes, nestedPatterns := findNestedPatterns(excludes)
 
 	for _, pattern := range includes {
 
-		if isUrl(pattern) {
-			ui, err := urlCache.GetInfo(pattern)
+		if isURL(pattern) {
+			if urlFetcher == nil {
+				return nil, fmt.Errorf("want to list a downloaded url '%s', but URLFetcher is not present", pattern)
+			}
+
+			ui, err := urlFetcher.GetInfo(pattern)
 			if err != nil {
 				return nil, err
 			}
