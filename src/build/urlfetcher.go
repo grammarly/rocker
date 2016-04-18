@@ -192,7 +192,7 @@ func (info *URLInfo) download() (err error) {
 
 	info.Size = n
 
-	if etag, ok := response.Header["ETag"]; ok {
+	if etag, ok := response.Header["Etag"]; ok {
 		info.HasEtag = true
 		info.Etag = etag[0]
 	}
