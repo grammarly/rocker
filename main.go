@@ -298,6 +298,10 @@ func buildCommand(c *cli.Context) {
 		}
 	}
 
+	if dir, err := os.Stat(contextDir); err != nil || !dir.IsDir() {
+		log.Errorf("Context directory %s is not actualy directory.", contextDir)
+		os.Exit(2)
+	}
 	log.Debugf("Context directory: %s", contextDir)
 
 	if c.Bool("print") {
