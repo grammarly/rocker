@@ -23,6 +23,7 @@ type URLFetcher interface {
 // URLFetcherFS is an URLFetcher backed by FS cache
 type URLFetcherFS struct {
 	cacheDir string
+	client   *http.Client
 	noCache  bool
 }
 
@@ -156,7 +157,14 @@ func (info *URLInfo) isEtagValid() bool {
 func (info *URLInfo) download() (err error) {
 	log.Infof("Downloading `%s` into `%s`", info.URL, info.FileName)
 
-	response, err := http.Get(info.URL)
+	var httpClient *http.Client
+	if info.Fetcher.client == nil {
+		httpClient = http.DefaultClient
+	} else {
+		httpClient = info.Fetcher.client
+	}
+
+	response, err := httpClient.Get(info.URL)
 	if err != nil {
 		return err
 	}
