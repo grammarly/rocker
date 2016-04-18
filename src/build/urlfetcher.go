@@ -14,14 +14,14 @@ import (
 	log "github.com/Sirupsen/logrus"
 )
 
-// URLCache is a persistent cache for downloadable urls
-type URLCache interface {
-	Get(string) (*URLInfo, error)
-	GetInfo(string) (*URLInfo, error)
+// URLFetcher is an interface to fetch urls from internets
+type URLFetcher interface {
+	Get(url string, noCache bool) (*URLInfo, error)
+	GetInfo(url string) (*URLInfo, error)
 }
 
-// URLCacheFS is an FS-backed URLCache implementation
-type URLCacheFS struct {
+// URLFetcherFS is an URLFetcher backed by FS cache
+type URLFetcherFS struct {
 	cacheDir string
 }
 
@@ -34,23 +34,20 @@ type URLInfo struct {
 	HasEtag  bool
 	Etag     string
 	Size     int64
-	Cache    *URLCacheFS `json:"-"`
+	Fetcher  *URLFetcherFS `json:"-"`
 }
 
-func makeURLCacheFS(base string) (cache *URLCacheFS, err error) {
-	cacheDir := filepath.Join(base, "download_cache")
+// NewURLFetcherFS returns an instance of URLFetcherFS, initialized to
+// live in <base>/url_fetcher_cache
+func NewURLFetcherFS(base string) (cache *URLFetcherFS) {
+	cacheDir := filepath.Join(base, "url_fetcher_cache")
 
-	err = os.MkdirAll(cacheDir, 0755)
-	if err != nil {
-		return nil, err
-	}
-
-	return &URLCacheFS{cacheDir}, nil
+	return &URLFetcherFS{cacheDir}
 }
 
 // GetInfo retrieves stored URLInfo data
-func (uc *URLCacheFS) GetInfo(url0 string) (info *URLInfo, err error) {
-	info, ok, err := uc.getURLInfo(url0)
+func (uf *URLFetcherFS) GetInfo(url0 string) (info *URLInfo, err error) {
+	info, ok, err := uf.getURLInfo(url0)
 	if err != nil {
 		return nil, err
 	}
@@ -62,14 +59,14 @@ func (uc *URLCacheFS) GetInfo(url0 string) (info *URLInfo, err error) {
 	return info, nil
 }
 
-// Get downloads url, storing it into cache
-func (uc *URLCacheFS) Get(url0 string) (info *URLInfo, err error) {
-	info, ok, err := uc.getURLInfo(url0)
+// Get downloads url, stores file and metadata in cache
+func (uf *URLFetcherFS) Get(url0 string, noCache bool) (info *URLInfo, err error) {
+	info, ok, err := uf.getURLInfo(url0)
 	if err != nil {
 		return nil, err
 	}
 
-	if ok && info.isEtagValid() {
+	if !noCache && ok && info.isEtagValid() {
 		return info, nil
 	}
 
@@ -81,8 +78,8 @@ func (uc *URLCacheFS) Get(url0 string) (info *URLInfo, err error) {
 	return info, nil
 }
 
-func (uc *URLCacheFS) getURLInfo(url0 string) (info *URLInfo, ok bool, err error) {
-	info, err = uc.makeURLInfo(url0)
+func (uf *URLFetcherFS) getURLInfo(url0 string) (info *URLInfo, ok bool, err error) {
+	info, err = uf.makeURLInfo(url0)
 	if err != nil {
 		return nil, false, err
 	}
@@ -95,7 +92,7 @@ func (uc *URLCacheFS) getURLInfo(url0 string) (info *URLInfo, ok bool, err error
 	return info, ok, nil
 }
 
-func (uc *URLCacheFS) makeURLInfo(u string) (info *URLInfo, err error) {
+func (uf *URLFetcherFS) makeURLInfo(u string) (info *URLInfo, err error) {
 	if !isURL(u) {
 		return nil, fmt.Errorf("expecting http:// or https:// url, got `%s` instead", u)
 	}
@@ -118,13 +115,13 @@ func (uc *URLCacheFS) makeURLInfo(u string) (info *URLInfo, err error) {
 		ID:       id,
 		URL:      u,
 		BaseName: baseName,
-		Cache:    uc,
+		Fetcher:  uf,
 	}
 	info.FileName = info.getBlobFileName()
 	return info, nil
 }
 
-func (uc *URLCacheFS) makeID(u string) (id string) {
+func (uf *URLFetcherFS) makeID(u string) (id string) {
 	h := sha256.Sum256([]byte(u))
 	id = fmt.Sprintf("%x", h)
 	return id
@@ -136,7 +133,7 @@ func isURL(u string) bool {
 }
 
 func (info *URLInfo) getBlobFileName() (fileName string) {
-	return filepath.Join(info.Cache.cacheDir, info.ID[:2], info.ID)
+	return filepath.Join(info.Fetcher.cacheDir, info.ID[:2], info.ID)
 }
 
 func (info *URLInfo) getInfoFileName() (fileName string) {
