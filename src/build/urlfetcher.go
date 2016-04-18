@@ -16,13 +16,14 @@ import (
 
 // URLFetcher is an interface to fetch urls from internets
 type URLFetcher interface {
-	Get(url string, noCache bool) (*URLInfo, error)
+	Get(url string) (*URLInfo, error)
 	GetInfo(url string) (*URLInfo, error)
 }
 
 // URLFetcherFS is an URLFetcher backed by FS cache
 type URLFetcherFS struct {
 	cacheDir string
+	noCache  bool
 }
 
 // URLInfo is a metadata representing stored or to-be-stored url
@@ -39,10 +40,14 @@ type URLInfo struct {
 
 // NewURLFetcherFS returns an instance of URLFetcherFS, initialized to
 // live in <base>/url_fetcher_cache
-func NewURLFetcherFS(base string) (cache *URLFetcherFS) {
+func NewURLFetcherFS(base string, noCache bool, httpClient *http.Client) (cache *URLFetcherFS) {
 	cacheDir := filepath.Join(base, "url_fetcher_cache")
 
-	return &URLFetcherFS{cacheDir}
+	return &URLFetcherFS{
+		cacheDir: cacheDir,
+		client:   httpClient,
+		noCache:  noCache,
+	}
 }
 
 // GetInfo retrieves stored URLInfo data
@@ -60,13 +65,13 @@ func (uf *URLFetcherFS) GetInfo(url0 string) (info *URLInfo, err error) {
 }
 
 // Get downloads url, stores file and metadata in cache
-func (uf *URLFetcherFS) Get(url0 string, noCache bool) (info *URLInfo, err error) {
+func (uf *URLFetcherFS) Get(url0 string) (info *URLInfo, err error) {
 	info, ok, err := uf.getURLInfo(url0)
 	if err != nil {
 		return nil, err
 	}
 
-	if !noCache && ok && info.isEtagValid() {
+	if !uf.noCache && ok && info.isEtagValid() {
 		return info, nil
 	}
 

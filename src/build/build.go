@@ -94,7 +94,7 @@ func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build 
 		exports:    []string{},
 	}
 
-	b.urlFetcher = NewURLFetcherFS(cfg.CacheDir)
+	b.urlFetcher = NewURLFetcherFS(cfg.CacheDir, cfg.NoCache, nil)
 
 	b.state = NewState(b)
 	return b

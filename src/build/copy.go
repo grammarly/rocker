@@ -85,7 +85,7 @@ func addFiles(b *Build, args []string) (s State, err error) {
 			continue
 		}
 
-		if _, err = uf.Get(arg, b.cfg.NoCache); err != nil {
+		if _, err = uf.Get(arg); err != nil {
 			return s, err
 		}
 	}
