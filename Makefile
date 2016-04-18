@@ -54,7 +54,6 @@ lint:
 	$(foreach file,$(SRCS),fgt golint $(file) || exit;)
 
 vet:
-	@ go get golang.org/x/tools/cmd/vet
 	$(foreach pkg,$(PKGS),fgt go vet $(pkg) || exit;)
 
 gocyclo:
