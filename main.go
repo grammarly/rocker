@@ -79,16 +79,20 @@ func main() {
 
 	app.Flags = append([]cli.Flag{
 		cli.BoolFlag{
-			Name: "verbose, vv, D",
+			Name:  "verbose, vv, D",
+			Usage: "Be verbose",
 		},
 		cli.BoolFlag{
-			Name: "json",
+			Name:  "json",
+			Usage: "Print output in json",
 		},
 		cli.BoolTFlag{
-			Name: "colors",
+			Name:  "colors",
+			Usage: "Make output colored",
 		},
 		cli.BoolFlag{
-			Name: "cmd, C",
+			Name:  "cmd, C",
+			Usage: "Print command-line that was used to exec",
 		},
 	}, dockerclient.GlobalCliParams()...)
 
@@ -310,7 +314,10 @@ func buildCommand(c *cli.Context) {
 		}
 	}
 
-	dockerClient, err := dockerclient.NewFromCli(c)
+	var config *dockerclient.Config
+	config = dockerclient.NewConfigFromCli(c)
+
+	dockerClient, err := dockerclient.NewFromConfig(config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -342,6 +349,7 @@ func buildCommand(c *cli.Context) {
 		StdoutContainerFormatter: stdoutContainerFormatter,
 		StderrContainerFormatter: stderrContainerFormatter,
 		PushRetryCount:           c.Int("push-retry"),
+		Host:                     config.Host,
 	}
 	client := build.NewDockerClient(options)
 

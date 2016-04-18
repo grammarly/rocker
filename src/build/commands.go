@@ -329,7 +329,7 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	}(s.NoCache.ContainerID)
 
 	var img *docker.Image
-	if img, err = b.client.CommitContainer(s, commits); err != nil {
+	if img, err = b.client.CommitContainer(s); err != nil {
 		return s, err
 	}
 
@@ -1131,6 +1131,9 @@ func (c *CommandMount) Execute(b *Build) (s State, err error) {
 
 		// MOUNT dir
 		case false:
+			if !path.IsAbs(arg) {
+				return s, fmt.Errorf("Invalid volume destination path: '%s', mount path must be absolute..", arg)
+			}
 			c, err := b.getVolumeContainer(arg)
 			if err != nil {
 				return s, err
@@ -1141,7 +1144,7 @@ func (c *CommandMount) Execute(b *Build) (s State, err error) {
 			}
 
 			s.NoCache.HostConfig.Binds = append(s.NoCache.HostConfig.Binds,
-				mountsToBinds(c.Mounts)...)
+				mountsToBinds(c.Mounts, "")...)
 
 			commitIds = append(commitIds, strings.TrimLeft(c.Name, "/")+":"+arg)
 		}
@@ -1192,10 +1195,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	// EXPORT /my/dir /stuff/ --> /EXPORT_VOLUME/stuff/my_dir
 	// EXPORT /my/dir/* / --> /EXPORT_VOLUME/stuff/my_dir
 
-	exportsContainer, err := b.getExportsContainer()
-	if err != nil {
-		return s, err
-	}
+	s.Commit("EXPORT %q to %s, prev_export_container_salt: %s", src, dest, b.prevExportContainerID)
 
 	// build the command
 	cmdDestPath, err := util.ResolvePath(ExportsPath, dest)
@@ -1203,15 +1203,25 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		return s, fmt.Errorf("Invalid EXPORT destination: %s", dest)
 	}
 
-	s.Commit("EXPORT %q to %.12s:%s", src, exportsContainer.ID, dest)
-
-	s, hit, err := b.probeCache(s)
+	s, hit, err := b.probeCacheAndPreserveCommits(s)
 	if err != nil {
 		return s, err
 	}
 	if hit {
-		b.exports = append(b.exports, s.ExportsID)
+		b.prevExportContainerID = s.ExportsID
+		b.currentExportContainerName = exportsContainerName(s.ParentID, s.GetCommits())
+		log.Infof("| Export container: %s", b.currentExportContainerName)
+		log.Debugf("===EXPORT CONTAINER NAME: %s ('%s', '%s')", b.currentExportContainerName, s.ParentID, s.GetCommits())
+		s.CleanCommits()
 		return s, nil
+	}
+
+	prevExportContainerName := b.currentExportContainerName
+	b.currentExportContainerName = exportsContainerName(s.ImageID, s.GetCommits())
+
+	exportsContainer, err := b.getExportsContainerAndSync(b.currentExportContainerName, prevExportContainerName)
+	if err != nil {
+		return s, err
 	}
 
 	// Remember original stuff so we can restore it when we finished
@@ -1221,13 +1231,12 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	defer func() {
 		s = origState
 		s.ExportsID = exportsID
-		b.exports = append(b.exports, exportsID)
+		b.prevExportContainerID = exportsID
 	}()
 
 	// Append exports container as a volume
 	s.NoCache.HostConfig.Binds = append(s.NoCache.HostConfig.Binds,
-		mountsToBinds(exportsContainer.Mounts)...)
-
+		mountsToBinds(exportsContainer.Mounts, "")...)
 	cmd := []string{"/opt/rsync/bin/rsync", "-a", "--delete-during"}
 
 	if b.cfg.Verbose {
@@ -1277,7 +1286,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	if len(args) == 0 {
 		return s, fmt.Errorf("IMPORT requires at least one argument")
 	}
-	if len(b.exports) == 0 {
+	if b.prevExportContainerID == "" {
 		return s, fmt.Errorf("You have to EXPORT something first in order to IMPORT")
 	}
 
@@ -1286,13 +1295,16 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 	// 			 because it was built earlier with the same prerequisites, but the actual
 	// 			 data in the exports container may be from the latest EXPORT of different
 	// 			 build. So we need to prefix ~/.rocker_exports dir with some id somehow.
+	if b.currentExportContainerName == "" {
+		return s, fmt.Errorf("You have to EXPORT something first to do IMPORT")
+	}
 
-	exportsContainer, err := b.getExportsContainer()
+	exportsContainer, err := b.getExportsContainer(b.currentExportContainerName)
 	if err != nil {
 		return s, err
 	}
 
-	log.Infof("| Import from %s (%.12s)", b.exportsContainerName(), exportsContainer.ID)
+	log.Infof("| Import from %s (%.12s)", b.currentExportContainerName, exportsContainer.ID)
 
 	// If only one argument was given to IMPORT, use the same path for destination
 	// IMPORT /my/dir/file.tar --> ADD ./EXPORT_VOLUME/my/dir/file.tar /my/dir/file.tar
@@ -1310,8 +1322,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 		src = append(src, argResolved)
 	}
 
-	sort.Strings(b.exports)
-	s.Commit("IMPORT %q : %q %s", b.exports, src, dest)
+	s.Commit("IMPORT %q : %q %s", b.prevExportContainerID, src, dest)
 
 	// Check cache
 	s, hit, err := b.probeCache(s)
@@ -1346,7 +1357,7 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 
 	// Append exports container as a volume
 	s.NoCache.HostConfig.Binds = append(s.NoCache.HostConfig.Binds,
-		mountsToBinds(exportsContainer.Mounts)...)
+		mountsToBinds(exportsContainer.Mounts, "")...)
 
 	if importID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
@@ -1382,6 +1393,14 @@ func (c *CommandOnbuildWrap) ShouldRun(b *Build) (bool, error) {
 // Execute runs the command
 func (c *CommandOnbuildWrap) Execute(b *Build) (State, error) {
 	return c.cmd.Execute(b)
+}
+
+// ReplaceEnv implements EnvReplacableCommand interface
+func (c *CommandOnbuildWrap) ReplaceEnv(env []string) error {
+	if command, ok := c.cmd.(EnvReplacableCommand); ok {
+		return command.ReplaceEnv(env)
+	}
+	return nil
 }
 
 ////////// Private stuff //////////

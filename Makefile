@@ -54,7 +54,6 @@ lint:
 	$(foreach file,$(SRCS),fgt golint $(file) || exit;)
 
 vet:
-	@ go get golang.org/x/tools/cmd/vet
 	$(foreach pkg,$(PKGS),fgt go vet $(pkg) || exit;)
 
 gocyclo:
@@ -64,7 +63,7 @@ gocyclo:
 test: testdeps fmtcheck vet lint
 	GO15VENDOREXPERIMENT=1 go test ./src/... $(TESTARGS)
 
-integ:
-	GO15VENDOREXPERIMENT=1 go test ./src/... -tags="integration" -run TestInteg_
+test_integration:
+	GO15VENDOREXPERIMENT=1 go test -v ./test/... --args verbosity=0
 
 .PHONY: clean test fmtcheck lint vet gocyclo default
