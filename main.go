@@ -300,7 +300,7 @@ func buildCommand(c *cli.Context) {
 
 	dir, err := os.Stat(contextDir)
 	if err != nil {
-		log.Errorf("Problem with opening directory %s", contextDir)
+		log.Errorf("Problem with opening directory %s, error: %s", contextDir, err)
 		os.Exit(2)
 	}
 	if !dir.IsDir() {
