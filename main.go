@@ -298,6 +298,16 @@ func buildCommand(c *cli.Context) {
 		}
 	}
 
+	dir, err := os.Stat(contextDir)
+	if err != nil {
+		log.Errorf("Problem with opening directory %s, error: %s", contextDir, err)
+		os.Exit(2)
+	}
+	if !dir.IsDir() {
+		log.Errorf("Context directory %s is not a directory.", contextDir)
+		os.Exit(2)
+
+	}
 	log.Debugf("Context directory: %s", contextDir)
 
 	if c.Bool("print") {
