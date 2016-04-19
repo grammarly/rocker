@@ -230,7 +230,10 @@ func (info *URLInfo) download() (err error) {
 		info.Etag = ""
 	}
 
-	info.store()
+	err = info.store()
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
