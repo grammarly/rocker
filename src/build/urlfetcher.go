@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	//"github.com/kr/pretty"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -72,8 +73,15 @@ func (uf *URLFetcherFS) Get(url0 string) (info *URLInfo, err error) {
 		return nil, err
 	}
 
-	if !uf.noCache && ok && info.isEtagValid() {
-		return info, nil
+	if !uf.noCache && ok {
+
+		log.Debugf("Validating %s [%s]", info.URL, info.FileName)
+
+		if info.isEtagValid() {
+			log.Debugf("%s valid!", info.URL)
+
+			return info, nil
+		}
 	}
 
 	err = info.download()
@@ -149,6 +157,28 @@ func (info *URLInfo) getInfoFileName() (fileName string) {
 func (info *URLInfo) isEtagValid() bool {
 	if !info.HasEtag {
 		return false
+	}
+
+	var httpClient *http.Client
+	if info.Fetcher.client == nil {
+		httpClient = http.DefaultClient
+	} else {
+		httpClient = info.Fetcher.client
+	}
+
+	response, err := httpClient.Head(info.URL)
+	if err != nil {
+		return false
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode < 200 || 300 <= response.StatusCode {
+		return false
+	}
+
+	etag, ok := response.Header["Etag"]
+	if ok && 1 <= len(etag) && etag[0] == info.Etag {
+		return true
 	}
 
 	return false
@@ -232,4 +262,9 @@ func (info *URLInfo) store() (err error) {
 		return err
 	}
 	return ioutil.WriteFile(fileName, data, 0644)
+}
+
+func (info *URLInfo) dump() (data string, err error) {
+	data0, err := json.Marshal(info)
+	return string(data0), err
 }
