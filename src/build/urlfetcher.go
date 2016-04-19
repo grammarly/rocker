@@ -238,7 +238,8 @@ func (info *URLInfo) load() (ok bool, err error) {
 	data, err := ioutil.ReadFile(fileName)
 
 	if err != nil {
-		if pe, ok0 := err.(*os.PathError); ok0 && pe.Err == os.ErrNotExist {
+		//if pe, ok0 := err.(*os.PathError); ok0 && pe.Err == os.ErrNotExist {
+		if _, ok0 := err.(*os.PathError); ok0 {
 			return false, nil
 		}
 		return false, fmt.Errorf("Failed to read urlinfo file %s content, error: %s", fileName, err)
