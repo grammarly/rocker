@@ -225,6 +225,9 @@ func (info *URLInfo) download() (err error) {
 	if etag, ok := response.Header["Etag"]; ok {
 		info.HasEtag = true
 		info.Etag = etag[0]
+	} else {
+		info.HasEtag = false
+		info.Etag = ""
 	}
 
 	info.store()
