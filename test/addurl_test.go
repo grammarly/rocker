@@ -416,8 +416,8 @@ func makeTmpDir(t *testing.T, files map[string]string) string {
 		os.RemoveAll(tmpDir)
 		t.Fatal(err)
 	}
-	t.Logf("temp directory: %s", tmpDir)
-	t.Logf("  with files: %# v", pretty.Formatter(files))
+	fmt.Printf("temp directory: %s\n", tmpDir)
+	fmt.Printf("  with files: %# v\n", pretty.Formatter(files))
 	return tmpDir
 }
 
