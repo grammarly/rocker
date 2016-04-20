@@ -16,6 +16,8 @@ import (
 )
 
 func TestAddUrl_Basic(t *testing.T) {
+	tag, cleanup := generateTag("add-url-basic")
+	defer cleanup()
 
 	sampleDir := makeTmpDir(t, map[string]string{
 		"file1.txt": "content1",
@@ -41,7 +43,8 @@ FROM alpine
 ADD %s/file1.txt file2.txt %s/file3.txt /dst/
 MOUNT ` + sampleDir + `:/sample
 RUN diff -r /dst /sample
-`
+TAG ` + tag
+
 	Rockerfile = fmt.Sprintf(Rockerfile, server.URL, server.URL)
 
 	cacheDir := makeTmpDir(t, map[string]string{})
@@ -58,6 +61,8 @@ RUN diff -r /dst /sample
 }
 
 func TestAddUrl_BuildCacheHit(t *testing.T) {
+	tag, cleanup := generateTag("add-url-build-cache-hit")
+	defer cleanup()
 
 	sampleDir := makeTmpDir(t, map[string]string{
 		"file1.txt": "content1",
@@ -94,7 +99,7 @@ FROM alpine
 ADD %s/file1.txt file2.txt %s/file3.txt /dst/
 MOUNT ` + sampleDir + `:/sample
 RUN diff -r /dst /sample
-`
+TAG ` + tag
 	Rockerfile = fmt.Sprintf(Rockerfile, server.URL, server.URL)
 
 	cacheDir := makeTmpDir(t, map[string]string{})
@@ -112,16 +117,27 @@ RUN diff -r /dst /sample
 	assert.Equal(t, 1, file1Hits, "file1 dowloaded at the time of first build")
 	assert.Equal(t, 1, file3Hits, "file1 dowloaded at the time of first build")
 
-	// build container again
+	sha1, err := getImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	err = runRockerBuildWdWithOptions(buildDir, "-cache-dir", cacheDir)
 	assert.Nil(t, err, "no difference in downloaded and added files")
 	assert.Equal(t, 2, file1Hits, "file1 dowloaded at the time of second build")
 	assert.Equal(t, 2, file3Hits, "file1 dowloaded at the time of second build")
 
-	// XXX ensure cache isn't invalidated
+	sha2, err := getImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, sha1, sha2, "build cache isn't invalidated")
 }
 
 func TestAddUrl_CacheHit(t *testing.T) {
+	tag, cleanup := generateTag("add-url-cache-hit")
+	defer cleanup()
 
 	sampleDir := makeTmpDir(t, map[string]string{
 		"file1.txt": "content1",
@@ -158,7 +174,7 @@ FROM alpine
 ADD %s/file1.txt file2.txt %s/file3.txt /dst/
 MOUNT ` + sampleDir + `:/sample
 RUN diff -r /dst /sample
-`
+TAG ` + tag
 	Rockerfile = fmt.Sprintf(Rockerfile, server.URL, server.URL)
 
 	cacheDir := makeTmpDir(t, map[string]string{})
@@ -175,17 +191,26 @@ RUN diff -r /dst /sample
 	assert.Nil(t, err, "no difference in downloaded and added files")
 	assert.Equal(t, 1, file1Hits, "file1 dowloaded at the time of first build")
 	assert.Equal(t, 1, file3Hits, "file1 dowloaded at the time of first build")
+	sha1, err := getImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// build container again
 	err = runRockerBuildWdWithOptions(buildDir, "-cache-dir", cacheDir)
 	assert.Nil(t, err, "no difference in downloaded and added files")
 	assert.Equal(t, 1, file1Hits, "file1 isn't dowloaded at the time of second build")
 	assert.Equal(t, 1, file3Hits, "file3 isn't dowloaded at the time of second build")
+	sha2, err := getImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	// XXX ensure cache isn't invalidated
+	assert.Equal(t, sha1, sha2, "build cache isn't invalidated")
 }
 
 func TestAddUrl_CacheMiss(t *testing.T) {
+	tag, cleanup := generateTag("add-url-cache-miss")
+	defer cleanup()
 
 	file1Hits := 0
 	file3Hits := 0
@@ -232,7 +257,7 @@ FROM alpine
 ADD %s/file1.txt file2.txt %s/file3.txt /dst/
 MOUNT ` + sampleDir + `:/sample
 RUN diff -r /dst /sample
-`
+TAG ` + tag
 	Rockerfile = fmt.Sprintf(Rockerfile, server.URL, server.URL)
 
 	cacheDir := makeTmpDir(t, map[string]string{})
@@ -250,6 +275,11 @@ RUN diff -r /dst /sample
 	assert.Equal(t, 1, file1Hits, "file1 dowloaded at the time of first build")
 	assert.Equal(t, 1, file3Hits, "file1 dowloaded at the time of first build")
 
+	sha1, err := getImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	for file, content := range map[string]string{"file1.txt": "content12", "file3.txt": "content32"} {
 		ioutil.WriteFile(filepath.Join(sampleDir, file), []byte(content), 0644)
 	}
@@ -260,11 +290,17 @@ RUN diff -r /dst /sample
 	assert.Equal(t, 2, file1Hits, "file1 dowloaded at the time of second build")
 	assert.Equal(t, 2, file3Hits, "file3 dowloaded at the time of second build")
 
-	// XXX ensure cache isn't invalidated
+	sha2, err := getImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	assert.NotEqual(t, sha1, sha2, "build cache is invalidated")
 }
 
 func TestAddUrl_NoCache(t *testing.T) {
+	tag, cleanup := generateTag("add-url-build-no-cache")
+	defer cleanup()
 
 	sampleDir := makeTmpDir(t, map[string]string{
 		"file1.txt": "content1",
@@ -301,7 +337,7 @@ FROM alpine
 ADD %s/file1.txt file2.txt %s/file3.txt /dst/
 MOUNT ` + sampleDir + `:/sample
 RUN diff -r /dst /sample
-`
+TAG ` + tag
 	Rockerfile = fmt.Sprintf(Rockerfile, server.URL, server.URL)
 
 	cacheDir := makeTmpDir(t, map[string]string{})
@@ -319,14 +355,23 @@ RUN diff -r /dst /sample
 	assert.Equal(t, 1, file1Hits, "file1 dowloaded at the time of first build")
 	assert.Equal(t, 1, file3Hits, "file1 dowloaded at the time of first build")
 
+	sha1, err := getImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// build container again
 	err = runRockerBuildWdWithOptions(buildDir, "-cache-dir", cacheDir, "-no-cache")
 	assert.Nil(t, err, "no difference in downloaded and added files")
 	assert.Equal(t, 2, file1Hits, "file1 dowloaded at the time of second build")
 	assert.Equal(t, 2, file3Hits, "file3 dowloaded at the time of second build")
 
-	// XXX ensure cache is invalidated
+	sha2, err := getImageShaByName(tag)
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	assert.NotEqual(t, sha1, sha2, "build cache isn't used")
 }
 
 type HM map[string]string
@@ -374,4 +419,11 @@ func makeTmpDir(t *testing.T, files map[string]string) string {
 	t.Logf("temp directory: %s", tmpDir)
 	t.Logf("  with files: %# v", pretty.Formatter(files))
 	return tmpDir
+}
+
+func generateTag(subtag string) (tag string, cleanup func() error) {
+	tag = "rocker-integration-test:" + subtag
+	return tag, func() error {
+		return removeImage(tag)
+	}
 }
