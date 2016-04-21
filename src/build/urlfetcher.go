@@ -249,9 +249,6 @@ func (info *URLInfo) load() (ok bool, err error) {
 	data, err := ioutil.ReadFile(fileName)
 
 	if err != nil {
-		//if pe, ok0 := err.(*os.PathError); ok0 && pe.Err == os.ErrNotExist {
-		//if _, ok0 := err.(*os.PathError); ok0 {
-		// XXX
 		if os.IsNotExist(err) {
 			return false, nil
 		}
