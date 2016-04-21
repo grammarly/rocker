@@ -189,7 +189,7 @@ func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string, u
 		dest: dest,
 	}
 
-	if u.files, err = listFiles(srcPath, includes, excludes, urlFetcher); err != nil {
+	if u.files, err = listFiles(srcPath, includes, excludes, cmdName, urlFetcher); err != nil {
 		return u, err
 	}
 
@@ -289,7 +289,7 @@ func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string, u
 	return u, nil
 }
 
-func listFiles(srcPath string, includes, excludes []string, urlFetcher URLFetcher) ([]*uploadFile, error) {
+func listFiles(srcPath string, includes, excludes []string, cmdName string, urlFetcher URLFetcher) ([]*uploadFile, error) {
 
 	log.Infof("searching patterns, %# v\n", pretty.Formatter(includes))
 
@@ -309,6 +309,10 @@ func listFiles(srcPath string, includes, excludes []string, urlFetcher URLFetche
 	for _, pattern := range includes {
 
 		if isURL(pattern) {
+			if cmdName == "COPY" {
+				return nil, fmt.Errorf("can't list downloaded url in COPY command: '%s'", pattern)
+			}
+
 			if urlFetcher == nil {
 				return nil, fmt.Errorf("want to list a downloaded url '%s', but URLFetcher is not present", pattern)
 			}

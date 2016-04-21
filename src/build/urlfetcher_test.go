@@ -87,9 +87,7 @@ func TestURLFetcher_Get_CacheHit(t *testing.T) {
 	assert.Equal(t, hits, 1, "1st Get call should actually download file")
 
 	_, err = tf.fetcher.Get("http://someurl/file1.txt")
-	if err != nil {
-		t.Logf("fetch error: %# v", pretty.Formatter(err))
-	}
+	assert.Nil(t, err, "reports ok status fetching url")
 
 	ui2, err := tf.fetcher.GetInfo("http://someurl/file1.txt")
 	assert.Nil(t, err, "unable to read info")
@@ -97,9 +95,6 @@ func TestURLFetcher_Get_CacheHit(t *testing.T) {
 	assert.Equal(t, hits, 1, "2nd Get should not actually download file")
 
 }
-
-// func TestURLFetcher_GetInfo_NoEntry() {}
-// func TestURLFetcher_getURLInfo_NoEntry() {}
 
 // if there's non-matching etag in response, subsequent request goes for download
 func TestURLFetcher_Get_CacheMissEtagChanged(t *testing.T) {
@@ -135,17 +130,13 @@ func TestURLFetcher_Get_CacheMissEtagChanged(t *testing.T) {
 	assert.Equal(t, "content1", string(data), "downloaded and read data should match")
 
 	_, err = tf.fetcher.Get("http://someurl/file1.txt")
-	if err != nil {
-		t.Logf("fetch error: %# v", pretty.Formatter(err))
-	}
+	assert.Nil(t, err, "reports ok fetching status")
 
 	ui2, err := tf.fetcher.GetInfo("http://someurl/file1.txt")
 	assert.Nil(t, err, "unable to read info")
 
 	s, err = ui2.dump()
-	if err != nil {
-		t.Logf("unable to dump json: %s", err)
-	}
+	assert.Nil(t, err, "dumps info")
 	t.Logf("UrlInfo: %s", s)
 
 	assert.Equal(t, "BBB", ui2.Etag, "stored info etag should match that of downloaded url")
@@ -177,7 +168,7 @@ func TestURLFetcher_Get_CacheMissNoEtag(t *testing.T) {
 		return respTuple{200, HM{}, "content2"}
 	}
 
-	// XXX first download
+	// first download
 	ui0, err := tf.fetcher.Get("http://someurl/file1.txt")
 	if err != nil {
 		t.Logf("fetch error: %# v", pretty.Formatter(err))
@@ -193,19 +184,15 @@ func TestURLFetcher_Get_CacheMissNoEtag(t *testing.T) {
 	assert.Nil(t, err, "unable to read file contents")
 	assert.Equal(t, "content1", string(data), "downloaded and read data should match")
 
-	// XXX second download
+	// second download
 	_, err = tf.fetcher.Get("http://someurl/file1.txt")
-	if err != nil {
-		t.Logf("fetch error: %# v", pretty.Formatter(err))
-	}
+	assert.Nil(t, err, "reports ok status")
 
 	ui2, err := tf.fetcher.GetInfo("http://someurl/file1.txt")
 	assert.Nil(t, err, "unable to read info")
 
 	s, err = ui2.dump()
-	if err != nil {
-		t.Logf("unable to dump json: %s", err)
-	}
+	assert.Nil(t, err, "reports ok status dumping json")
 	t.Logf("UrlInfo: %s", s)
 
 	assert.Equal(t, false, ui2.HasEtag, "info should have no Etag")
@@ -237,14 +224,10 @@ func TestURLFetcher_Get_HttpError(t *testing.T) {
 	}
 
 	ui0, err := tf.fetcher.Get("http://someurl/file1.txt")
+	assert.Nil(t, err, "reports ok fetching status")
 
-	if err != nil {
-		t.Logf("fetch error: %# v", pretty.Formatter(err))
-	}
 	s, err := ui0.dump()
-	if err != nil {
-		t.Logf("unable to dump json: %s", err)
-	}
+	assert.Nil(t, err, "reports ok dump status")
 	t.Logf("UrlInfo: %s", s)
 
 	data, err := ioutil.ReadFile(ui0.FileName)
@@ -254,6 +237,15 @@ func TestURLFetcher_Get_HttpError(t *testing.T) {
 
 	_, err = tf.fetcher.Get("http://someurl/file1.txt")
 	assert.NotNil(t, err, "should receive 404 error")
+}
+
+func TestURLFetcher_load_nonExistent(t *testing.T) {
+	tf := makeTempFetcher(t, false)
+	defer tf.cleanup()
+
+	_, ok, err := tf.fetcher.getURLInfo("http://some/not/downloaded/url")
+	assert.Equal(t, false, ok, "not found status reported as ok==false")
+	assert.Nil(t, err, "no error occurs, if info file is not found")
 }
 
 type HM map[string]string

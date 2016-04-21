@@ -43,7 +43,7 @@ func TestCopy_ListFiles_Basic(t *testing.T) {
 	}
 	excludes := []string{}
 
-	matches, err := listFiles(tmpDir, includes, excludes, nil)
+	matches, err := listFiles(tmpDir, includes, excludes, "COPY", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestCopy_ListFiles_Wildcard(t *testing.T) {
 	}
 	excludes := []string{}
 
-	matches, err := listFiles(tmpDir, includes, excludes, nil)
+	matches, err := listFiles(tmpDir, includes, excludes, "COPY", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestCopy_ListFiles_Dir_Simple(t *testing.T) {
 	}
 	excludes := []string{}
 
-	matches, err := listFiles(tmpDir, includes, excludes, nil)
+	matches, err := listFiles(tmpDir, includes, excludes, "COPY", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +142,7 @@ func TestCopy_ListFiles_Dir_AndFiles(t *testing.T) {
 	}
 	excludes := []string{}
 
-	matches, err := listFiles(tmpDir, includes, excludes, nil)
+	matches, err := listFiles(tmpDir, includes, excludes, "COPY", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestCopy_ListFiles_Dir_Multi(t *testing.T) {
 	}
 	excludes := []string{}
 
-	matches, err := listFiles(tmpDir, includes, excludes, nil)
+	matches, err := listFiles(tmpDir, includes, excludes, "COPY", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,7 +220,7 @@ func TestCopy_ListFiles_Excludes_Basic(t *testing.T) {
 		"test2.txt",
 	}
 
-	matches, err := listFiles(tmpDir, includes, excludes, nil)
+	matches, err := listFiles(tmpDir, includes, excludes, "COPY", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -255,7 +255,7 @@ func TestCopy_ListFiles_Excludes_Explicit(t *testing.T) {
 		"*.txt",
 	}
 
-	matches, err := listFiles(tmpDir, includes, excludes, nil)
+	matches, err := listFiles(tmpDir, includes, excludes, "COPY", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +291,7 @@ func TestCopy_ListFiles_Excludes_Exception(t *testing.T) {
 		"!test2.txt",
 	}
 
-	matches, err := listFiles(tmpDir, includes, excludes, nil)
+	matches, err := listFiles(tmpDir, includes, excludes, "COPY", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +325,7 @@ func TestCopy_ListFiles_Excludes_Dir(t *testing.T) {
 		"b",
 	}
 
-	matches, err := listFiles(tmpDir, includes, excludes, nil)
+	matches, err := listFiles(tmpDir, includes, excludes, "COPY", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,7 +360,7 @@ func TestCopy_ListFiles_Excludes_FileInAnyDir(t *testing.T) {
 		"**/test2.txt",
 	}
 
-	matches, err := listFiles(tmpDir, includes, excludes, nil)
+	matches, err := listFiles(tmpDir, includes, excludes, "COPY", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +395,7 @@ func TestCopy_ListFiles_SymLink(t *testing.T) {
 	if err := os.Symlink("./", link); err != nil {
 		t.Fatal(err)
 	}
-	matches, err := listFiles(tmpDir, includes, []string{}, nil)
+	matches, err := listFiles(tmpDir, includes, []string{}, "COPY", nil)
 	assert.Equal(t, link, matches[0].src)
 	assert.Equal(t, "link", matches[0].dest)
 

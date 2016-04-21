@@ -1,10 +1,25 @@
+/*-
+ * Copyright 2015 Grammarly, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package build
 
 import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	//"github.com/kr/pretty"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -45,6 +60,10 @@ type URLInfo struct {
 func NewURLFetcherFS(base string, noCache bool, httpClient *http.Client) (cache *URLFetcherFS) {
 	cacheDir := filepath.Join(base, "url_fetcher_cache")
 
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+
 	return &URLFetcherFS{
 		cacheDir: cacheDir,
 		client:   httpClient,
@@ -84,8 +103,7 @@ func (uf *URLFetcherFS) Get(url0 string) (info *URLInfo, err error) {
 		}
 	}
 
-	err = info.download()
-	if err != nil {
+	if err = info.download(); err != nil {
 		return nil, err
 	}
 
@@ -159,12 +177,7 @@ func (info *URLInfo) isEtagValid() bool {
 		return false
 	}
 
-	var httpClient *http.Client
-	if info.Fetcher.client == nil {
-		httpClient = http.DefaultClient
-	} else {
-		httpClient = info.Fetcher.client
-	}
+	httpClient := info.Fetcher.client
 
 	response, err := httpClient.Head(info.URL)
 	if err != nil {
@@ -176,8 +189,7 @@ func (info *URLInfo) isEtagValid() bool {
 		return false
 	}
 
-	etag, ok := response.Header["Etag"]
-	if ok && 1 <= len(etag) && etag[0] == info.Etag {
+	if etag := response.Header.Get("Etag"); etag == info.Etag {
 		return true
 	}
 
@@ -187,12 +199,7 @@ func (info *URLInfo) isEtagValid() bool {
 func (info *URLInfo) download() (err error) {
 	log.Infof("Downloading `%s` into `%s`", info.URL, info.FileName)
 
-	var httpClient *http.Client
-	if info.Fetcher.client == nil {
-		httpClient = http.DefaultClient
-	} else {
-		httpClient = info.Fetcher.client
-	}
+	httpClient := info.Fetcher.client
 
 	response, err := httpClient.Get(info.URL)
 	if err != nil {
@@ -204,8 +211,7 @@ func (info *URLInfo) download() (err error) {
 		return fmt.Errorf("Got non-2xx status for `%s`: %s", info.URL, response.Status)
 	}
 
-	err = os.MkdirAll(filepath.Dir(info.FileName), 0755)
-	if err != nil {
+	if err = os.MkdirAll(filepath.Dir(info.FileName), 0755); err != nil {
 		return err
 	}
 
@@ -222,16 +228,15 @@ func (info *URLInfo) download() (err error) {
 
 	info.Size = n
 
-	if etag, ok := response.Header["Etag"]; ok {
+	if etag := response.Header.Get("Etag"); etag != "" {
 		info.HasEtag = true
-		info.Etag = etag[0]
+		info.Etag = etag
 	} else {
 		info.HasEtag = false
 		info.Etag = ""
 	}
 
-	err = info.store()
-	if err != nil {
+	if err = info.store(); err != nil {
 		return err
 	}
 
@@ -245,7 +250,9 @@ func (info *URLInfo) load() (ok bool, err error) {
 
 	if err != nil {
 		//if pe, ok0 := err.(*os.PathError); ok0 && pe.Err == os.ErrNotExist {
-		if _, ok0 := err.(*os.PathError); ok0 {
+		//if _, ok0 := err.(*os.PathError); ok0 {
+		// XXX
+		if os.IsNotExist(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("Failed to read urlinfo file %s content, error: %s", fileName, err)
