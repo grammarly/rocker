@@ -60,6 +60,7 @@ type Config struct {
 	NoCache       bool
 	ReloadCache   bool
 	Push          bool
+	CacheDir      string
 }
 
 // Build is the main object that processes build
@@ -79,6 +80,8 @@ type Build struct {
 
 	currentExportContainerName string
 	prevExportContainerID      string
+
+	urlFetcher URLFetcher
 }
 
 // New creates the new build object
@@ -90,6 +93,9 @@ func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build 
 		client:     client,
 		exports:    []string{},
 	}
+
+	b.urlFetcher = NewURLFetcherFS(cfg.CacheDir, cfg.NoCache, nil)
+
 	b.state = NewState(b)
 	return b
 }

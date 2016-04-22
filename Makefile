@@ -64,6 +64,6 @@ test: testdeps fmtcheck vet lint
 	GO15VENDOREXPERIMENT=1 go test ./src/... $(TESTARGS)
 
 test_integration:
-	GO15VENDOREXPERIMENT=1 go test -v ./test/... --args verbosity=0
+	GO15VENDOREXPERIMENT=1 go test -v ./test/... --args -verbosity=3
 
 .PHONY: clean test fmtcheck lint vet gocyclo default
