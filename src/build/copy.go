@@ -310,7 +310,7 @@ func listFiles(srcPath string, includes, excludes []string, cmdName string, urlF
 
 		if isURL(pattern) {
 			if cmdName == "COPY" {
-				return nil, fmt.Errorf("can't list downloaded url in COPY command: '%s'", pattern)
+				return nil, fmt.Errorf("can't use url in COPY command: '%s'", pattern)
 			}
 
 			if urlFetcher == nil {
