@@ -189,7 +189,7 @@ func (info *URLInfo) isEtagValid() bool {
 		return false
 	}
 
-	if etag := response.Header.Get("Etag"); etag == info.Etag {
+	if response.Header.Get("Etag") == info.Etag {
 		return true
 	}
 
