@@ -123,7 +123,9 @@ func runRockerBuildWithOptions(content string, opts ...string) error {
 	return nil
 }
 func runRockerBuildWdWithOptions(wd string, opts ...string) error {
-	fmt.Printf("CWD: %s\n", wd)
+	if *verbosityLevel >= 2 {
+		fmt.Printf("CWD: %s\n", wd)
+	}
 
 	p := []string{"build"}
 	params := append(p, opts...)
