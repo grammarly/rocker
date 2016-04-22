@@ -64,16 +64,16 @@ func addFiles(b *Build, args []string) (s State, err error) {
 		dest = filepath.FromSlash(args[len(args)-1]) // last one is always the dest
 	)
 
-	// If destination is not a directory (no leading slash)
-	hasLeadingSlash := strings.HasSuffix(dest, string(os.PathSeparator))
-	if !hasLeadingSlash && len(src) > 1 {
+	// If destination is not a directory (no trailing slash)
+	hasTrailingSlash := strings.HasSuffix(dest, string(os.PathSeparator))
+	if !hasTrailingSlash && len(src) > 1 {
 		return s, fmt.Errorf("When using ADD with more than one source file, the destination must be a directory and end with a /")
 	}
 
 	if !filepath.IsAbs(dest) {
 		dest = filepath.Join(s.Config.WorkingDir, dest)
-		// Add the leading slash back if we had it before
-		if hasLeadingSlash {
+		// Add the trailing slash back if we had it before
+		if hasTrailingSlash {
 			dest += string(os.PathSeparator)
 		}
 	}
@@ -110,16 +110,16 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 		excludes = s.NoCache.Dockerignore
 	)
 
-	// If destination is not a directory (no leading slash)
-	hasLeadingSlash := strings.HasSuffix(dest, string(os.PathSeparator))
-	if !hasLeadingSlash && len(src) > 1 {
+	// If destination is not a directory (no trailing slash)
+	hasTrailingSlash := strings.HasSuffix(dest, string(os.PathSeparator))
+	if !hasTrailingSlash && len(src) > 1 {
 		return s, fmt.Errorf("When using %s with more than one source file, the destination must be a directory and end with a /", cmdName)
 	}
 
 	if !filepath.IsAbs(dest) {
 		dest = filepath.Join(s.Config.WorkingDir, dest)
-		// Add the leading slash back if we had it before
-		if hasLeadingSlash {
+		// Add the trailing slash back if we had it before
+		if hasTrailingSlash {
 			dest += string(os.PathSeparator)
 		}
 	}
