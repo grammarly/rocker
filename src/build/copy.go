@@ -45,10 +45,9 @@ type upload struct {
 }
 
 type uploadFile struct {
-	src     string
-	dest    string
-	relDest string
-	size    int64
+	src  string
+	dest string
+	size int64
 }
 
 func addFiles(b *Build, args []string) (s State, err error) {
