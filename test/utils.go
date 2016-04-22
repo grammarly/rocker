@@ -13,10 +13,16 @@ import (
 )
 
 func runCmd(executable string, stdoutWriter io.Writer /* stderr io.Writer,*/, params ...string) error {
+	return runCmdWithWd(executable, "", stdoutWriter, params...)
+}
+
+func runCmdWithWd(executable, wd string, stdoutWriter io.Writer /* stderr io.Writer,*/, params ...string) error {
 	cmd := exec.Command(executable, params...)
 	if *verbosityLevel >= 1 {
 		fmt.Printf("Running: %v\n", strings.Join(cmd.Args, " "))
 	}
+
+	cmd.Dir = wd
 
 	if stdoutWriter != nil {
 		cmd.Stdout = stdoutWriter
@@ -116,7 +122,19 @@ func runRockerBuildWithOptions(content string, opts ...string) error {
 
 	return nil
 }
+func runRockerBuildWdWithOptions(wd string, opts ...string) error {
+	if *verbosityLevel >= 2 {
+		fmt.Printf("CWD: %s\n", wd)
+	}
 
+	p := []string{"build"}
+	params := append(p, opts...)
+	if err := runCmdWithWd(getRockerBinaryPath(), wd, nil, params...); err != nil {
+		return err
+	}
+
+	return nil
+}
 func runRockerBuild(content string) error {
 	return runRockerBuildWithOptions(content)
 }

@@ -45,10 +45,52 @@ type upload struct {
 }
 
 type uploadFile struct {
-	src     string
-	dest    string
-	relDest string
-	size    int64
+	src  string
+	dest string
+	size int64
+}
+
+func addFiles(b *Build, args []string) (s State, err error) {
+
+	s = b.state
+
+	if len(args) < 2 {
+		return s, fmt.Errorf("Invalid ADD format - at least two arguments required")
+	}
+
+	var (
+		src  = args[0 : len(args)-1]
+		dest = filepath.FromSlash(args[len(args)-1]) // last one is always the dest
+	)
+
+	// If destination is not a directory (no trailing slash)
+	hasTrailingSlash := strings.HasSuffix(dest, string(os.PathSeparator))
+	if !hasTrailingSlash && len(src) > 1 {
+		return s, fmt.Errorf("When using ADD with more than one source file, the destination must be a directory and end with a /")
+	}
+
+	if !filepath.IsAbs(dest) {
+		dest = filepath.Join(s.Config.WorkingDir, dest)
+		// Add the trailing slash back if we had it before
+		if hasTrailingSlash {
+			dest += string(os.PathSeparator)
+		}
+	}
+
+	uf := b.urlFetcher
+
+	for _, arg := range args {
+		if !isURL(arg) {
+			continue
+		}
+
+		if _, err = uf.Get(arg); err != nil {
+			return s, err
+		}
+	}
+
+	return copyFiles(b, args, "ADD")
+
 }
 
 func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
@@ -67,21 +109,21 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 		excludes = s.NoCache.Dockerignore
 	)
 
-	// If destination is not a directory (no leading slash)
-	hasLeadingSlash := strings.HasSuffix(dest, string(os.PathSeparator))
-	if !hasLeadingSlash && len(src) > 1 {
+	// If destination is not a directory (no trailing slash)
+	hasTrailingSlash := strings.HasSuffix(dest, string(os.PathSeparator))
+	if !hasTrailingSlash && len(src) > 1 {
 		return s, fmt.Errorf("When using %s with more than one source file, the destination must be a directory and end with a /", cmdName)
 	}
 
 	if !filepath.IsAbs(dest) {
 		dest = filepath.Join(s.Config.WorkingDir, dest)
-		// Add the leading slash back if we had it before
-		if hasLeadingSlash {
+		// Add the trailing slash back if we had it before
+		if hasTrailingSlash {
 			dest += string(os.PathSeparator)
 		}
 	}
 
-	if u, err = makeTarStream(b.cfg.ContextDir, dest, cmdName, src, excludes); err != nil {
+	if u, err = makeTarStream(b.cfg.ContextDir, dest, cmdName, src, excludes, b.urlFetcher); err != nil {
 		return s, err
 	}
 
@@ -126,7 +168,7 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 
 	// We need to make a new tar stream, because the previous one has been
 	// read by the tarsum; maybe, optimize this in future
-	if u, err = makeTarStream(b.cfg.ContextDir, dest, cmdName, src, excludes); err != nil {
+	if u, err = makeTarStream(b.cfg.ContextDir, dest, cmdName, src, excludes, b.urlFetcher); err != nil {
 		return s, err
 	}
 
@@ -139,14 +181,14 @@ func copyFiles(b *Build, args []string, cmdName string) (s State, err error) {
 	return s, nil
 }
 
-func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string) (u *upload, err error) {
+func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string, urlFetcher URLFetcher) (u *upload, err error) {
 
 	u = &upload{
 		src:  srcPath,
 		dest: dest,
 	}
 
-	if u.files, err = listFiles(srcPath, includes, excludes); err != nil {
+	if u.files, err = listFiles(srcPath, includes, excludes, cmdName, urlFetcher); err != nil {
 		return u, err
 	}
 
@@ -246,12 +288,13 @@ func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string) (
 	return u, nil
 }
 
-func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, error) {
+func listFiles(srcPath string, includes, excludes []string, cmdName string, urlFetcher URLFetcher) ([]*uploadFile, error) {
+
+	log.Infof("searching patterns, %# v\n", pretty.Formatter(includes))
 
 	result := []*uploadFile{}
 	seen := map[string]struct{}{}
 
-	// TODO: support urls
 	// TODO: support local archives (and maybe a remote archives as well)
 
 	excludes, patDirs, exceptions, err := fileutils.CleanPatterns(excludes)
@@ -263,6 +306,28 @@ func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, erro
 	excludes, nestedPatterns := findNestedPatterns(excludes)
 
 	for _, pattern := range includes {
+
+		if isURL(pattern) {
+			if cmdName == "COPY" {
+				return nil, fmt.Errorf("can't use url in COPY command: '%s'", pattern)
+			}
+
+			if urlFetcher == nil {
+				return nil, fmt.Errorf("want to list a downloaded url '%s', but URLFetcher is not present", pattern)
+			}
+
+			ui, err := urlFetcher.GetInfo(pattern)
+			if err != nil {
+				return nil, err
+			}
+
+			result = append(result, &uploadFile{
+				src:  ui.FileName,
+				dest: ui.BaseName,
+				size: ui.Size,
+			})
+			continue
+		}
 
 		matches, err := filepath.Glob(filepath.Join(srcPath, pattern))
 		if err != nil {
@@ -345,10 +410,9 @@ func listFiles(srcPath string, includes, excludes []string) ([]*uploadFile, erro
 				}
 
 				result = append(result, &uploadFile{
-					src:     path,
-					dest:    resultFilePath,
-					relDest: relFilePath,
-					size:    info.Size(),
+					src:  path,
+					dest: resultFilePath,
+					size: info.Size(),
 				})
 
 				return nil
