@@ -43,6 +43,10 @@ var (
 
 	// ExportsPath is the path within EXPORT volume containers
 	ExportsPath = "/.rocker_exports"
+
+	// DefaultPathEnv is a system PATH variable to be used in Env substitutions
+	// if path is not set by ENV command
+	DefaultPathEnv = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 )
 
 // Config used specify parameters for the builder in New()
