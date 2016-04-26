@@ -20,6 +20,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/fsouza/go-dockerclient"
 )
@@ -84,4 +85,26 @@ func (r readerVoidCloser) Read(p []byte) (int, error) {
 // Close is a viod function, does nothing
 func (r readerVoidCloser) Close() error {
 	return nil
+}
+
+func replaceOrAppendEnvValues(defaults, overrides []string) []string {
+
+	cache := make(map[string]int, len(defaults))
+	for i, e := range defaults {
+		parts := strings.SplitN(e, "=", 2)
+		cache[parts[0]] = i
+	}
+
+	for _, value := range overrides {
+		parts := strings.SplitN(value, "=", 2)
+
+		if i, exists := cache[parts[0]]; exists {
+			defaults[i] = value
+		} else {
+			cache[parts[0]] = len(defaults)
+			defaults = append(defaults, value)
+		}
+	}
+
+	return defaults
 }

@@ -1406,8 +1406,13 @@ func (c *CommandOnbuildWrap) ReplaceEnv(env []string) error {
 ////////// Private stuff //////////
 
 func replaceEnv(args []string, env []string) (err error) {
+
+	defaultEnv := []string{"PATH=" + DefaultPathEnv}
+
+	env1 := replaceOrAppendEnvValues(defaultEnv, env)
+
 	for i, v := range args {
-		if args[i], err = shellparser.ProcessWord(v, env); err != nil {
+		if args[i], err = shellparser.ProcessWord(v, env1); err != nil {
 			return err
 		}
 	}
