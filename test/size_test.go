@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	//"log"
 	"os"
 	"testing"
 	"time"
@@ -18,7 +18,7 @@ type rockerBuildFn func(string, io.Writer, ...string) error
 
 func runImageSizeTestWithDockerVersion(t *testing.T, dockerVersion string) {
 
-	cleanup, rocker, err := setupDockerVersionedEnv(t, dockerVersion)
+	rocker, cleanup, err := setupDockerVersionedEnv(t, dockerVersion)
 	assert.Nil(t, err, "setup env")
 
 	defer cleanup()
@@ -63,7 +63,7 @@ TAG tag2`
 				deltas = append(deltas, delta1)
 			}
 		}
-		fmt.Printf("returning: %s\n", deltas)
+		fmt.Printf("returning: %v\n", deltas)
 
 		result <- deltas
 	}()
@@ -75,7 +75,7 @@ TAG tag2`
 
 	deltas := <-result
 
-	assert.Equal(t, deltas, []int{1000000, 1000000, 2000000}, "deltas should be correct")
+	assert.Equal(t, deltas, []int{0, 1000000, 1000000, 2000000}, "deltas should be correct")
 
 }
 
@@ -91,11 +91,10 @@ func TestImageSize_docker_1_11(t *testing.T) {
 	runImageSizeTestWithDockerVersion(t, "1.11")
 }
 
-func runDockerContainer(tag string, cmd []string, binds []string) (*docker.Container, error, func()) {
+func runDockerContainer(tag string, cmd []string, binds []string) (*docker.Container, func(), error) {
 	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
-		log.Fatal("error creating docker client: %s", err)
-		return nil, err, nil
+		panic("create client: " + err.Error())
 	}
 
 	containerConfig := docker.Config{
@@ -138,10 +137,10 @@ func runDockerContainer(tag string, cmd []string, binds []string) (*docker.Conta
 		})
 	}
 
-	return container1, err, cleanup
+	return container1, cleanup, nil
 }
 
-func setupDockerVersionedEnv(t *testing.T, version string) (func(), rockerBuildFn, error) {
+func setupDockerVersionedEnv(t *testing.T, version string) (rockerBuildFn, func(), error) {
 
 	dockerImageTag := "test-docker-" + version
 
@@ -163,7 +162,7 @@ TAG ` + dockerImageTag
 	// /var/lib/docker inside docker-version container
 	tempDir := makeTempDir(t, "var-lib-docker-"+version, nil)
 
-	c, err, cleanup1 := runDockerContainer(dockerImageTag, cmd, []string{tempDir + ":/var/lib/docker"})
+	c, cleanup1, err := runDockerContainer(dockerImageTag, cmd, []string{tempDir + ":/var/lib/docker"})
 	if err != nil {
 		t.Fatal("failed to create container", err)
 	}
@@ -189,5 +188,5 @@ TAG ` + dockerImageTag
 		})
 	}
 
-	return cleanup2, rocker, err
+	return rocker, cleanup2, err
 }

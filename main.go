@@ -379,7 +379,7 @@ func buildCommand(c *cli.Context) {
 		ReloadCache:   c.Bool("reload-cache"),
 		Push:          c.Bool("push"),
 		CacheDir:      cacheDir,
-		Json:          c.GlobalBool("json"),
+		LogJSON:       c.GlobalBool("json"),
 	})
 
 	plan, err := build.NewPlan(rockerfile.Commands(), true)

@@ -65,7 +65,7 @@ type Config struct {
 	ReloadCache   bool
 	Push          bool
 	CacheDir      string
-	Json          bool
+	LogJSON       bool
 }
 
 // Build is the main object that processes build
@@ -215,7 +215,7 @@ func (b *Build) probeCacheAndPreserveCommits(s State) (cachedState State, hit bo
 	}
 
 	fields := log.Fields{}
-	if !b.cfg.Json {
+	if !b.cfg.LogJSON {
 		size := fmt.Sprintf("%s (+%s)",
 			units.HumanSize(float64(s2.Size)),
 			units.HumanSize(float64(s2.Size-s2.ParentSize)),
