@@ -152,16 +152,14 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv F76221572C52609D
 RUN apt-get update && apt-get install --yes docker-engine=` + version + `.*
 TAG ` + dockerImageTag
 
-	if false {
-		if err := runRockerBuildWithOptions(rockerFile); err != nil {
-			t.Fatal("build fail:", dockerImageTag, err)
-		}
+	if err := runRockerBuildWithOptions(rockerFile); err != nil {
+		t.Fatal("build fail:", dockerImageTag, err)
 	}
 
 	cmd := []string{"docker", "daemon", "-D", "-s", "overlay", "-H", "0.0.0.0:12345"}
 
-	// docker 1.11 fails to create containers inside container w.
-	// overlayfs driver, so we mount some host directory on
+	// docker 1.11 fails to create containers inside container with overlayfs driver,
+	// so we mount some host directory on
 	// /var/lib/docker inside docker-version container
 	tempDir := makeTempDir(t, "var-lib-docker-"+version, nil)
 
