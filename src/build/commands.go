@@ -154,6 +154,10 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 
 	if name == "scratch" {
 		s.NoBaseImage = true
+		s.Size = 0
+		s.ParentSize = 0
+		b.ProducedSize = 0
+		b.VirtualSize = 0
 		return s, nil
 	}
 
@@ -177,12 +181,15 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 	s.ImageID = img.ID
 	s.Config = docker.Config{}
 
+	s.Size = img.VirtualSize
+	s.ParentSize = img.VirtualSize
+
 	if img.Config != nil {
 		s.Config = *img.Config
 	}
 
-	b.ProducedSize = 0
-	b.VirtualSize = img.VirtualSize
+	b.ProducedSize = s.Size - s.ParentSize
+	b.VirtualSize = s.Size
 
 	// If we don't have OnBuild triggers, then we are done
 	if len(s.Config.OnBuild) == 0 {
@@ -329,7 +336,7 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	}(s.NoCache.ContainerID)
 
 	var img *docker.Image
-	if img, err = b.client.CommitContainer(s); err != nil {
+	if img, err = b.client.CommitContainer(&s); err != nil {
 		return s, err
 	}
 
@@ -345,8 +352,8 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 	}
 
 	// Store some stuff to the build
-	b.ProducedSize += img.Size
-	b.VirtualSize = img.VirtualSize
+	b.ProducedSize += s.Size - s.ParentSize
+	b.VirtualSize = s.Size
 
 	return s, nil
 }

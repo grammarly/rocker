@@ -65,6 +65,7 @@ type Config struct {
 	ReloadCache   bool
 	Push          bool
 	CacheDir      string
+	Json          bool
 }
 
 // Build is the main object that processes build
@@ -208,18 +209,29 @@ func (b *Build) probeCacheAndPreserveCommits(s State) (cachedState State, hit bo
 		return s, false, nil
 	}
 
-	size := fmt.Sprintf("%s (+%s)",
-		units.HumanSize(float64(img.VirtualSize)),
-		units.HumanSize(float64(img.Size)),
-	)
+	if s2.Size != img.VirtualSize {
+		s2.Size = img.VirtualSize
+		s2.ParentSize = s.Size
+	}
 
-	log.WithFields(log.Fields{
-		"size": size,
-	}).Infof(color.New(color.FgGreen).SprintfFunc()("| Cached! Take image %.12s", s2.ImageID))
+	fields := log.Fields{}
+	if !b.cfg.Json {
+		size := fmt.Sprintf("%s (+%s)",
+			units.HumanSize(float64(s2.Size)),
+			units.HumanSize(float64(s2.Size-s2.ParentSize)),
+		)
+		fields["size"] = size
+	} else {
+		fields["size"] = s2.Size
+		fields["delta"] = s2.Size - s2.ParentSize
+	}
+
+	log.WithFields(fields).Infof(
+		color.New(color.FgGreen).SprintfFunc()("| Cached! Take image %.12s", s2.ImageID))
 
 	// Store some stuff to the build
-	b.ProducedSize += img.Size
-	b.VirtualSize = img.VirtualSize
+	b.ProducedSize += s2.Size - s2.ParentSize
+	b.VirtualSize = s2.Size
 
 	// Keep items that should not be cached from the previous state
 	s2.NoCache = s.NoCache

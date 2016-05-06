@@ -360,6 +360,7 @@ func buildCommand(c *cli.Context) {
 		StderrContainerFormatter: stderrContainerFormatter,
 		PushRetryCount:           c.Int("push-retry"),
 		Host:                     config.Host,
+		LogExactSizes:            c.GlobalBool("json"),
 	}
 	client := build.NewDockerClient(options)
 
@@ -378,6 +379,7 @@ func buildCommand(c *cli.Context) {
 		ReloadCache:   c.Bool("reload-cache"),
 		Push:          c.Bool("push"),
 		CacheDir:      cacheDir,
+		Json:          c.GlobalBool("json"),
 	})
 
 	plan, err := build.NewPlan(rockerfile.Commands(), true)
@@ -394,12 +396,18 @@ func buildCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
+	fields := log.Fields{}
+	if c.GlobalBool("json") {
+		fields["size"] = builder.VirtualSize
+		fields["delta"] = builder.ProducedSize
+	}
+
 	size := fmt.Sprintf("final size %s (+%s from the base image)",
 		units.HumanSize(float64(builder.VirtualSize)),
 		units.HumanSize(float64(builder.ProducedSize)),
 	)
 
-	log.Infof("Successfully built %.12s | %s", builder.GetImageID(), size)
+	log.WithFields(fields).Infof("Successfully built %.12s | %s", builder.GetImageID(), size)
 }
 
 func pullCommand(c *cli.Context) {

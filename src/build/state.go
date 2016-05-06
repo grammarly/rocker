@@ -36,6 +36,9 @@ type State struct {
 	InjectCommands []string
 	Commits        []string
 
+	ParentSize int64
+	Size       int64
+
 	NoCache StateNoCache
 }
 
