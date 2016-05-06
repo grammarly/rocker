@@ -10,7 +10,19 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"testing"
+
+	"github.com/grammarly/rocker/src/test"
+	"github.com/kr/pretty"
 )
+
+type rockerBuildOptions struct {
+	Rockerfile    string
+	GlobalOptions []string
+	BuildOptions  []string
+	Wd            string
+	Stdout        io.Writer
+}
 
 func runCmd(executable string, stdoutWriter io.Writer /* stderr io.Writer,*/, params ...string) error {
 	return runCmdWithWd(executable, "", stdoutWriter, params...)
@@ -137,4 +149,33 @@ func runRockerBuildWdWithOptions(wd string, opts ...string) error {
 }
 func runRockerBuild(content string) error {
 	return runRockerBuildWithOptions(content)
+}
+
+func runRockerBuildWithOptions2(opts rockerBuildOptions) error {
+	filename, err := createTempFile(opts.Rockerfile)
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(filename)
+
+	opts1 := append(opts.GlobalOptions, "build", "-f", filename)
+	opts1 = append(opts1, opts.BuildOptions...)
+
+	return runCmdWithWd(getRockerBinaryPath(), opts.Wd, opts.Stdout, opts1...)
+}
+
+func makeTempDir(t *testing.T, prefix string, files map[string]string) string {
+	tmpDir, err := ioutil.TempDir("", prefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := test.MakeFiles(tmpDir, files); err != nil {
+		os.RemoveAll(tmpDir)
+		t.Fatal(err)
+	}
+	if *verbosityLevel >= 2 {
+		fmt.Printf("temp directory: %s\n", tmpDir)
+		fmt.Printf("  with files: %# v\n", pretty.Formatter(files))
+	}
+	return tmpDir
 }

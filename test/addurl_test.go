@@ -25,9 +25,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/grammarly/rocker/src/test"
-
-	"github.com/kr/pretty"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -423,20 +420,9 @@ func makeTestServer(files FM) *httptest.Server {
 	return server
 }
 
+// XXX proper naming suggestion wanted! maybe makeAddTempDir?
 func makeTmpDir(t *testing.T, files map[string]string) string {
-	tmpDir, err := ioutil.TempDir("", "rocker-copy-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := test.MakeFiles(tmpDir, files); err != nil {
-		os.RemoveAll(tmpDir)
-		t.Fatal(err)
-	}
-	if *verbosityLevel >= 2 {
-		fmt.Printf("temp directory: %s\n", tmpDir)
-		fmt.Printf("  with files: %# v\n", pretty.Formatter(files))
-	}
-	return tmpDir
+	return makeTempDir(t, "rocker-addurl-test", files)
 }
 
 func generateTag(subtag string) (tag string, cleanup func() error) {
