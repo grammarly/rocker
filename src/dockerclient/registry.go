@@ -19,13 +19,13 @@ package dockerclient
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/grammarly/rocker/src/imagename"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/fsouza/go-dockerclient"
+	"github.com/grammarly/rocker/src/imagename"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -121,6 +121,7 @@ func registryGet(uri string, auth docker.AuthConfiguration, obj interface{}) (er
 		if res, err = client.Do(req); err != nil {
 			return fmt.Errorf("Request to %s failed with %s\n", uri, err)
 		}
+		defer res.Body.Close()
 
 		b = parseBearer(res.Header.Get("Www-Authenticate"))
 		log.Debugf("Got HTTP %d for %s; tried auth: %t; has Bearer: %t, auth username: %q", res.StatusCode, uri, authTry, b != nil, auth.Username)
@@ -195,6 +196,7 @@ func getAuthToken(b *bearer, auth docker.AuthConfiguration) (token string, err e
 	if res, err = client.Do(req); err != nil {
 		return "", fmt.Errorf("Failed to authenticate by realm url %s, error %s", uri, err)
 	}
+	defer res.Body.Close()
 
 	if res.StatusCode != 200 {
 		// TODO: maybe more descriptive error
@@ -207,7 +209,7 @@ func getAuthToken(b *bearer, auth docker.AuthConfiguration) (token string, err e
 
 	if err := json.Unmarshal(body, authResp); err != nil {
 		return "", fmt.Errorf("Response from %s cannot be unmarshalled due to error %s, response: %s\n",
-			uri, err, string(body))
+			uri, err, body)
 	}
 
 	return authResp.Token, nil
@@ -233,6 +235,7 @@ func ecrImageExists(image *imagename.ImageName, auth docker.AuthConfiguration) (
 	if res, err = client.Do(req); err != nil {
 		return false, fmt.Errorf("Failed to authenticate by realm url %s, error %s", uri, err)
 	}
+	defer res.Body.Close()
 
 	log.Debugf("Got status %d", res.StatusCode)
 
