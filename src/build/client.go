@@ -53,7 +53,7 @@ type Client interface {
 	EnsureImage(imageName string) error
 	CreateContainer(state State) (id string, err error)
 	RunContainer(containerID string, attachStdin bool) error
-	CommitContainer(state State) (img *docker.Image, err error)
+	CommitContainer(state *State) (img *docker.Image, err error)
 	RemoveContainer(containerID string) error
 	UploadToContainer(containerID string, stream io.Reader, path string) error
 	EnsureContainer(containerName string, config *docker.Config, hostConfig *docker.HostConfig, purpose string) (containerID string, err error)
@@ -71,6 +71,7 @@ type DockerClientOptions struct {
 	StderrContainerFormatter logrus.Formatter
 	PushRetryCount           int
 	Host                     string
+	LogExactSizes            bool
 }
 
 // DockerClient implements the client that works with a docker socket
@@ -84,6 +85,7 @@ type DockerClient struct {
 	pushRetryCount           int
 	isUnixSocket             bool
 	unixSockPath             string
+	useHumanSize             bool
 }
 
 var (
@@ -115,6 +117,7 @@ func NewDockerClient(options DockerClientOptions) *DockerClient {
 		pushRetryCount:           options.PushRetryCount,
 		isUnixSocket:             isUnixSocket,
 		unixSockPath:             unixSockPath,
+		useHumanSize:             !options.LogExactSizes,
 	}
 }
 
@@ -389,7 +392,7 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 }
 
 // CommitContainer commits docker container
-func (c *DockerClient) CommitContainer(s State) (*docker.Image, error) {
+func (c *DockerClient) CommitContainer(s *State) (*docker.Image, error) {
 	commitOpts := docker.CommitContainerOptions{
 		Container: s.NoCache.ContainerID,
 		Run:       &s.Config,
@@ -409,14 +412,22 @@ func (c *DockerClient) CommitContainer(s State) (*docker.Image, error) {
 		return nil, err
 	}
 
-	size := fmt.Sprintf("%s (+%s)",
-		units.HumanSize(float64(image.VirtualSize)),
-		units.HumanSize(float64(image.Size)),
-	)
+	s.ParentSize = s.Size
+	s.Size = image.VirtualSize
 
-	c.log.WithFields(logrus.Fields{
-		"size": size,
-	}).Infof("| Result image is %.12s", image.ID)
+	fields := logrus.Fields{}
+	if c.useHumanSize {
+		size := fmt.Sprintf("%s (+%s)",
+			units.HumanSize(float64(s.Size)),
+			units.HumanSize(float64(s.Size-s.ParentSize)),
+		)
+		fields["size"] = size
+	} else {
+		fields["size"] = s.Size
+		fields["delta"] = s.Size - s.ParentSize
+	}
+
+	c.log.WithFields(fields).Infof("| Result image is %.12s", image.ID)
 
 	return image, nil
 }

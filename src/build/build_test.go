@@ -314,8 +314,8 @@ func (m *MockClient) RunContainer(containerID string, attach bool) error {
 	return args.Error(0)
 }
 
-func (m *MockClient) CommitContainer(state State) (*docker.Image, error) {
-	args := m.Called(state)
+func (m *MockClient) CommitContainer(state *State) (*docker.Image, error) {
+	args := m.Called(*state)
 	return args.Get(0).(*docker.Image), args.Error(1)
 }
 
