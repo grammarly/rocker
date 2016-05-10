@@ -178,7 +178,15 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 	s.Config = docker.Config{}
 
 	s.Size = img.VirtualSize
+
+	// As we don't know size of parent image for that of FROM command,
+	// initialize ParentSize so that Produced (e.g. added) Size would
+	// be zero for FROM image
 	s.ParentSize = img.VirtualSize
+
+	// From now and thereon, ProducedSize is maintained to be Size - ParentSize
+	b.ProducedSize = s.Size - s.ParentSize
+	b.VirtualSize = s.Size
 
 	if img.Config != nil {
 		s.Config = *img.Config
@@ -193,9 +201,6 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 	}
 
 	log.WithFields(fields).Infof("| Image %.12s", img.ID)
-
-	b.ProducedSize = s.Size - s.ParentSize
-	b.VirtualSize = s.Size
 
 	// If we don't have OnBuild triggers, then we are done
 	if len(s.Config.OnBuild) == 0 {

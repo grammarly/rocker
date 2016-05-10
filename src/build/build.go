@@ -209,6 +209,9 @@ func (b *Build) probeCacheAndPreserveCommits(s State) (cachedState State, hit bo
 		return s, false, nil
 	}
 
+	// There can be a cached state with no image Size preset
+	// (made with earlier rocker version)
+	// so we check that here and initialize state's Size and ParentSize
 	if s2.Size != img.VirtualSize {
 		s2.Size = img.VirtualSize
 		s2.ParentSize = s.Size

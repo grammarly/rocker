@@ -158,8 +158,7 @@ TAG ` + dockerImageTag
 	cmd := []string{"docker", "daemon", "-D", "-s", "overlay", "-H", "0.0.0.0:12345"}
 
 	// docker 1.11 fails to create containers inside container with overlayfs driver,
-	// so we mount some host directory on
-	// /var/lib/docker inside docker-version container
+	// so we mount some host directory on /var/lib/docker inside docker-version container
 	tempDir := makeTempDir(t, "var-lib-docker-"+version, nil)
 
 	c, cleanup1, err := runDockerContainer(dockerImageTag, cmd, []string{tempDir + ":/var/lib/docker"})
