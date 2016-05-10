@@ -173,10 +173,6 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 	// from the client, but don't know how to do it better,
 	// without duplicating InspectImage calls and making unnecessary functions
 
-	log.WithFields(log.Fields{
-		"size": units.HumanSize(float64(img.VirtualSize)),
-	}).Infof("| Image %.12s", img.ID)
-
 	s = b.state
 	s.ImageID = img.ID
 	s.Config = docker.Config{}
@@ -187,6 +183,16 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 	if img.Config != nil {
 		s.Config = *img.Config
 	}
+
+	fields := log.Fields{}
+	if b.cfg.LogJSON {
+		fields["size"] = s.Size
+		fields["delta"] = s.Size - s.ParentSize
+	} else {
+		fields["size"] = units.HumanSize(float64(img.VirtualSize))
+	}
+
+	log.WithFields(fields).Infof("| Image %.12s", img.ID)
 
 	b.ProducedSize = s.Size - s.ParentSize
 	b.VirtualSize = s.Size
