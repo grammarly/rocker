@@ -19,8 +19,10 @@ package git
 
 import (
 	"fmt"
-	"github.com/grammarly/rocker/src/util"
+	"os/exec"
 	"strings"
+
+	"github.com/grammarly/rocker/src/util"
 )
 
 // InfoData is the data structure that describes info taken from the current .git repo
@@ -78,8 +80,13 @@ func Info(dir string) (gitInfo InfoData, err error) {
 }
 
 func doGitCmd(dir string, args []string) (out string, err error) {
+	gitBinary, err := exec.LookPath("git")
+	if err != nil {
+		return "", err
+	}
+
 	cmd := &util.Cmd{
-		Args: append([]string{"/usr/bin/git"}, args...),
+		Args: append([]string{gitBinary}, args...),
 		Dir:  dir,
 	}
 
