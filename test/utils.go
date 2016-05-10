@@ -179,3 +179,9 @@ func makeTempDir(t *testing.T, prefix string, files map[string]string) string {
 	}
 	return tmpDir
 }
+
+func debugf(format string, args ...interface{}) {
+	if *verbosityLevel >= 2 {
+		fmt.Printf(format, args...)
+	}
+}

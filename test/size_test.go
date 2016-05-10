@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	//"log"
 	"os"
 	"testing"
 	"time"
@@ -25,14 +24,16 @@ func runImageSizeTestWithDockerVersion(t *testing.T, dockerVersion string) {
 
 	time.Sleep(2 * 1e9)
 
-	fmt.Fprintf(os.Stdout, "docker env ready, building test image\n")
+	debugf("docker env ready, building test image\n")
 
 	rockerFile := `
 FROM busybox:latest
 RUN dd if=/dev/zero of=/root/binary1M-1 bs=1 count=1000000
+ONBUILD RUN dd if=/dev/zero of=/root/binary1M-2 bs=1 count=1000000
 TAG tag1
-RUN dd if=/dev/zero of=/root/binary1M-2 bs=1 count=1000000
-TAG tag2`
+FROM tag1
+RUN dd if=/dev/zero of=/root/binary1M-3 bs=1 count=1000000
+RUN echo done`
 
 	rd, wr := io.Pipe()
 	jsonRd := json.NewDecoder(rd)
@@ -47,10 +48,10 @@ TAG tag2`
 				if err == io.EOF {
 					break
 				}
-				fmt.Printf("decode error: %s", err)
+				debugf("decode error: %s", err)
 				return
 			}
-			fmt.Printf("decoded: %#v\n", pretty.Formatter(m))
+			debugf("decoded: %#v\n", pretty.Formatter(m))
 
 			size0, ok1 := m["size"]
 			delta0, ok2 := m["delta"]
@@ -58,24 +59,33 @@ TAG tag2`
 			if ok1 && ok2 {
 				size1 := int(size0.(float64))
 				delta1 := int(delta0.(float64))
-				fmt.Printf("size(%v) delta(%v)", size1, delta1)
+				debugf("size(%v) delta(%v)", size1, delta1)
 
 				deltas = append(deltas, delta1)
 			}
 		}
-		fmt.Printf("returning: %v\n", deltas)
+		debugf("returning: %v\n", deltas)
 
 		result <- deltas
 	}()
 
 	err = rocker(rockerFile, wr)
 	assert.Nil(t, err, "build should finish ok")
-	fmt.Printf("build finished\n")
+	debugf("build finished\n")
 	wr.Close()
 
 	deltas := <-result
 
-	assert.Equal(t, deltas, []int{0, 1000000, 1000000, 2000000}, "deltas should be correct")
+	assert.Equal(t, []int{
+		0,       // FROM
+		1000000, // RUN dd with binary1M-1
+		0,       // ONBUILD RUN dd
+		0,       // FROM tag1
+		1000000, // onbuild-triggered dd
+		1000000, // RUN dd with binary1M-3
+		0,       // RUN echo
+		2000000, // final delta from tag1
+	}, deltas, "deltas should be correct")
 
 }
 
@@ -94,7 +104,7 @@ func TestImageSize_docker_1_11(t *testing.T) {
 func runDockerContainer(tag string, cmd []string, binds []string) (*docker.Container, func(), error) {
 	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
-		panic("create client: " + err.Error())
+		return nil, nil, fmt.Errorf("error creating client: %s", err.Error())
 	}
 
 	containerConfig := docker.Config{
@@ -111,22 +121,22 @@ func runDockerContainer(tag string, cmd []string, binds []string) (*docker.Conta
 		Config: &containerConfig,
 	})
 	if err != nil {
-		panic("create container: " + err.Error())
+		return nil, nil, fmt.Errorf("error creating container: %s", err.Error())
 	}
 
 	err = client.StartContainer(container.ID, &hostConfig)
 	if err != nil {
-		panic("start")
+		return nil, nil, fmt.Errorf("error starting container: %s", err.Error())
 	}
 
 	container1, err := client.InspectContainer(container.ID)
 	if err != nil {
-		panic("inspect")
+		return nil, nil, fmt.Errorf("error inspecting container: %s", err.Error())
 	}
 
 	cleanup := func() {
 
-		fmt.Fprintf(os.Stdout, "cleaning up a container: %s\n", container1.ID)
+		debugf("cleaning up a container: %s\n", container1.ID)
 
 		client.KillContainer(docker.KillContainerOptions{
 			ID: container1.ID,
@@ -174,9 +184,9 @@ TAG ` + dockerImageTag
 	data, err := json.Marshal(c)
 	assert.Nil(t, err, "marshal")
 
-	fmt.Fprintf(os.Stdout, "created container: %s\n", string(data))
+	debugf("created container: %s\n", string(data))
 
-	fmt.Fprintf(os.Stdout, "container ip: %s\n", c.NetworkSettings.IPAddress)
+	debugf("container ip: %s\n", c.NetworkSettings.IPAddress)
 
 	rocker := func(rockerFile0 string, stdout io.Writer, opts ...string) error {
 		return runRockerBuildWithOptions2(rockerBuildOptions{
