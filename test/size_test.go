@@ -49,7 +49,7 @@ RUN echo done`
 					break
 				}
 				debugf("decode error: %s", err)
-				return
+				result <- []int{}
 			}
 			debugf("decoded: %#v\n", pretty.Formatter(m))
 
