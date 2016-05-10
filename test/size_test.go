@@ -152,7 +152,7 @@ func runDockerContainer(tag string, cmd []string, binds []string) (*docker.Conta
 
 func setupDockerVersionedEnv(t *testing.T, version string) (rockerBuildFn, func(), error) {
 
-	dockerImageTag := "test-docker-" + version
+	dockerImageTag := "rocker-size-test-docker-" + version
 
 	rockerFile := `
 FROM ubuntu:trusty
@@ -161,8 +161,13 @@ RUN apt-key adv --keyserver keyserver.ubuntu.com --recv F76221572C52609D
 RUN apt-get update && apt-get install --yes docker-engine=` + version + `.*
 TAG ` + dockerImageTag
 
-	if err := runRockerBuildWithOptions(rockerFile); err != nil {
-		t.Fatal("build fail:", dockerImageTag, err)
+	_, err := getImageShaByName(dockerImageTag)
+	if err != nil {
+		// assume the tag is not found, so build one
+
+		if err := runRockerBuildWithOptions(rockerFile); err != nil {
+			t.Fatal("build fail:", dockerImageTag, err)
+		}
 	}
 
 	cmd := []string{"docker", "daemon", "-D", "-s", "overlay", "-H", "0.0.0.0:12345"}
