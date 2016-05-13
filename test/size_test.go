@@ -22,7 +22,7 @@ func runImageSizeTestWithDockerVersion(t *testing.T, dockerVersion string) {
 
 	defer cleanup()
 
-	time.Sleep(2 * 1e9)
+	time.Sleep(2 * time.Second)
 
 	debugf("docker env ready, building test image\n")
 
