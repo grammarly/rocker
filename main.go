@@ -79,16 +79,20 @@ func main() {
 
 	app.Flags = append([]cli.Flag{
 		cli.BoolFlag{
-			Name: "verbose, vv, D",
+			Name:  "verbose, vv, D",
+			Usage: "Be verbose",
 		},
 		cli.BoolFlag{
-			Name: "json",
+			Name:  "json",
+			Usage: "Print output in json",
 		},
 		cli.BoolTFlag{
-			Name: "colors",
+			Name:  "colors",
+			Usage: "Make output colored",
 		},
 		cli.BoolFlag{
-			Name: "cmd, C",
+			Name:  "cmd, C",
+			Usage: "Print command-line that was used to exec",
 		},
 	}, dockerclient.GlobalCliParams()...)
 
@@ -294,6 +298,16 @@ func buildCommand(c *cli.Context) {
 		}
 	}
 
+	dir, err := os.Stat(contextDir)
+	if err != nil {
+		log.Errorf("Problem with opening directory %s, error: %s", contextDir, err)
+		os.Exit(2)
+	}
+	if !dir.IsDir() {
+		log.Errorf("Context directory %s is not a directory.", contextDir)
+		os.Exit(2)
+
+	}
 	log.Debugf("Context directory: %s", contextDir)
 
 	if c.Bool("print") {
@@ -310,7 +324,10 @@ func buildCommand(c *cli.Context) {
 		}
 	}
 
-	dockerClient, err := dockerclient.NewFromCli(c)
+	var config *dockerclient.Config
+	config = dockerclient.NewConfigFromCli(c)
+
+	dockerClient, err := dockerclient.NewFromConfig(config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -342,6 +359,8 @@ func buildCommand(c *cli.Context) {
 		StdoutContainerFormatter: stdoutContainerFormatter,
 		StderrContainerFormatter: stderrContainerFormatter,
 		PushRetryCount:           c.Int("push-retry"),
+		Host:                     config.Host,
+		LogExactSizes:            c.GlobalBool("json"),
 	}
 	client := build.NewDockerClient(options)
 
@@ -359,6 +378,8 @@ func buildCommand(c *cli.Context) {
 		NoCache:       c.Bool("no-cache"),
 		ReloadCache:   c.Bool("reload-cache"),
 		Push:          c.Bool("push"),
+		CacheDir:      cacheDir,
+		LogJSON:       c.GlobalBool("json"),
 	})
 
 	plan, err := build.NewPlan(rockerfile.Commands(), true)
@@ -375,12 +396,18 @@ func buildCommand(c *cli.Context) {
 		log.Fatal(err)
 	}
 
+	fields := log.Fields{}
+	if c.GlobalBool("json") {
+		fields["size"] = builder.VirtualSize
+		fields["delta"] = builder.ProducedSize
+	}
+
 	size := fmt.Sprintf("final size %s (+%s from the base image)",
 		units.HumanSize(float64(builder.VirtualSize)),
 		units.HumanSize(float64(builder.ProducedSize)),
 	)
 
-	log.Infof("Successfully built %.12s | %s", builder.GetImageID(), size)
+	log.WithFields(fields).Infof("Successfully built %.12s | %s", builder.GetImageID(), size)
 }
 
 func pullCommand(c *cli.Context) {

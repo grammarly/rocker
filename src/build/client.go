@@ -28,6 +28,7 @@ import (
 	"github.com/grammarly/rocker/src/imagename"
 	"github.com/grammarly/rocker/src/storage/s3"
 	"github.com/grammarly/rocker/src/textformatter"
+	"net/url"
 	"regexp"
 
 	"github.com/docker/docker/pkg/units"
@@ -52,10 +53,10 @@ type Client interface {
 	EnsureImage(imageName string) error
 	CreateContainer(state State) (id string, err error)
 	RunContainer(containerID string, attachStdin bool) error
-	CommitContainer(state State, message string) (img *docker.Image, err error)
+	CommitContainer(state *State) (img *docker.Image, err error)
 	RemoveContainer(containerID string) error
 	UploadToContainer(containerID string, stream io.Reader, path string) error
-	EnsureContainer(containerName string, config *docker.Config, purpose string) (containerID string, err error)
+	EnsureContainer(containerName string, config *docker.Config, hostConfig *docker.HostConfig, purpose string) (containerID string, err error)
 	InspectContainer(containerName string) (*docker.Container, error)
 	ResolveHostPath(path string) (resultPath string, err error)
 }
@@ -69,6 +70,8 @@ type DockerClientOptions struct {
 	StdoutContainerFormatter logrus.Formatter
 	StderrContainerFormatter logrus.Formatter
 	PushRetryCount           int
+	Host                     string
+	LogExactSizes            bool
 }
 
 // DockerClient implements the client that works with a docker socket
@@ -80,6 +83,9 @@ type DockerClient struct {
 	stdoutContainerFormatter logrus.Formatter
 	stderrContainerFormatter logrus.Formatter
 	pushRetryCount           int
+	isUnixSocket             bool
+	unixSockPath             string
+	useHumanSize             bool
 }
 
 var (
@@ -93,6 +99,14 @@ func NewDockerClient(options DockerClientOptions) *DockerClient {
 		log = logrus.StandardLogger()
 	}
 
+	u, err := url.Parse(options.Host)
+	if err != nil {
+		log.Errorf("Wrong host, can't parse: '%s'", options.Host)
+	}
+
+	isUnixSocket := ("unix" == u.Scheme)
+	unixSockPath := u.Path
+
 	return &DockerClient{
 		client:                   options.Client,
 		auth:                     options.Auth,
@@ -101,6 +115,9 @@ func NewDockerClient(options DockerClientOptions) *DockerClient {
 		stdoutContainerFormatter: options.StdoutContainerFormatter,
 		stderrContainerFormatter: options.StderrContainerFormatter,
 		pushRetryCount:           options.PushRetryCount,
+		isUnixSocket:             isUnixSocket,
+		unixSockPath:             unixSockPath,
+		useHumanSize:             !options.LogExactSizes,
 	}
 }
 
@@ -162,6 +179,7 @@ func (c *DockerClient) PullImage(name string) error {
 		return err
 	}
 
+	pipeWriter.Close()
 	return <-errch
 }
 
@@ -374,10 +392,9 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 }
 
 // CommitContainer commits docker container
-func (c *DockerClient) CommitContainer(s State, message string) (*docker.Image, error) {
+func (c *DockerClient) CommitContainer(s *State) (*docker.Image, error) {
 	commitOpts := docker.CommitContainerOptions{
 		Container: s.NoCache.ContainerID,
-		Message:   message,
 		Run:       &s.Config,
 	}
 
@@ -395,14 +412,22 @@ func (c *DockerClient) CommitContainer(s State, message string) (*docker.Image, 
 		return nil, err
 	}
 
-	size := fmt.Sprintf("%s (+%s)",
-		units.HumanSize(float64(image.VirtualSize)),
-		units.HumanSize(float64(image.Size)),
-	)
+	s.ParentSize = s.Size
+	s.Size = image.VirtualSize
 
-	c.log.WithFields(logrus.Fields{
-		"size": size,
-	}).Infof("| Result image is %.12s", image.ID)
+	fields := logrus.Fields{}
+	if c.useHumanSize {
+		size := fmt.Sprintf("%s (+%s)",
+			units.HumanSize(float64(s.Size)),
+			units.HumanSize(float64(s.Size-s.ParentSize)),
+		)
+		fields["size"] = size
+	} else {
+		fields["size"] = s.Size
+		fields["delta"] = s.Size - s.ParentSize
+	}
+
+	c.log.WithFields(fields).Infof("| Result image is %.12s", image.ID)
 
 	return image, nil
 }
@@ -543,7 +568,7 @@ func (c *DockerClient) pushImageInner(imageName string) (digest string, err erro
 
 // ResolveHostPath proxy for the dockerclient.ResolveHostPath
 func (c *DockerClient) ResolveHostPath(path string) (resultPath string, err error) {
-	return dockerclient.ResolveHostPath(path, c.client)
+	return dockerclient.ResolveHostPath(path, c.client, c.isUnixSocket, c.unixSockPath)
 }
 
 // EnsureImage checks if the image exists and pulls if not
@@ -562,7 +587,7 @@ func (c *DockerClient) EnsureImage(imageName string) (err error) {
 
 // EnsureContainer checks if container with specified name exists
 // and creates it otherwise
-func (c *DockerClient) EnsureContainer(containerName string, config *docker.Config, purpose string) (containerID string, err error) {
+func (c *DockerClient) EnsureContainer(containerName string, config *docker.Config, hostConfig *docker.HostConfig, purpose string) (containerID string, err error) {
 
 	// Check if container exists
 	container, err := c.client.InspectContainer(containerName)
@@ -583,8 +608,9 @@ func (c *DockerClient) EnsureContainer(containerName string, config *docker.Conf
 	c.log.Infof("| Create container: %s for %s", containerName, purpose)
 
 	opts := docker.CreateContainerOptions{
-		Name:   containerName,
-		Config: config,
+		Name:       containerName,
+		Config:     config,
+		HostConfig: hostConfig,
 	}
 
 	c.log.Debugf("Create container options %# v", opts)

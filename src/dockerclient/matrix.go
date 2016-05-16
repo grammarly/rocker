@@ -17,8 +17,13 @@
 package dockerclient
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"github.com/grammarly/rocker/src/util"
+	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -31,33 +36,6 @@ const (
 	initFile = "/.dockerinit"
 )
 
-// IsInMatrix returns true if current process is running inside of a docker container
-func IsInMatrix() (bool, error) {
-	_, err := os.Stat(initFile)
-	if err != nil && os.IsNotExist(err) {
-		return false, nil
-	}
-	return true, err
-}
-
-// MyDockerID returns id of the current container the process is running within, if any
-func MyDockerID() (string, error) {
-	if _, err := os.Stat("/proc/self/cgroup"); os.IsNotExist(err) {
-		return "", nil
-	}
-	output, exitStatus, err := util.ExecPipe(&util.Cmd{
-		Args: []string{"/bin/bash", "-c", `cat /proc/self/cgroup | grep "docker" | sed s/\\//\\n/g | tail -1`},
-	})
-	if err != nil {
-		return "", err
-	}
-	if exitStatus != 0 {
-		return "", fmt.Errorf("Failed to obtain docker id due error: %s", output)
-	}
-
-	return strings.Trim(output, "\n"), nil
-}
-
 // ResolveHostPath resolves any given path from the current context so
 // it is mountable by any container.
 //
@@ -65,7 +43,7 @@ func MyDockerID() (string, error) {
 // resolves the given path according to the container's rootfs on the host
 // machine. It also considers the mounted directories to the current container, so
 // if given path is pointing to the mounted directory, it resolves correctly.
-func ResolveHostPath(mountPath string, client *docker.Client) (string, error) {
+func ResolveHostPath(mountPath string, client *docker.Client, isUnixSocket bool, unixSocketPath string) (string, error) {
 	// Accept only absolute path
 	if !filepath.IsAbs(mountPath) {
 		return "", fmt.Errorf("ResolveHostPath accepts only absolute paths, given: %s", mountPath)
@@ -73,7 +51,7 @@ func ResolveHostPath(mountPath string, client *docker.Client) (string, error) {
 
 	// In case we are running inside of a docker container
 	// we have to provide our fs path right from host machine
-	isMatrix, err := IsInMatrix()
+	isMatrix, err := isInMatrix()
 	if err != nil {
 		return "", err
 	}
@@ -82,7 +60,11 @@ func ResolveHostPath(mountPath string, client *docker.Client) (string, error) {
 		return mountPath, nil
 	}
 
-	myDockerID, err := MyDockerID()
+	if !isUnixSocket {
+		return "", fmt.Errorf("Connection to docker not via unix socket, Not make sense to resolve host path in matrix")
+	}
+
+	myDockerID, err := getMyDockerID()
 	if err != nil {
 		return "", err
 	}
@@ -105,27 +87,104 @@ func ResolveHostPath(mountPath string, client *docker.Client) (string, error) {
 		}
 	}
 
-	// https://jpetazzo.github.io/assets/2015-03-03-not-so-deep-dive-into-docker-storage-drivers.html
-	// aufs: /var/lib/docker/aufs/mnt/$CONTAINER_ID/
-	// devicemapper: /var/lib/docker/devicemapper/mnt/$CONTAINER_ID/
-	// btrfs: /var/lib/docker/btrfs/subvolumes/$CONTAINER_OR_IMAGE_ID/
-	// overlayfs: /var/lib/docker/overlay/$ID_OF_CONTAINER_OR_IMAGE/merged
+	// NOTE: Not all drivers could be used to do this hack.
+	// For now we know that with docker 1.10 it could be done with overlay driver.
+	// It also possibly could be done with devicemapper but not with aufs.
+	// Overlayfs is good enough for now.
 
-	// Resolve docker root by using container's resolv.conf file path
-	dockerRoot := path.Join(path.Dir(container.ResolvConfPath), "../../")
+	// Good stuff to read about docker storage drivers:
+	//   https://jpetazzo.github.io/assets/2015-03-03-not-so-deep-dive-into-docker-storage-drivers.html
 
-	// Resolve the container mountpoint depending on the driver used
-	if container.Driver == "aufs" {
-		mountPath = path.Join(dockerRoot, "aufs/mnt", myDockerID, mountPath)
-	} else if container.Driver == "devicemapper" {
-		mountPath = path.Join(dockerRoot, "devicemapper/mnt", myDockerID, mountPath)
-	} else if container.Driver == "overlay" {
-		mountPath = path.Join(dockerRoot, "overlay", myDockerID, "merged", mountPath)
-	} else {
-		// NOTE: add support for other fs drivers is not a big deal,
-		// but need to have a test environment for that.
-		return "", fmt.Errorf("%s driver is not supported by rocker when using MOUNT from within a container", container.Driver)
+	// Resolve the container mountpoint for overlay storage driver
+	if container.Driver == "overlay" {
+		var mountDirOnDockerHost string
+		if mountDirOnDockerHost, err = getMountPathForOverlay(myDockerID, unixSocketPath); err != nil {
+			fmt.Printf("Can't get mount path, %v\n", err)
+			return "", err
+		}
+		mountPath = path.Join(mountDirOnDockerHost, mountPath)
+		fmt.Printf("Path on docker host: '%v'\n", mountPath)
+		return mountPath, nil
+	}
+	return "", fmt.Errorf("%s driver is not supported by rocker when using MOUNT from within a container", container.Driver)
+}
+
+// isInMatrix returns true if current process is running inside of a docker container
+func isInMatrix() (bool, error) {
+	_, err := os.Stat(initFile)
+	if err != nil && os.IsNotExist(err) {
+		return false, nil
+	}
+	return true, err
+}
+
+// getMyDockerID returns id of the current container the process is running within, if any
+func getMyDockerID() (string, error) {
+	if _, err := os.Stat("/proc/self/cgroup"); os.IsNotExist(err) {
+		return "", nil
+	}
+	output, exitStatus, err := util.ExecPipe(&util.Cmd{
+		Args: []string{"/bin/bash", "-c", `cat /proc/self/cgroup | grep "docker" | sed s/\\//\\n/g | tail -1`},
+	})
+	if err != nil {
+		return "", err
+	}
+	if exitStatus != 0 {
+		return "", fmt.Errorf("Failed to obtain docker id due error: %s", output)
 	}
 
-	return mountPath, nil
+	return strings.Trim(output, "\n"), nil
+}
+
+func getMountPathForOverlay(containerID string, unixSock string) (string, error) {
+	req, err := http.NewRequest("GET", "/containers/"+containerID+"/json", nil)
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("User-Agent", "Thomas Anderson")
+
+	dialer := net.Dialer{}
+	conn, err := dialer.Dial("unix", unixSock)
+	if err != nil {
+		return "", err
+	}
+	defer conn.Close()
+
+	breader := bufio.NewReader(conn)
+	err = req.Write(conn)
+	if err != nil {
+		return "", err
+	}
+
+	var resp *http.Response
+	resp, err = http.ReadResponse(breader, req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 400 {
+		return "", fmt.Errorf("Can't get mount point. statusCode: '%v', body:'%v'", resp.StatusCode, body)
+	}
+
+	return getMountPathForOverlayFromJSON(body)
+}
+
+func getMountPathForOverlayFromJSON(jsonData []byte) (string, error) {
+	type Data struct {
+		GraphDriver struct {
+			Data struct {
+				MergedDir string `json:"MergedDir"`
+			} `json:"Data"`
+		} `json:"GraphDriver"`
+	}
+
+	var data Data
+	if err := json.Unmarshal(jsonData, &data); err != nil {
+		return "", err
+	}
+	return data.GraphDriver.Data.MergedDir, nil
 }

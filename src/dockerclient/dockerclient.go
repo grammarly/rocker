@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -203,9 +204,13 @@ func infoCommand(c *cli.Context) {
 			log.Fatal(err)
 		}
 
-		fmt.Printf("\nDocker advanced info:\n")
-		for key, val := range info.Map() {
-			fmt.Printf("%s: %s\n", key, val)
+		s := reflect.ValueOf(info).Elem()
+		typeOfInfo := s.Type()
+
+		fmt.Printf("\nDocker advanced info:\n\n")
+		for i := 0; i < s.NumField(); i++ {
+			f := s.Field(i)
+			fmt.Printf("%s: %v\n", typeOfInfo.Field(i).Name, f.Interface())
 		}
 	}
 }

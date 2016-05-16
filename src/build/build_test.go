@@ -55,7 +55,7 @@ func TestBuild_ReplaceEnvVars(t *testing.T) {
 		assert.Equal(t, []string{"PATH=/usr/bin:/cassandra/bin"}, arg.Config.Env)
 	}).Once()
 
-	c.On("CommitContainer", mock.AnythingOfType("State"), "ENV PATH=/usr/bin:/cassandra/bin").Return(resultImage, nil).Once()
+	c.On("CommitContainer", mock.AnythingOfType("State")).Return(resultImage, nil).Once()
 
 	c.On("RemoveContainer", "456").Return(nil).Once()
 
@@ -314,8 +314,8 @@ func (m *MockClient) RunContainer(containerID string, attach bool) error {
 	return args.Error(0)
 }
 
-func (m *MockClient) CommitContainer(state State, message string) (*docker.Image, error) {
-	args := m.Called(state, message)
+func (m *MockClient) CommitContainer(state *State) (*docker.Image, error) {
+	args := m.Called(*state)
 	return args.Get(0).(*docker.Image), args.Error(1)
 }
 
@@ -339,8 +339,8 @@ func (m *MockClient) EnsureImage(imageName string) error {
 	return args.Error(0)
 }
 
-func (m *MockClient) EnsureContainer(containerName string, config *docker.Config, purpose string) (containerID string, err error) {
-	args := m.Called(containerName, config, purpose)
+func (m *MockClient) EnsureContainer(containerName string, config *docker.Config, hostConfig *docker.HostConfig, purpose string) (containerID string, err error) {
+	args := m.Called(containerName, config, hostConfig, purpose)
 	return args.String(0), args.Error(1)
 }
 

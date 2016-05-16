@@ -25,14 +25,14 @@ cross: dist_dir
 	docker run --rm -ti -v $(shell pwd):/go/src/github.com/grammarly/rocker \
 		-e GOOS=linux -e GOARCH=amd64 -e GO15VENDOREXPERIMENT=1 \
 		-w /go/src/github.com/grammarly/rocker \
-		dockerhub.grammarly.io/golang-1.5.1-cross:v1 go build \
+		dockerhub.grammarly.io/golang-1.6.2-cross:v1 go build \
 		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
 		-v -o ./dist/linux_amd64/rocker
 
 	docker run --rm -ti -v $(shell pwd):/go/src/github.com/grammarly/rocker \
 		-e GOOS=darwin -e GOARCH=amd64 -e GO15VENDOREXPERIMENT=1 \
 		-w /go/src/github.com/grammarly/rocker \
-		dockerhub.grammarly.io/golang-1.5.1-cross:v1 go build \
+		dockerhub.grammarly.io/golang-1.6.2-cross:v1 go build \
 		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
 		-v -o ./dist/darwin_amd64/rocker
 
@@ -54,7 +54,6 @@ lint:
 	$(foreach file,$(SRCS),fgt golint $(file) || exit;)
 
 vet:
-	@ go get golang.org/x/tools/cmd/vet
 	$(foreach pkg,$(PKGS),fgt go vet $(pkg) || exit;)
 
 gocyclo:
@@ -64,7 +63,7 @@ gocyclo:
 test: testdeps fmtcheck vet lint
 	GO15VENDOREXPERIMENT=1 go test ./src/... $(TESTARGS)
 
-integ:
-	GO15VENDOREXPERIMENT=1 go test ./src/... -tags="integration" -run TestInteg_
+test_integration:
+	GO15VENDOREXPERIMENT=1 go test -v ./test/... --args -verbosity=0
 
 .PHONY: clean test fmtcheck lint vet gocyclo default
