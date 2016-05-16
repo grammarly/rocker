@@ -1,5 +1,23 @@
 # Change Log
 
+## [1.2.0](https://github.com/grammarly/rocker/tree/1.2.0)
+
+[Full Changelog](https://github.com/grammarly/rocker/compare/1.1.2...1.2.0)
+
+**Merged pull requests:**
+
+- Calculate image size difference using parent image size [\#100](https://github.com/grammarly/rocker/pull/100) ([diunko](https://github.com/diunko))
+- Enable PATH variable to be expanded as default value, if not set by prior ENV command [\#98](https://github.com/grammarly/rocker/pull/98) ([diunko](https://github.com/diunko))
+- Remove go-vet dependency for tests, it is already in golang [\#95](https://github.com/grammarly/rocker/pull/95) ([ybogdanov](https://github.com/ybogdanov))
+- Better error message if context dir arg is not a directory  [\#93](https://github.com/grammarly/rocker/pull/93) ([ctrlok](https://github.com/ctrlok))
+- Support urls as ADD sources [\#91](https://github.com/grammarly/rocker/pull/91) ([diunko](https://github.com/diunko))
+- Expand variables at the time of ONBUILD command execution [\#90](https://github.com/grammarly/rocker/pull/90) ([diunko](https://github.com/diunko))
+- Better mount error [\#87](https://github.com/grammarly/rocker/pull/87) ([romank87](https://github.com/romank87))
+- Update go-dockerclient [\#86](https://github.com/grammarly/rocker/pull/86) ([romank87](https://github.com/romank87))
+- Rewrite export/import cache logic [\#85](https://github.com/grammarly/rocker/pull/85) ([romank87](https://github.com/romank87))
+- Fix mount in matrix [\#79](https://github.com/grammarly/rocker/pull/79) ([romank87](https://github.com/romank87))
+- Integration tests [\#78](https://github.com/grammarly/rocker/pull/78) ([romank87](https://github.com/romank87))
+
 ## [1.1.2](https://github.com/grammarly/rocker/tree/1.1.2)
 
 [Full Changelog](https://github.com/grammarly/rocker/compare/1.1.1...1.1.2)
