@@ -12,8 +12,7 @@ Rocker has been rewritten from scratch and now it became much more robust! While
 
 What is not supported yet:
 
-1. `ADD <url>`
-2. Adding tar archives that supposed to automatically extract
+1. Adding tar archives that supposed to automatically extract
 
 ---
 
