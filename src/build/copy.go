@@ -346,6 +346,10 @@ func listFiles(srcPath string, includes, excludes []string, cmdName string, urlF
 			// Walk through each match since it may be a directory
 			err = filepath.Walk(match, func(path string, info os.FileInfo, err error) error {
 
+				if err != nil {
+					return err
+				}
+
 				relFilePath, err := filepath.Rel(srcPath, path)
 				if err != nil {
 					return err
