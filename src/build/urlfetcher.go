@@ -197,11 +197,26 @@ func (info *URLInfo) isEtagValid() bool {
 }
 
 func (info *URLInfo) download() (err error) {
-	log.Infof("Downloading `%s` into `%s`", info.URL, info.FileName)
+	log.Infof("Downloading %s into %s", info.URL, info.FileName)
 
 	httpClient := info.Fetcher.client
 
-	response, err := httpClient.Get(info.URL)
+	u, err := url.Parse(info.URL)
+	if err != nil {
+		return fmt.Errorf("Failed to parse url %s, error: %s", info.URL, err)
+	}
+
+	request := &http.Request{
+		Method: "GET",
+		URL:    u,
+		Header: http.Header{},
+	}
+
+	if info.HasEtag {
+		request.Header["If-None-Match"] = []string{info.Etag}
+	}
+
+	response, err := httpClient.Do(request)
 	if err != nil {
 		return err
 	}
