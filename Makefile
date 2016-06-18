@@ -10,7 +10,7 @@ PKGS := $(foreach pkg, $(sort $(dir $(SRCS))), $(pkg))
 TESTARGS ?=
 
 default:
-	GO15VENDOREXPERIMENT=1 go build -v
+	GO15VENDOREXPERIMENT=1 go build -ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" -v
 
 install:
 	cp rocker /usr/local/bin/rocker
