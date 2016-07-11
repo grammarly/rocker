@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -294,7 +294,10 @@ TAG ` + tag
 	}
 
 	for file, content := range map[string]string{"file1.txt": "content12", "file3.txt": "content32"} {
-		ioutil.WriteFile(filepath.Join(sampleDir, file), []byte(content), 0644)
+		t.Logf("Writing %q to %s", content, path.Join(sampleDir, file))
+		if err := ioutil.WriteFile(path.Join(sampleDir, file), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// build container again

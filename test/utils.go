@@ -1,19 +1,20 @@
 package tests
 
 import (
-	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 	"testing"
 
 	"github.com/grammarly/rocker/src/test"
 	"github.com/kr/pretty"
+	"github.com/mitchellh/go-homedir"
 )
 
 type rockerBuildOptions struct {
@@ -30,6 +31,7 @@ func runCmd(executable string, stdoutWriter io.Writer /* stderr io.Writer,*/, pa
 
 func runCmdWithWd(executable, wd string, stdoutWriter io.Writer /* stderr io.Writer,*/, params ...string) error {
 	cmd := exec.Command(executable, params...)
+
 	if *verbosityLevel >= 1 {
 		fmt.Printf("Running: %v\n", strings.Join(cmd.Args, " "))
 	}
@@ -38,10 +40,19 @@ func runCmdWithWd(executable, wd string, stdoutWriter io.Writer /* stderr io.Wri
 
 	if stdoutWriter != nil {
 		cmd.Stdout = stdoutWriter
-	} else if *verbosityLevel >= 2 {
-		cmd.Stdout = os.Stdout
+	}
+
+	if *verbosityLevel >= 2 {
+		if cmd.Stdout == nil {
+			// If there was no stdout writer assigned
+			cmd.Stdout = os.Stdout
+		} else if cmd.Stdout != os.Stdout {
+			// If there was stdout writer assigned but was not os.Stdout
+			cmd.Stdout = io.MultiWriter(os.Stdout, stdoutWriter)
+		}
 		cmd.Stderr = os.Stderr
 	}
+
 	if err := cmd.Run(); err != nil {
 		return err
 	}
@@ -56,7 +67,7 @@ func removeImage(imageName string) error {
 func getImageShaByName(imageName string) (string, error) {
 	var b bytes.Buffer
 
-	if err := runCmd("docker", bufio.NewWriter(&b), "images", "-q", imageName); err != nil {
+	if err := runCmd("docker", &b, "images", "-q", imageName); err != nil {
 		fmt.Println("Can't execute command:", err)
 		return "", err
 	}
@@ -64,7 +75,7 @@ func getImageShaByName(imageName string) (string, error) {
 	sha := strings.Trim(b.String(), "\n")
 
 	if len(sha) < 12 {
-		return "", errors.New("Too short sha")
+		return "", fmt.Errorf("Too short sha (should be at least 12 chars) got: %q", sha)
 	}
 
 	//fmt.Printf("Image: %v, size: %d\n", sha, len(sha))
@@ -165,7 +176,20 @@ func runRockerBuildWithOptions2(opts rockerBuildOptions) error {
 }
 
 func makeTempDir(t *testing.T, prefix string, files map[string]string) string {
-	tmpDir, err := ioutil.TempDir("", prefix)
+	// We produce tmp dirs within home to make integration tests work within
+	// Mac OS and VirtualBox
+	home, err := homedir.Dir()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	baseTmpDir := path.Join(home, ".rocker-integ-tmp")
+
+	if err := os.MkdirAll(baseTmpDir, 0755); err != nil {
+		log.Fatal(err)
+	}
+
+	tmpDir, err := ioutil.TempDir(baseTmpDir, prefix)
 	if err != nil {
 		t.Fatal(err)
 	}
