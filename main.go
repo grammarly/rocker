@@ -297,7 +297,7 @@ func buildCommand(c *cli.Context) {
 			contextDir = filepath.Join(wd, args[0])
 		}
 	} else if contextDir != wd {
-		log.Warningf("Default context directory is %s. You can specify context direcotry as the last argument.", contextDir)
+		log.Warningf("Implicit context directory used: %s. You can override context directory using the last argument.", contextDir)
 	}
 
 	log.Debugf("Context directory: %s", contextDir)
