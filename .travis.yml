@@ -15,4 +15,7 @@ before_install:
   - sudo apt-get -qqy -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install docker-engine=${DOCKER_VERSION}~precise
 script:
   - make test
+  - make
+  - mkdir -p /home/travis/gopath/bin 
+  - cp rocker /home/travis/gopath/bin/
   - make test_integration
