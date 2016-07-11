@@ -5,9 +5,8 @@ services:
 go:
   - 1.6
 env:
-  - GOARCH=amd64
-  - DOCKER_VERSION=1.11.2-0
-  - DOCKER_VERSION=1.12.0~rc3-0
+  - GOARCH=amd64 DOCKER_VERSION=1.11.2-0
+  - GOARCH=amd64 DOCKER_VERSION=1.12.0~rc3-0
 before_install:
   - sudo sh -c 'echo "deb https://apt.dockerproject.org/repo ubuntu-precise main"          > /etc/apt/sources.list.d/docker.list'
   - sudo sh -c 'echo "deb https://apt.dockerproject.org/repo ubuntu-precise experimental" >> /etc/apt/sources.list.d/docker.list'
