@@ -24,7 +24,7 @@ func TestPullSimple(t *testing.T) {
 func TestPushAndPull(t *testing.T) {
 	randomData := strconv.Itoa(int(time.Now().UnixNano() % int64(100000001)))
 
-	tag := "dockerhub.grammarly.io/rocker_integration_test_pull:latest" + randomData
+	tag := "testrocker/rocker_integration_test_pull:latest" + randomData
 	defer removeImage(tag)
 
 	err := runRockerBuildWithOptions("FROM alpine\nRUN echo "+randomData+" > /foobar\nPUSH "+tag, "--push")
