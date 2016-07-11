@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
+	"github.com/grammarly/rocker/src/dockerclient"
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/assert"
 )
@@ -191,10 +192,20 @@ TAG ` + dockerImageTag
 
 	debugf("container ip: %s\n", c.NetworkSettings.IPAddress)
 
+	ip := "127.0.0.1"
+
+	inMatrix, err := dockerclient.IsInMatrix()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inMatrix {
+		ip = c.NetworkSettings.Networks["bridge"].Gateway
+	}
+
 	rocker := func(rockerFile0 string, stdout io.Writer, opts ...string) error {
 		return runRockerBuildWithOptions2(rockerBuildOptions{
 			Rockerfile:    rockerFile0,
-			GlobalOptions: []string{"-H", "127.0.0.1:" + c.NetworkSettings.Ports[docker.Port("2375/tcp")][0].HostPort, "--json"},
+			GlobalOptions: []string{"-H", ip + ":" + c.NetworkSettings.Ports[docker.Port("2375/tcp")][0].HostPort, "--json"},
 			BuildOptions:  opts,
 			Stdout:        stdout,
 		})

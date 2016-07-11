@@ -62,7 +62,7 @@ func ResolveHostPath(mountPath string, client *docker.Client, isUnixSocket bool,
 
 	// In case we are running inside of a docker container
 	// we have to provide our fs path right from host machine
-	isMatrix, err := isInMatrix()
+	isMatrix, err := IsInMatrix()
 	if err != nil {
 		return "", err
 	}
@@ -121,8 +121,8 @@ func ResolveHostPath(mountPath string, client *docker.Client, isUnixSocket bool,
 	return "", &ErrDriverNotSupported{container.Driver}
 }
 
-// isInMatrix returns true if current process is running inside of a docker container
-func isInMatrix() (bool, error) {
+// IsInMatrix returns true if current process is running inside of a docker container
+func IsInMatrix() (bool, error) {
 	_, err := os.Stat(initFile)
 	if err != nil && os.IsNotExist(err) {
 		return false, nil
