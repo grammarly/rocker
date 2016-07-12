@@ -78,7 +78,7 @@ func ResolveHostPath(mountPath string, client *docker.Client, isUnixSocket bool,
 	for _, mount := range container.Mounts {
 		rel, err := filepath.Rel(mount.Destination, mountPath)
 		if err != nil {
-			return "", err
+			continue
 		}
 		// The easiest way to check whether the `mountPath` is within the `mount.Destination`
 		if !strings.HasPrefix(rel, "..") {
