@@ -16,9 +16,9 @@ before_install:
   - sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
   - sudo apt-get update
   - sudo apt-get -qqy -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install docker-engine=${DOCKER_VERSION}~precise
-  - sudo docker login -u testrocker -p ${DOCKER_KEY}
   - docker info
 script:
+  - sudo docker login -u testrocker -p ${DOCKER_KEY}
   - make test
   - make install
   - make test_integration
