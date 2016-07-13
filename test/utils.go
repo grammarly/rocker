@@ -15,6 +15,7 @@ import (
 
 	"github.com/grammarly/rocker/src/test"
 	"github.com/kr/pretty"
+	"github.com/kr/text"
 	"github.com/mitchellh/go-homedir"
 )
 
@@ -272,6 +273,6 @@ type errRockerBuildRun struct {
 
 func (e *errRockerBuildRun) Error() string {
 	sep := "\n---------------------------------\n"
-	return fmt.Sprintf("Failed to run rocker build:\n\nRockerfile:%s%s%sCmd Error: %s",
-		sep, e.rockerfileContent, sep, e.cmdErr)
+	return fmt.Sprintf("Failed to run rocker build:\n\nRockerfile:%s%s%sCmd Error:\n%s",
+		sep, e.rockerfileContent, sep, text.Indent(e.cmdErr.Error(), "           "))
 }
