@@ -21,14 +21,14 @@ dist_dir:
 
 cross: dist_dir
 	docker run --rm -ti -v $(shell pwd):/go/src/github.com/grammarly/rocker \
-		-e GOOS=linux -e GOARCH=amd64 -e \
+		-e GOOS=linux -e GOARCH=amd64 \
 		-w /go/src/github.com/grammarly/rocker \
 		dockerhub.grammarly.io/golang-1.6.2-cross:v1 go build \
 		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
 		-v -o ./dist/linux_amd64/rocker
 
 	docker run --rm -ti -v $(shell pwd):/go/src/github.com/grammarly/rocker \
-		-e GOOS=darwin -e GOARCH=amd64 -e \
+		-e GOOS=darwin -e GOARCH=amd64 \
 		-w /go/src/github.com/grammarly/rocker \
 		dockerhub.grammarly.io/golang-1.6.2-cross:v1 go build \
 		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
