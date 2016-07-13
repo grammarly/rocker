@@ -24,7 +24,7 @@ before_install:
   - sudo cat /etc/default/docker
   - sudo service docker restart
   - sleep 5
-  - tail -n 100 /var/log/upstart/docker.log
+  - sudo tail -n 100 /var/log/upstart/docker.log
   - while ! nc -q 1 127.0.0.1 2375 </dev/null; do sleep 1; done
   - docker info
 script:
