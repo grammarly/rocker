@@ -8,10 +8,8 @@ env:
   matrix:
     - DOCKER_VERSION=1.11.2-0        DOCKER_FS=overlay
     - DOCKER_VERSION=1.11.2-0        DOCKER_FS=aufs
-    - DOCKER_VERSION=1.11.2-0        DOCKER_FS=devicemapper
     - DOCKER_VERSION=1.12.0~rc3-0    DOCKER_FS=overlay
     - DOCKER_VERSION=1.12.0~rc3-0    DOCKER_FS=aufs
-    - DOCKER_VERSION=1.12.0~rc3-0    DOCKER_FS=devicemapper
   global:
     secure: MPs87X+op4xhB/TSwbCUAfYlx1XuqznyaJsWuT5ob1m0oBYKpFRG1317DaEaGEJxYqvIlpDPFg030ua6X0JER7h6qoyC71Mv4Xt7x3JVxca3vTpHd98RuGNjKrk4mBlUnegb2HJU/6nopVyP451YeDJX2wgDsQmVAmJUlfYU3kf/QNp/PPEky9WyhQy6Muy4goE8+K/vrdbuRuYu+8SKwDWsXcKLCvXqK6/0Xu+N5vjlmiWaMHk3zN3nS/DrK+odUr/j0qOvHqHgHOILtT7UY2KT4dzLJA/qHEsmvzkM+QNRfqI4LNHrNqpROzjIbLRZKJ8pDAlcQlhthmvAT2WTwEu+scEy+BJExSVcwt7zWnKjkFFXsiR5VwmLC/o6fUJGQ17VczEiPRC7hBcPvt966Up9pa0XSIR6SRo5iVfoen+5DqOyDTku5uL9CM8sGQseBL86R5fjVfisYXj5X8RstxLlO61sU/0cpPTUQ8zR2gb4fPjvhiDQ4uvzGMUPna1S4hdc0v7MrFVNALCRM73usbzIh0FguhiHLJ2MUnQIanqfhjImiteLN/6zVjsIrCh0j5oEYFU6dwF33IpGqjcOsl6QvA47L0Qa0yGVhgTi4w6OcAf10FDAvtSh2Sz3m2zH6R8olQMqIJCJusy0LYurppsB1JLpLYIt4poFtBQBGRU=
 before_install:
