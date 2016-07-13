@@ -10,27 +10,25 @@ PKGS := $(foreach pkg, $(sort $(dir $(SRCS))), $(pkg))
 TESTARGS ?=
 
 default:
-	GO15VENDOREXPERIMENT=1 go build -v
+	go build -v
 
 install:
-	cp rocker /usr/local/bin/rocker
-	chmod +x /usr/local/bin/rocker
+	go install -v
 
 dist_dir:
 	mkdir -p ./dist/linux_amd64
 	mkdir -p ./dist/darwin_amd64
 
-
 cross: dist_dir
 	docker run --rm -ti -v $(shell pwd):/go/src/github.com/grammarly/rocker \
-		-e GOOS=linux -e GOARCH=amd64 -e GO15VENDOREXPERIMENT=1 \
+		-e GOOS=linux -e GOARCH=amd64 -e \
 		-w /go/src/github.com/grammarly/rocker \
 		dockerhub.grammarly.io/golang-1.6.2-cross:v1 go build \
 		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
 		-v -o ./dist/linux_amd64/rocker
 
 	docker run --rm -ti -v $(shell pwd):/go/src/github.com/grammarly/rocker \
-		-e GOOS=darwin -e GOARCH=amd64 -e GO15VENDOREXPERIMENT=1 \
+		-e GOOS=darwin -e GOARCH=amd64 -e \
 		-w /go/src/github.com/grammarly/rocker \
 		dockerhub.grammarly.io/golang-1.6.2-cross:v1 go build \
 		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
@@ -61,9 +59,9 @@ gocyclo:
 	gocyclo -over 25 ./src
 
 test: testdeps fmtcheck vet lint
-	GO15VENDOREXPERIMENT=1 go test ./src/... $(TESTARGS)
+	go test ./src/... $(TESTARGS)
 
 test_integration:
-	GO15VENDOREXPERIMENT=1 go test -v ./test/... --args -verbosity=0
+	go test -v ./test/... --args -verbosity=0
 
 .PHONY: clean test fmtcheck lint vet gocyclo default

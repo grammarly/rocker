@@ -3,7 +3,7 @@ sudo: required
 services:
   - docker
 go:
-  - 1.6
+  - 1.6.2
 env:
   matrix:
     - GOARCH=amd64 DOCKER_VERSION=1.11.2-0
@@ -20,7 +20,5 @@ before_install:
   - docker info
 script:
   - make test
-  - make
-  - mkdir -p /home/travis/gopath/bin
-  - cp rocker /home/travis/gopath/bin/
+  - make install
   - make test_integration

@@ -17,7 +17,7 @@ func TestExport_ExportSimple(t *testing.T) {
 	}
 	defer os.RemoveAll(dir)
 
-	err = runRockerBuildWithOptions(`
+	err = runRockerBuild(`
 		FROM alpine:latest
 		RUN echo -n "test_export" > /exported_file
 		EXPORT /exported_file
@@ -26,7 +26,7 @@ func TestExport_ExportSimple(t *testing.T) {
 		MOUNT `+dir+`:/datadir
 		IMPORT /exported_file /datadir/imported_file`, "--no-cache")
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
 	content, err := ioutil.ReadFile(dir + "/imported_file")
@@ -62,19 +62,19 @@ func TestExport_ExportSeparateFilesDifferentExport(t *testing.T) {
 						    MOUNT ` + dir + `:/datadir
 						    IMPORT /exported_file /datadir/imported_file`
 
-	err = runRockerBuildWithOptions(rockerContentFirst, "--reload-cache")
+	err = runRockerBuild(rockerContentFirst, "--reload-cache")
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
-	err = runRockerBuildWithOptions(rockerContentSecond, "--reload-cache")
+	err = runRockerBuild(rockerContentSecond, "--reload-cache")
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
-	err = runRockerBuildWithOptions(rockerContentFirst)
+	err = runRockerBuild(rockerContentFirst)
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
 	content, err := ioutil.ReadFile(dir + "/imported_file")
@@ -128,7 +128,7 @@ func TestExport_ExportSmolinIssue(t *testing.T) {
 	}
 	err = runRockerBuildWithFile(rockerfile, "--reload-cache", "--var", "env=qa")
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
 	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
@@ -137,7 +137,7 @@ func TestExport_ExportSmolinIssue(t *testing.T) {
 	}
 	err = runRockerBuildWithFile(rockerfile, "--reload-cache", "--var", "env=prod")
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
 	err = ioutil.WriteFile(rockerfile, rockerContentSecond, 0644)
@@ -146,7 +146,7 @@ func TestExport_ExportSmolinIssue(t *testing.T) {
 	}
 	err = runRockerBuildWithFile(rockerfile, "--var", "env=qa")
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
 	content := `FROM ` + tag + `:qa
@@ -156,9 +156,9 @@ func TestExport_ExportSmolinIssue(t *testing.T) {
 					   FROM ` + tag + `:prod
 					   MOUNT ` + dir + `:/data
 					   RUN cp /imported_file /data/prod.file`
-	err = runRockerBuildWithOptions(content, "--no-cache")
+	err = runRockerBuild(content, "--no-cache")
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
 	qaContent, err := ioutil.ReadFile(dir + "/qa.file")
@@ -211,19 +211,19 @@ func TestExport_ExportSeparateFilesSameExport(t *testing.T) {
 						   IMPORT /exported_file /datadir/imported_file
 						   `
 
-	err = runRockerBuildWithOptions(rockerContentFirst, "--reload-cache")
+	err = runRockerBuild(rockerContentFirst, "--reload-cache")
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
-	err = runRockerBuildWithOptions(rockerContentSecond)
+	err = runRockerBuild(rockerContentSecond)
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
-	err = runRockerBuildWithOptions(rockerContentThird)
+	err = runRockerBuild(rockerContentThird)
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
 	content, err := ioutil.ReadFile(dir + "/imported_file")
@@ -275,7 +275,7 @@ func TestExport_ExportSameFileDifferentCmd(t *testing.T) {
 	}
 	err = runRockerBuildWithFile(rockerfile, "--reload-cache")
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 	content, err := ioutil.ReadFile(dir + "/imported_file")
 	if err != nil {
@@ -289,7 +289,7 @@ func TestExport_ExportSameFileDifferentCmd(t *testing.T) {
 	}
 	err = runRockerBuildWithFile(rockerfile)
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 	content, err = ioutil.ReadFile(dir + "/imported_file")
 	if err != nil {
@@ -303,7 +303,7 @@ func TestExport_ExportSameFileDifferentCmd(t *testing.T) {
 	}
 	err = runRockerBuildWithFile(rockerfile)
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 	content, err = ioutil.ReadFile(dir + "/imported_file")
 	if err != nil {
@@ -349,7 +349,7 @@ func TestExport_ExportSameFileFewFroms(t *testing.T) {
 	}
 	err = runRockerBuildWithFile(rockerfile, "--reload-cache")
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
 	err = ioutil.WriteFile(rockerfile, rockerContentSecond, 0644)
@@ -358,7 +358,7 @@ func TestExport_ExportSameFileFewFroms(t *testing.T) {
 	}
 	err = runRockerBuildWithFile(rockerfile, "--reload-cache")
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
 	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
@@ -367,7 +367,7 @@ func TestExport_ExportSameFileFewFroms(t *testing.T) {
 	}
 	err = runRockerBuildWithFile(rockerfile)
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
 	content, err := ioutil.ReadFile(dir + "/imported_file")
@@ -387,13 +387,13 @@ func TestExport_DoubleExport(t *testing.T) {
 					  IMPORT issue
 					  IMPORT hostname`
 
-	err := runRockerBuildWithOptions(rockerContent, "--reload-cache")
+	err := runRockerBuild(rockerContent, "--reload-cache")
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 
-	err = runRockerBuildWithOptions(rockerContent)
+	err = runRockerBuild(rockerContent)
 	if err != nil {
-		t.Fatal("rocker build failed:", err)
+		t.Fatal(err)
 	}
 }
