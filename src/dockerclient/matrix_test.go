@@ -19,7 +19,7 @@ package dockerclient
 import "testing"
 
 func TestDockerIsInMatrix(t *testing.T) {
-	result, err := isInMatrix()
+	result, err := IsInMatrix()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,6 +45,10 @@ func TestResolveHostPath(t *testing.T) {
 
 	result, err := ResolveHostPath("/bin/rsync", client, true, "/var/run/docker.sock")
 	if err != nil {
+		if _, ok := err.(*ErrDriverNotSupported); ok {
+			t.Skip(err.Error())
+			return
+		}
 		t.Fatal(err)
 	}
 

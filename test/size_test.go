@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/fsouza/go-dockerclient"
+	"github.com/grammarly/rocker/src/dockerclient"
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/assert"
 )
@@ -101,7 +101,7 @@ func TestImageSize_docker_1_11(t *testing.T) {
 	runImageSizeTestWithDockerVersion(t, "1.11")
 }
 
-func runDockerContainer(tag string, cmd []string, binds []string) (*docker.Container, func(), error) {
+func runDockerContainer(tag string, cmd []string) (*docker.Container, func(), error) {
 	client, err := docker.NewClient("unix:///var/run/docker.sock")
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating client: %s", err.Error())
@@ -110,15 +110,21 @@ func runDockerContainer(tag string, cmd []string, binds []string) (*docker.Conta
 	containerConfig := docker.Config{
 		Image: tag,
 		Cmd:   cmd,
+		ExposedPorts: map[docker.Port]struct{}{
+			docker.Port("2375/tcp"): struct{}{},
+		},
 	}
 
 	hostConfig := docker.HostConfig{
-		Binds:      binds,
 		Privileged: true,
+		PortBindings: map[docker.Port][]docker.PortBinding{
+			docker.Port("2375/tcp"): []docker.PortBinding{docker.PortBinding{}},
+		},
 	}
 
 	container, err := client.CreateContainer(docker.CreateContainerOptions{
-		Config: &containerConfig,
+		Config:     &containerConfig,
+		HostConfig: &hostConfig,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating container: %s", err.Error())
@@ -128,6 +134,8 @@ func runDockerContainer(tag string, cmd []string, binds []string) (*docker.Conta
 	if err != nil {
 		return nil, nil, fmt.Errorf("error starting container: %s", err.Error())
 	}
+
+	time.Sleep(2 * time.Second)
 
 	container1, err := client.InspectContainer(container.ID)
 	if err != nil {
@@ -170,20 +178,11 @@ TAG ` + dockerImageTag
 		}
 	}
 
-	cmd := []string{"docker", "daemon", "-D", "-s", "overlay", "-H", "0.0.0.0:12345"}
+	cmd := []string{"docker", "daemon", "-D", "-s", "vfs", "-H", "0.0.0.0:2375"}
 
-	// docker 1.11 fails to create containers inside container with overlayfs driver,
-	// so we mount some host directory on /var/lib/docker inside docker-version container
-	tempDir := makeTempDir(t, "var-lib-docker-"+version, nil)
-
-	c, cleanup1, err := runDockerContainer(dockerImageTag, cmd, []string{tempDir + ":/var/lib/docker"})
+	c, cleanup, err := runDockerContainer(dockerImageTag, cmd)
 	if err != nil {
 		t.Fatal("failed to create container", err)
-	}
-
-	cleanup2 := func() {
-		defer cleanup1()
-		defer os.RemoveAll(tempDir)
 	}
 
 	data, err := json.Marshal(c)
@@ -193,14 +192,24 @@ TAG ` + dockerImageTag
 
 	debugf("container ip: %s\n", c.NetworkSettings.IPAddress)
 
+	ip := "127.0.0.1"
+
+	inMatrix, err := dockerclient.IsInMatrix()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inMatrix {
+		ip = c.NetworkSettings.Networks["bridge"].Gateway
+	}
+
 	rocker := func(rockerFile0 string, stdout io.Writer, opts ...string) error {
 		return runRockerBuildWithOptions2(rockerBuildOptions{
 			Rockerfile:    rockerFile0,
-			GlobalOptions: []string{"-H", c.NetworkSettings.IPAddress + ":12345", "--json"},
+			GlobalOptions: []string{"-H", ip + ":" + c.NetworkSettings.Ports[docker.Port("2375/tcp")][0].HostPort, "--json"},
 			BuildOptions:  opts,
 			Stdout:        stdout,
 		})
 	}
 
-	return rocker, cleanup2, err
+	return rocker, cleanup, err
 }

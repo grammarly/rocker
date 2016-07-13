@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
-	"github.com/grammarly/rocker/src/util"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -30,11 +29,23 @@ import (
 	"strings"
 
 	"github.com/fsouza/go-dockerclient"
+	"github.com/grammarly/rocker/src/util"
 )
 
 const (
 	initFile = "/.dockerinit"
 )
+
+// ErrDriverNotSupported is an error type that is returned if it's impossible to
+// ResolveHostPath using current fs driver
+type ErrDriverNotSupported struct {
+	Driver string
+}
+
+// Error returns error string
+func (e *ErrDriverNotSupported) Error() string {
+	return fmt.Sprintf("%s driver is not supported by rocker when using MOUNT from within a container", e.Driver)
+}
 
 // ResolveHostPath resolves any given path from the current context so
 // it is mountable by any container.
@@ -51,7 +62,7 @@ func ResolveHostPath(mountPath string, client *docker.Client, isUnixSocket bool,
 
 	// In case we are running inside of a docker container
 	// we have to provide our fs path right from host machine
-	isMatrix, err := isInMatrix()
+	isMatrix, err := IsInMatrix()
 	if err != nil {
 		return "", err
 	}
@@ -106,11 +117,12 @@ func ResolveHostPath(mountPath string, client *docker.Client, isUnixSocket bool,
 		fmt.Printf("Path on docker host: '%v'\n", mountPath)
 		return mountPath, nil
 	}
-	return "", fmt.Errorf("%s driver is not supported by rocker when using MOUNT from within a container", container.Driver)
+
+	return "", &ErrDriverNotSupported{container.Driver}
 }
 
-// isInMatrix returns true if current process is running inside of a docker container
-func isInMatrix() (bool, error) {
+// IsInMatrix returns true if current process is running inside of a docker container
+func IsInMatrix() (bool, error) {
 	_, err := os.Stat(initFile)
 	if err != nil && os.IsNotExist(err) {
 		return false, nil

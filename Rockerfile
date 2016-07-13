@@ -1,8 +1,11 @@
-FROM golang:1.6-alpine
-
 {{ $commit := (or .Env.GIT_COMMIT "") }}
 {{ $branch := (or .Env.GIT_BRANCH "none") }}
 {{ $version:= (or .Version "local") }}
+
+FROM golang:1.6-alpine
+
+# Golang build cache
+MOUNT /go/pkg/linux_amd64 /usr/local/go/pkg/linux_amd64
 
 ADD . /go/src/github.com/grammarly/rocker
 WORKDIR /go/src/github.com/grammarly/rocker
