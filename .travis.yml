@@ -21,7 +21,7 @@ before_install:
   - sudo apt-get update
   - sudo apt-get -qqy -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install docker-engine=${DOCKER_VERSION}~precise
   - echo 'DOCKER_OPTS="-H tcp://127.0.0.1:2375 -H unix:///var/run/docker.sock -s ${DOCKER_FS}"' | sudo tee /etc/default/docker > /dev/null
-  - cat /etc/default/docker
+  - sudo cat /etc/default/docker
   - sudo service docker restart
   - sleep 5
   - tail -n 100 /var/log/docker.log
