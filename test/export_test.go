@@ -1,17 +1,20 @@
 package tests
 
 import (
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestExportSimple(t *testing.T) {
+func TestExport_ExportSimple(t *testing.T) {
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_")
-	assert.Nil(t, err, "Can't create tmp dir")
+	if err != nil {
+		t.Fatal("Cannot make temp dir:", err)
+	}
 	defer os.RemoveAll(dir)
 
 	err = runRockerBuildWithOptions(`
@@ -22,17 +25,23 @@ func TestExportSimple(t *testing.T) {
 		FROM alpine:latest
 		MOUNT `+dir+`:/datadir
 		IMPORT /exported_file /datadir/imported_file`, "--no-cache")
-	assert.Nil(t, err, "Failed to run rocker build")
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	content, err := ioutil.ReadFile(dir + "/imported_file")
-	assert.Nil(t, err, "Can't read file")
+	if err != nil {
+		t.Fatal("Cannot read imported_file:", err)
+	}
 
 	assert.Equal(t, "test_export", string(content))
 }
 
-func TestExportSeparateFilesDifferentExport(t *testing.T) {
+func TestExport_ExportSeparateFilesDifferentExport(t *testing.T) {
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_")
-	assert.Nil(t, err, "Can't create tmp dir")
+	if err != nil {
+		t.Fatal("Cannot create tmp dir:", err)
+	}
 	defer os.RemoveAll(dir)
 
 	rockerContentFirst := `FROM alpine:latest
@@ -54,30 +63,43 @@ func TestExportSeparateFilesDifferentExport(t *testing.T) {
 						    IMPORT /exported_file /datadir/imported_file`
 
 	err = runRockerBuildWithOptions(rockerContentFirst, "--reload-cache")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	err = runRockerBuildWithOptions(rockerContentSecond, "--reload-cache")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	err = runRockerBuildWithOptions(rockerContentFirst)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	content, err := ioutil.ReadFile(dir + "/imported_file")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("Cannot read imported_file:", err)
+	}
+
 	assert.Equal(t, "first_diff", string(content))
 }
 
-func TestExportSmolinIssue(t *testing.T) {
+func TestExport_ExportSmolinIssue(t *testing.T) {
 	tag := "rocker-integratin-test-export-smolin"
 	defer removeImage(tag + ":qa")
 	defer removeImage(tag + ":prod")
 
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_smolin")
-	assert.Nil(t, err, "Can't create tmp dir")
+	if err != nil {
+		t.Fatal("Can't create tmp dir", err)
+	}
 	defer os.RemoveAll(dir)
 
 	rockerfile, err := createTempFile("")
-	assert.Nil(t, err, "Can't create temp file")
+	if err != nil {
+		t.Fatal("Can't create temp file", err)
+	}
 	defer os.RemoveAll(rockerfile)
 	randomData := strconv.Itoa(int(time.Now().UnixNano() % int64(100000001)))
 
@@ -101,19 +123,31 @@ func TestExportSmolinIssue(t *testing.T) {
 							 TAG ` + tag + ":{{ $env }}")
 
 	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("failed to write Rockerfile:", err)
+	}
 	err = runRockerBuildWithFile(rockerfile, "--reload-cache", "--var", "env=qa")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("failed to write Rockerfile:", err)
+	}
 	err = runRockerBuildWithFile(rockerfile, "--reload-cache", "--var", "env=prod")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	err = ioutil.WriteFile(rockerfile, rockerContentSecond, 0644)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("failed to write Rockerfile:", err)
+	}
 	err = runRockerBuildWithFile(rockerfile, "--var", "env=qa")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	content := `FROM ` + tag + `:qa
 					   MOUNT ` + dir + `:/data
@@ -123,20 +157,28 @@ func TestExportSmolinIssue(t *testing.T) {
 					   MOUNT ` + dir + `:/data
 					   RUN cp /imported_file /data/prod.file`
 	err = runRockerBuildWithOptions(content, "--no-cache")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	qaContent, err := ioutil.ReadFile(dir + "/qa.file")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("failed to read qa.file:", err)
+	}
 	assert.Equal(t, string(qaContent), "qa")
 
 	prodContent, err := ioutil.ReadFile(dir + "/prod.file")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("failed to read prod.file:", err)
+	}
 	assert.Equal(t, string(prodContent), "prod")
 
 }
-func TestExportSeparateFilesSameExport(t *testing.T) {
+func TestExport_ExportSeparateFilesSameExport(t *testing.T) {
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_sep")
-	assert.Nil(t, err, "Can't create tmp dir")
+	if err != nil {
+		t.Fatal("Can't create tmp dir", err)
+	}
 	defer os.RemoveAll(dir)
 
 	rockerContentFirst := `FROM alpine:latest
@@ -170,26 +212,39 @@ func TestExportSeparateFilesSameExport(t *testing.T) {
 						   `
 
 	err = runRockerBuildWithOptions(rockerContentFirst, "--reload-cache")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	err = runRockerBuildWithOptions(rockerContentSecond)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	err = runRockerBuildWithOptions(rockerContentThird)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	content, err := ioutil.ReadFile(dir + "/imported_file")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("Cannot read imported_file:", err)
+	}
+
 	assert.Equal(t, "first_separate", string(content))
 }
 
-func TestExportSameFileDifferentCmd(t *testing.T) {
+func TestExport_ExportSameFileDifferentCmd(t *testing.T) {
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_")
-	assert.Nil(t, err, "Can't create tmp dir")
+	if err != nil {
+		t.Fatal("Can't create tmp dir", err)
+	}
 	defer os.RemoveAll(dir)
 
 	rockerfile, err := createTempFile("")
-	assert.Nil(t, err, "Can't create temp file")
+	if err != nil {
+		t.Fatal("Can't create temp file", err)
+	}
 	defer os.RemoveAll(rockerfile)
 
 	rockerContentFirst := []byte(`FROM alpine
@@ -215,37 +270,59 @@ func TestExportSameFileDifferentCmd(t *testing.T) {
 						 	 IMPORT /exported_file /datadir/imported_file`)
 
 	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("failed to write Rockerfile:", err)
+	}
 	err = runRockerBuildWithFile(rockerfile, "--reload-cache")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 	content, err := ioutil.ReadFile(dir + "/imported_file")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("Cannot read imported_file:", err)
+	}
 	assert.Equal(t, "first_foobar1", string(content))
 
 	err = ioutil.WriteFile(rockerfile, rockerContentSecond, 0644)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("failed to write Rockerfile:", err)
+	}
 	err = runRockerBuildWithFile(rockerfile)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 	content, err = ioutil.ReadFile(dir + "/imported_file")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("Cannot read imported_file:", err)
+	}
 	assert.Equal(t, "second_foobar1", string(content))
 
 	err = ioutil.WriteFile(rockerfile, rockerContentThird, 0644)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("failed to write Rockerfile:", err)
+	}
 	err = runRockerBuildWithFile(rockerfile)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 	content, err = ioutil.ReadFile(dir + "/imported_file")
-	assert.Nil(t, err, "Can't read file")
+	if err != nil {
+		t.Fatal("Cannot read imported_file:", err)
+	}
 	assert.Equal(t, "first_foobar1", string(content))
 }
 
-func TestExportSameFileFewFroms(t *testing.T) {
+func TestExport_ExportSameFileFewFroms(t *testing.T) {
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_")
-	assert.Nil(t, err, "Can't create tmp dir")
+	if err != nil {
+		t.Fatal("Can't create tmp dir", err)
+	}
 	defer os.RemoveAll(dir)
 
 	rockerfile, err := createTempFile("")
-	assert.Nil(t, err, "Can't create temp file")
+	if err != nil {
+		t.Fatal("Can't create temp file", err)
+	}
 	defer os.RemoveAll(rockerfile)
 
 	rockerContentFirst := []byte(`FROM alpine
@@ -267,25 +344,41 @@ func TestExportSameFileFewFroms(t *testing.T) {
 								  EXPORT /exported_file`)
 
 	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("failed to write Rockerfile:", err)
+	}
 	err = runRockerBuildWithFile(rockerfile, "--reload-cache")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	err = ioutil.WriteFile(rockerfile, rockerContentSecond, 0644)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("failed to write Rockerfile:", err)
+	}
 	err = runRockerBuildWithFile(rockerfile, "--reload-cache")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	err = ioutil.WriteFile(rockerfile, rockerContentFirst, 0644)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("failed to write Rockerfile:", err)
+	}
 	err = runRockerBuildWithFile(rockerfile)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
+
 	content, err := ioutil.ReadFile(dir + "/imported_file")
-	assert.Nil(t, err, "Can't read file")
+	if err != nil {
+		t.Fatal("Cannot read imported_file:", err)
+	}
+
 	assert.Equal(t, "first_few", string(content))
 }
 
-func TestDoubleExport(t *testing.T) {
+func TestExport_DoubleExport(t *testing.T) {
 	rockerContent := `FROM alpine
 					  EXPORT /etc/issue issue
 					  EXPORT /etc/hostname hostname
@@ -295,8 +388,12 @@ func TestDoubleExport(t *testing.T) {
 					  IMPORT hostname`
 
 	err := runRockerBuildWithOptions(rockerContent, "--reload-cache")
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 
 	err = runRockerBuildWithOptions(rockerContent)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal("rocker build failed:", err)
+	}
 }
