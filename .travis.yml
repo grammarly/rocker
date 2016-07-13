@@ -18,7 +18,7 @@ before_install:
   - sudo apt-get -qqy -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install docker-engine=${DOCKER_VERSION}~precise
   - docker info
 script:
-  - sudo docker login -u testrocker -p ${DOCKER_KEY}
+  - docker login -u testrocker -p ${DOCKER_KEY}
   - make test
   - make install
   - make test_integration
