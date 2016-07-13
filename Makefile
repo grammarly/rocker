@@ -48,7 +48,7 @@ fmtcheck:
 	$(foreach file,$(SRCS),gofmt $(file) | diff -u $(file) - || exit;)
 
 lint:
-	@ go get github.com/golang/lint/golint
+	@ go get -u github.com/golang/lint/golint
 	$(foreach file,$(SRCS),fgt golint $(file) || exit;)
 
 vet:
