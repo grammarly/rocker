@@ -296,6 +296,8 @@ func buildCommand(c *cli.Context) {
 		if !filepath.IsAbs(contextDir) {
 			contextDir = filepath.Join(wd, args[0])
 		}
+	} else if contextDir != wd {
+		log.Warningf("Implicit context directory used: %s. You can override context directory using the last argument.", contextDir)
 	}
 
 	dir, err := os.Stat(contextDir)
