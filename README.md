@@ -320,7 +320,7 @@ PUSH grammarly/rocker:1
 
 # Templating
 
-`rocker` uses Go's [text/template](http://golang.org/pkg/text/template/) to pre-process Rockerfiles prior to execution. We extend it with additional helpers from [rocker/template](/src/rocker/template) package that is shared with [rocker-compose](https://github.com/grammarly/rocker-compose) as well.
+`rocker` uses Go's [text/template](http://golang.org/pkg/text/template/) to pre-process Rockerfiles prior to execution. We extend it with additional helpers from [rocker/template](/src/template) package that is shared with [rocker-compose](https://github.com/grammarly/rocker-compose) as well.
 
 Example:
 
