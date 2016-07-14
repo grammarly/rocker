@@ -445,7 +445,7 @@ PUSH 12345.dkr.ecr.us-east-1.amazonaws.com/my-web-app
 
 ### Dependencies
 
-Use [gb](http://getgb.io/) to test and build. We vendor all dependencies, you can find them under `/vendor` directory.
+Rocker uses GO15VENDOREXPERIMENT, so all dependencies are vendored and I'm afraid you will need at least Golang v1.5 to be able to compile.
 
 Please, use [gofmt](https://golang.org/cmd/gofmt/) in order to automatically re-format Go code into vendor standardized convention. Ideally, you have to set it on post-save action in your IDE. For SublimeText3, the [GoSublime](https://github.com/DisposaBoy/GoSublime) package does the right thing. Also, [solution for Intellij IDEA](http://marcesher.com/2014/03/30/intellij-idea-run-goimports-on-file-save/).
 
