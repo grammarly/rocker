@@ -1,14 +1,16 @@
 package tests
 
 import (
+	"fmt"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/fsouza/go-dockerclient"
 	"github.com/stretchr/testify/assert"
 )
 
-const pullPushTimeout = 30 * time.Second
+const pullPushTimeout = 60 * time.Second
 
 func TestPull_Simple(t *testing.T) {
 	err := runTimeout("rocker pull", pullPushTimeout, func() error {
@@ -22,10 +24,30 @@ func TestPull_Simple(t *testing.T) {
 func TestPull_PushAndPull(t *testing.T) {
 	randomData := strconv.Itoa(int(time.Now().UnixNano() % int64(100000001)))
 
-	tag := "testrocker/rocker_integration_test_pull:latest" + randomData
+	auth, err := docker.NewAuthConfigurationsFromDockerCfg()
+	if err != nil {
+		t.Fatal("Failed to obtain docker auth configuration from a file (for testing PULL), you may need to 'docker login':", err)
+	}
+
+	var (
+		username string
+		registry = "index.docker.io"
+	)
+
+	if c, ok := auth.Configs["https://"+registry+"/v1/"]; ok {
+		username = c.Username
+	} else if c, ok := auth.Configs["https://"+registry+"/v2/"]; ok {
+		username = c.Username
+	}
+
+	if username == "" {
+		t.Fatalf("Cannot find docker login for registry %s, make sure you did 'docker login' properly.")
+	}
+
+	tag := fmt.Sprintf("%s/rocker_integration_test_pull:latest-%s", username, randomData)
 	defer removeImage(tag)
 
-	err := runTimeout("rocker build", pullPushTimeout, func() error {
+	err = runTimeout("rocker build", pullPushTimeout, func() error {
 		return runRockerBuild("FROM alpine\nRUN echo "+randomData+" > /foobar\nPUSH "+tag, "--push")
 	})
 	if err != nil {
