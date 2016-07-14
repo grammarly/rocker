@@ -41,7 +41,7 @@ func TestPull_PushAndPull(t *testing.T) {
 	}
 
 	if username == "" {
-		t.Fatalf("Cannot find docker login for registry %s, make sure you did 'docker login' properly.")
+		t.Fatalf("Cannot find docker login for registry %s, make sure you did 'docker login' properly.", registry)
 	}
 
 	tag := fmt.Sprintf("%s/rocker_integration_test_pull:latest-%s", username, randomData)
