@@ -51,7 +51,7 @@ const (
 )
 
 var (
-	ecrRe = regexp.MustCompile("^\\d+\\.dkr\\.ecr\\.[^\\.]+\\.amazonaws\\.com$")
+	ecrRe = regexp.MustCompile("^(\\d+)\\.dkr\\.ecr\\.([^\\.]+)\\.amazonaws\\.com$")
 )
 
 // ImageName is the data structure with describes docker image name
@@ -248,6 +248,12 @@ func (img ImageName) HasVersionRange() bool {
 // IsECR returns true if the registry is AWS ECR
 func (img ImageName) IsECR() bool {
 	return ecrRe.MatchString(img.Registry)
+}
+
+// GetECRRegion returns the regoin of the AWS ECR registry
+func (img ImageName) GetECRRegion() string {
+	matches := ecrRe.FindStringSubmatch(img.Registry)
+	return matches[2]
 }
 
 // TagAsVersion return semver.Version of the current image tag in case it's in semver format
