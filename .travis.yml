@@ -23,7 +23,9 @@ before_install:
   - while ! nc -q 1 127.0.0.1 2375 </dev/null; do sleep 1; done
   - docker info
 script:
+  - set -e
   - docker login -u testrocker -p ${DOCKER_KEY}
   - make test
   - make install
   - make test_integration
+  - set +e
