@@ -91,8 +91,9 @@ func main() {
 			Usage: "Make output colored",
 		},
 		cli.BoolFlag{
-			Name:  "cmd, C",
-			Usage: "Print command-line that was used to exec",
+			Name:   "cmd, C",
+			EnvVar: "ROCKER_PRINT_COMMAND",
+			Usage:  "Print command-line that was used to exec",
 		},
 	}, dockerclient.GlobalCliParams()...)
 
@@ -182,7 +183,6 @@ func main() {
 			Usage:  "launches a build for the specified Rockerfile",
 			Action: buildCommand,
 			Flags:  buildFlags,
-			Before: globalBefore,
 		},
 		{
 			Name:   "pull",
@@ -205,9 +205,18 @@ func main() {
 					Usage: "Set the directory where the cache will be stored",
 				},
 			},
-			Before: globalBefore,
 		},
 		dockerclient.InfoCommandSpec(),
+	}
+
+	app.Before = func(c *cli.Context) error {
+		initLogs(c)
+
+		if c.GlobalBool("cmd") {
+			log.Infof("rocker %s | Cmd: %s\n", HumanVersion, strings.Join(os.Args, " "))
+		}
+
+		return nil
 	}
 
 	app.CommandNotFound = func(ctx *cli.Context, command string) {
@@ -221,21 +230,12 @@ func main() {
 	}
 }
 
-func globalBefore(c *cli.Context) error {
-	if c.GlobalBool("cmd") {
-		log.Infof("Rocker %s | Cmd: %s", HumanVersion, strings.Join(os.Args, " "))
-	}
-	return nil
-}
-
 func buildCommand(c *cli.Context) {
 
 	var (
 		rockerfile *build.Rockerfile
 		err        error
 	)
-
-	initLogs(c)
 
 	// We don't want info level for 'print' mode
 	// So log only errors unless 'debug' is on
@@ -413,8 +413,6 @@ func buildCommand(c *cli.Context) {
 }
 
 func pullCommand(c *cli.Context) {
-	initLogs(c)
-
 	args := c.Args()
 	if len(args) < 1 {
 		log.Fatal("rocker pull <image>")
