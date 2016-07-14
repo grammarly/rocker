@@ -451,19 +451,33 @@ Please, use [gofmt](https://golang.org/cmd/gofmt/) in order to automatically re-
 
 ### Build
 
-(will produce the binary into the `bin/` directory)
+You can build Rocker as any other Golang package. Rocker is also go-gettable.
 ```bash
-gb build
+go build
 ```
-
+or
+```bash
+go install
+```
+or
+```bash
+go get -u github.com/grammarly/rocker
+```
 or build for all platforms:
 ```bash
-make all
+make cross
 ```
 
-If you have a github access token, you can also do a github release:
+### Test 
+
+To run unit tests you should run:
 ```bash
-make release
+make test
+```
+
+And for integration tests:
+```bash
+make test_integration
 ```
 
 Also a useful thing to have:
@@ -471,22 +485,7 @@ Also a useful thing to have:
 echo "make test" > .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 ```
 
-### Test 
-
-```bash
-make test
-```
-
-or
-```bash
-gb test rocker/...
-```
-
-### Test something particular
-
-```bash
-gb test rocker/... -run TestMyFunction
-```
+Don't be afraid of looking under the hood of Makefile to figure out how to run particular test cases.
 
 # TODO
 
