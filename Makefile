@@ -9,6 +9,8 @@ PKGS := $(foreach pkg, $(sort $(dir $(SRCS))), $(pkg))
 
 TESTARGS ?=
 
+export GO15VENDOREXPERIMENT := 1
+
 default:
 	go build -v
 
