@@ -18,6 +18,7 @@ RUN go install \
 
 {{ if .test }}
     MOUNT /var/run/docker.sock:/var/run/docker.sock
+    MOUNT ~/.docker:/root/.docker
     RUN apk --update add make git bash docker
 
     {{ if .TestArgs }}
