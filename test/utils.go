@@ -133,6 +133,7 @@ type rockerBuildOptions struct {
 	rockerfileContent string
 	globalParams      []string
 	buildParams       []string
+	testLines         []string
 	workdir           string
 	stdout            io.Writer
 }
@@ -168,24 +169,38 @@ func runRockerBuildWithOptions(opts rockerBuildOptions) error {
 	args := append(opts.globalParams, "build", "-f", opts.rockerfileName)
 	args = append(args, opts.buildParams...)
 
-	_, err := runCmdWithOptions(cmdOptions{
+	output, err := runCmdWithOptions(cmdOptions{
 		command: getRockerBinaryPath(),
 		args:    args,
 		workdir: opts.workdir,
 		stdout:  opts.stdout,
 	})
-	if err == nil {
-		return nil
+
+	if err != nil {
+		if e, ok := err.(*errCmdRun); ok {
+			return &errRockerBuildRun{
+				cmdErr:            e,
+				rockerfileContent: string(opts.rockerfileContent),
+			}
+		}
+
+		return fmt.Errorf("Failed to run rocker build, error: %s", err)
 	}
 
-	if e, ok := err.(*errCmdRun); ok {
-		return &errRockerBuildRun{
-			cmdErr:            e,
-			rockerfileContent: string(opts.rockerfileContent),
+	if len(opts.testLines) > 0 {
+		linesMap := map[string]int{}
+		for _, l := range strings.Split(output, "\n") {
+			linesMap[l] = linesMap[l] + 1
+		}
+
+		for _, l := range opts.testLines {
+			if linesMap[l] == 0 {
+				return fmt.Errorf("Expected rocker build output to contain the following output line:\n%s\n\nRocker build output:\n%s", l, output)
+			}
 		}
 	}
 
-	return fmt.Errorf("Failed to run rocker build, error: %s", err)
+	return nil
 }
 
 func runTimeout(name string, timeout time.Duration, f func() error) error {

@@ -18,9 +18,6 @@ package build
 
 import (
 	"fmt"
-	"github.com/grammarly/rocker/src/imagename"
-	"github.com/grammarly/rocker/src/shellparser"
-	"github.com/grammarly/rocker/src/util"
 	"io/ioutil"
 	"os"
 	"path"
@@ -30,11 +27,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-yaml/yaml"
+	"github.com/grammarly/rocker/src/imagename"
+	"github.com/grammarly/rocker/src/shellparser"
+	"github.com/grammarly/rocker/src/util"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/nat"
 	"github.com/docker/docker/pkg/units"
+	runconfigopts "github.com/docker/docker/runconfig/opts"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/go-yaml/yaml"
 	"github.com/kr/pretty"
 )
 
@@ -113,6 +115,8 @@ func NewCommand(cfg ConfigCommand) (cmd Command, err error) {
 		cmd = &CommandExport{cfg}
 	case "import":
 		cmd = &CommandImport{cfg}
+	case "arg":
+		cmd = &CommandArg{CommandBase{cfg}}
 	default:
 		return nil, fmt.Errorf("Unknown command: %s", cfg.name)
 	}
@@ -122,6 +126,22 @@ func NewCommand(cfg ConfigCommand) (cmd Command, err error) {
 	}
 
 	return cmd, nil
+}
+
+// CommandBase implements base command that includes ConfigCommand
+// and always run without a precondition
+type CommandBase struct {
+	cfg ConfigCommand
+}
+
+// String returns the human readable string representation of the command
+func (c *CommandBase) String() string {
+	return c.cfg.original
+}
+
+// ShouldRun returns true if the command should be executed
+func (c *CommandBase) ShouldRun(b *Build) (bool, error) {
+	return true, nil
 }
 
 // CommandFrom implements FROM
@@ -398,7 +418,37 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
 	}
 
-	s.Commit("RUN %q", cmd)
+	buildEnv := []string{}
+	configEnv := runconfigopts.ConvertKVStringsToMap(s.Config.Env)
+	for key, val := range s.NoCache.BuildArgs {
+		if !b.allowedBuildArgs[key] {
+			// skip build-args that are not in allowed list, meaning they have
+			// not been defined by an "ARG" Dockerfile command yet.
+			// This is an error condition but only if there is no "ARG" in the entire
+			// Dockerfile, so we'll generate any necessary errors after we parsed
+			// the entire file (see 'leftoverArgs' processing in evaluator.go )
+			continue
+		}
+		if _, ok := configEnv[key]; !ok {
+			buildEnv = append(buildEnv, fmt.Sprintf("%s=%s", key, val))
+		}
+	}
+
+	// derive the command to use for probeCache() and to commit in this container.
+	// Note that we only do this if there are any build-time env vars.  Also, we
+	// use the special argument "|#" at the start of the args array. This will
+	// avoid conflicts with any RUN command since commands can not
+	// start with | (vertical bar). The "#" (number of build envs) is there to
+	// help ensure proper cache matches. We don't want a RUN command
+	// that starts with "foo=abc" to be considered part of a build-time env var.
+	saveCmd := cmd
+	if len(buildEnv) > 0 {
+		sort.Strings(buildEnv)
+		tmpEnv := append([]string{fmt.Sprintf("|%d", len(buildEnv))}, buildEnv...)
+		saveCmd = append(tmpEnv, saveCmd...)
+	}
+
+	s.Commit("RUN %q", saveCmd)
 
 	// Check cache
 	s, hit, err := b.probeCache(s)
@@ -409,13 +459,13 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 		return s, nil
 	}
 
-	// TODO: test with ENTRYPOINT
-
 	// We run this command in the container using CMD
 	origCmd := s.Config.Cmd
 	origEntrypoint := s.Config.Entrypoint
+	origEnv := s.Config.Env
 	s.Config.Cmd = cmd
 	s.Config.Entrypoint = []string{}
+	s.Config.Env = append(s.Config.Env, buildEnv...)
 
 	if s.NoCache.ContainerID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
@@ -429,6 +479,7 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	// Restore command after commit
 	s.Config.Cmd = origCmd
 	s.Config.Entrypoint = origEntrypoint
+	s.Config.Env = origEnv
 
 	return s, nil
 }
@@ -1389,6 +1440,58 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 
 	// TODO: if b.exportsCacheBusted and IMPORT cache was invalidated,
 	// 			 CommitCommand then caches it anyway.
+
+	return s, nil
+}
+
+// CommandArg implements ARG
+type CommandArg struct {
+	CommandBase
+}
+
+// Execute runs the command
+func (c *CommandArg) Execute(b *Build) (s State, err error) {
+	s = b.state
+	args := c.cfg.args
+
+	if len(args) != 1 {
+		return s, fmt.Errorf("ARG requires exactly one argument definition")
+	}
+
+	var (
+		name       string
+		value      string
+		hasDefault bool
+
+		arg = args[0]
+	)
+
+	// Borrowed from Docker source:
+	// 'arg' can just be a name or name-value pair. Note that this is different
+	// from 'env' that handles the split of name and value at the parser level.
+	// The reason for doing it differently for 'arg' is that we support just
+	// defining an arg and not assign it a value (while 'env' always expects a
+	// name-value pair). If possible, it will be good to harmonize the two.
+	if strings.Contains(arg, "=") {
+		parts := strings.SplitN(arg, "=", 2)
+		name = parts[0]
+		value = parts[1]
+		hasDefault = true
+	} else {
+		name = arg
+		hasDefault = false
+	}
+	// add the arg to allowed list of build-time args from this step on.
+	b.allowedBuildArgs[name] = true
+
+	// If there is a default value associated with this arg then add it to the
+	// b.buildArgs if one is not already passed to the builder. The args passed
+	// to builder override the default value of 'arg'.
+	if _, ok := s.NoCache.BuildArgs[name]; !ok && hasDefault {
+		s.NoCache.BuildArgs[name] = value
+	}
+
+	s.Commit("ARG %s", arg)
 
 	return s, nil
 }

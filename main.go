@@ -36,6 +36,7 @@ import (
 	"github.com/fsouza/go-dockerclient"
 
 	log "github.com/Sirupsen/logrus"
+	runconfigopts "github.com/docker/docker/runconfig/opts"
 )
 
 var (
@@ -107,6 +108,11 @@ func main() {
 			Name:  "auth, a",
 			Value: "",
 			Usage: "Username and password in user:password format",
+		},
+		cli.StringSliceFlag{
+			Name:  "build-arg",
+			Value: &cli.StringSlice{},
+			Usage: "Set build-time variables, can pass multiple of those, format is key=value (default [])",
 		},
 		cli.StringSliceFlag{
 			Name:  "var",
@@ -382,6 +388,7 @@ func buildCommand(c *cli.Context) {
 		Push:          c.Bool("push"),
 		CacheDir:      cacheDir,
 		LogJSON:       c.GlobalBool("json"),
+		BuildArgs:     runconfigopts.ConvertKVStringsToMap(c.StringSlice("build-arg")),
 	})
 
 	plan, err := build.NewPlan(rockerfile.Commands(), true)
