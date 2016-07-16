@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +19,10 @@ import (
 	"github.com/kr/pretty"
 	"github.com/kr/text"
 	"github.com/mitchellh/go-homedir"
+)
+
+var (
+	outputShaRe = regexp.MustCompile("Successfully built (sha256:[a-f0-9]+)")
 )
 
 func runCmd(command string, args ...string) (string, error) {
@@ -136,6 +142,7 @@ type rockerBuildOptions struct {
 	testLines         []string
 	workdir           string
 	stdout            io.Writer
+	sha               *string
 }
 
 func runRockerBuildWithOptions(opts rockerBuildOptions) error {
@@ -185,6 +192,14 @@ func runRockerBuildWithOptions(opts rockerBuildOptions) error {
 		}
 
 		return fmt.Errorf("Failed to run rocker build, error: %s", err)
+	}
+
+	if opts.sha != nil {
+		if match := outputShaRe.FindStringSubmatch(output); match != nil {
+			*opts.sha = match[1]
+		} else {
+			return fmt.Errorf("Expected rocker build to return image SHA, got nothing.\n\nRocker build output:\n%s", output)
+		}
 	}
 
 	if len(opts.testLines) > 0 {
@@ -258,6 +273,10 @@ func makeTempDir(t *testing.T, prefix string, files map[string]string) string {
 		fmt.Printf("  with files: %# v\n", pretty.Formatter(files))
 	}
 	return tmpDir
+}
+
+func randomString() string {
+	return strconv.Itoa(int(time.Now().UnixNano() % int64(100000001)))
 }
 
 func debugf(format string, args ...interface{}) {
