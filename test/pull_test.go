@@ -2,7 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 	"time"
 
@@ -22,7 +21,7 @@ func TestPull_Simple(t *testing.T) {
 }
 
 func TestPull_PushAndPull(t *testing.T) {
-	randomData := strconv.Itoa(int(time.Now().UnixNano() % int64(100000001)))
+	randomData := randomString()
 
 	auth, err := docker.NewAuthConfigurationsFromDockerCfg()
 	if err != nil {

@@ -18,9 +18,10 @@ package build
 
 import (
 	"fmt"
-	"github.com/grammarly/rocker/src/imagename"
 	"reflect"
 	"testing"
+
+	"github.com/grammarly/rocker/src/imagename"
 
 	"github.com/kr/pretty"
 	"github.com/stretchr/testify/mock"
@@ -103,6 +104,64 @@ func TestCommandRun_Simple(t *testing.T) {
 	assert.Equal(t, origCmd, state.Config.Cmd)
 	assert.Equal(t, "123", state.ImageID)
 	assert.Equal(t, "456", state.NoCache.ContainerID)
+}
+
+func TestCommandRun_ArgNoEnv(t *testing.T) {
+	b, c := makeBuild(t, "", Config{})
+	cmd := &CommandRun{ConfigCommand{
+		args: []string{"export | grep proxy"},
+	}}
+
+	b.state.Config.Cmd = []string{"/bin/program"}
+	b.state.ImageID = "123"
+	b.state.NoCache.BuildArgs = map[string]string{"http_proxy": "http://host:3128"}
+
+	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
+		arg := args.Get(0).(State)
+		assert.Equal(t, []string{"http_proxy=http://host:3128"}, arg.Config.Env)
+	}).Once()
+
+	c.On("RunContainer", "456", false).Return(nil).Once()
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.AssertExpectations(t)
+	assert.Equal(t, `RUN ["|1" "http_proxy=http://host:3128" "/bin/sh" "-c" "export | grep proxy"]`, state.GetCommits())
+	assert.Equal(t, []string(nil), state.Config.Env)
+}
+
+func TestCommandRun_ArgWithEnv(t *testing.T) {
+	b, c := makeBuild(t, "", Config{})
+	cmd := &CommandRun{ConfigCommand{
+		args: []string{"export | grep proxy"},
+	}}
+
+	b.state.Config.Cmd = []string{"/bin/program"}
+	b.state.Config.Env = []string{"foo=bar", "lopata=some_value"}
+	b.state.ImageID = "123"
+	b.state.NoCache.BuildArgs = map[string]string{
+		"http_proxy": "http://host:3128",
+		"lopata":     "default",
+	}
+
+	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
+		arg := args.Get(0).(State)
+		assert.Equal(t, []string{"foo=bar", "lopata=some_value", "http_proxy=http://host:3128"}, arg.Config.Env)
+	}).Once()
+
+	c.On("RunContainer", "456", false).Return(nil).Once()
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	c.AssertExpectations(t)
+	assert.Equal(t, `RUN ["|1" "http_proxy=http://host:3128" "/bin/sh" "-c" "export | grep proxy"]`, state.GetCommits())
+	assert.Equal(t, []string{"foo=bar", "lopata=some_value"}, state.Config.Env)
 }
 
 // =========== Testing COMMIT ===========
@@ -700,6 +759,40 @@ func TestCommandMount_VolumeContainer(t *testing.T) {
 	c.AssertExpectations(t)
 	assert.Equal(t, []string{"/volumedir:/cache:ro"}, state.NoCache.HostConfig.Binds)
 	assert.Equal(t, commitMsg, state.GetCommits())
+}
+
+// =========== Testing ARG ===========
+
+func TestCommandArg_Simple(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandArg{CommandBase{ConfigCommand{
+		args: []string{"foo=bar"},
+	}}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, true, b.allowedBuildArgs["foo"])
+	assert.Equal(t, "bar", state.NoCache.BuildArgs["foo"])
+	assert.Equal(t, "ARG foo=bar", state.GetCommits())
+}
+
+func TestCommandArg_Allow(t *testing.T) {
+	b, _ := makeBuild(t, "", Config{})
+	cmd := &CommandArg{CommandBase{ConfigCommand{
+		args: []string{"xxx"},
+	}}}
+
+	state, err := cmd.Execute(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.Equal(t, true, b.allowedBuildArgs["xxx"])
+	assert.NotContains(t, state.NoCache.BuildArgs, "xxx")
+	assert.Equal(t, "ARG xxx", state.GetCommits())
 }
 
 // TODO: test Cleanup

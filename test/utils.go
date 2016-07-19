@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +19,10 @@ import (
 	"github.com/kr/pretty"
 	"github.com/kr/text"
 	"github.com/mitchellh/go-homedir"
+)
+
+var (
+	outputShaRe = regexp.MustCompile("Successfully built (sha256:[a-f0-9]+)")
 )
 
 func runCmd(command string, args ...string) (string, error) {
@@ -133,8 +139,10 @@ type rockerBuildOptions struct {
 	rockerfileContent string
 	globalParams      []string
 	buildParams       []string
+	testLines         []string
 	workdir           string
 	stdout            io.Writer
+	sha               *string
 }
 
 func runRockerBuildWithOptions(opts rockerBuildOptions) error {
@@ -168,24 +176,46 @@ func runRockerBuildWithOptions(opts rockerBuildOptions) error {
 	args := append(opts.globalParams, "build", "-f", opts.rockerfileName)
 	args = append(args, opts.buildParams...)
 
-	_, err := runCmdWithOptions(cmdOptions{
+	output, err := runCmdWithOptions(cmdOptions{
 		command: getRockerBinaryPath(),
 		args:    args,
 		workdir: opts.workdir,
 		stdout:  opts.stdout,
 	})
-	if err == nil {
-		return nil
+
+	if err != nil {
+		if e, ok := err.(*errCmdRun); ok {
+			return &errRockerBuildRun{
+				cmdErr:            e,
+				rockerfileContent: string(opts.rockerfileContent),
+			}
+		}
+
+		return fmt.Errorf("Failed to run rocker build, error: %s", err)
 	}
 
-	if e, ok := err.(*errCmdRun); ok {
-		return &errRockerBuildRun{
-			cmdErr:            e,
-			rockerfileContent: string(opts.rockerfileContent),
+	if opts.sha != nil {
+		if match := outputShaRe.FindStringSubmatch(output); match != nil {
+			*opts.sha = match[1]
+		} else {
+			return fmt.Errorf("Expected rocker build to return image SHA, got nothing.\n\nRocker build output:\n%s", output)
 		}
 	}
 
-	return fmt.Errorf("Failed to run rocker build, error: %s", err)
+	if len(opts.testLines) > 0 {
+		linesMap := map[string]int{}
+		for _, l := range strings.Split(output, "\n") {
+			linesMap[l] = linesMap[l] + 1
+		}
+
+		for _, l := range opts.testLines {
+			if linesMap[l] == 0 {
+				return fmt.Errorf("Expected rocker build output to contain the following output line:\n%s\n\nRocker build output:\n%s", l, output)
+			}
+		}
+	}
+
+	return nil
 }
 
 func runTimeout(name string, timeout time.Duration, f func() error) error {
@@ -243,6 +273,10 @@ func makeTempDir(t *testing.T, prefix string, files map[string]string) string {
 		fmt.Printf("  with files: %# v\n", pretty.Formatter(files))
 	}
 	return tmpDir
+}
+
+func randomString() string {
+	return strconv.Itoa(int(time.Now().UnixNano() % int64(100000001)))
 }
 
 func debugf(format string, args ...interface{}) {
