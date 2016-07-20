@@ -34,9 +34,10 @@ import (
 
 func TestCommandFrom_Existing(t *testing.T) {
 	b, c := makeBuild(t, "", Config{})
-	cmd := &CommandFrom{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "from",
 		args: []string{"existing"},
-	}}
+	})
 
 	img := &docker.Image{
 		ID: "123",
@@ -59,9 +60,10 @@ func TestCommandFrom_Existing(t *testing.T) {
 
 func TestCommandFrom_NotExisting(t *testing.T) {
 	b, c := makeBuild(t, "", Config{})
-	cmd := &CommandFrom{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "from",
 		args: []string{"not-existing"},
-	}}
+	})
 
 	var nilImg *docker.Image
 	var nilList []*imagename.ImageName
@@ -79,9 +81,10 @@ func TestCommandFrom_NotExisting(t *testing.T) {
 
 func TestCommandRun_Simple(t *testing.T) {
 	b, c := makeBuild(t, "", Config{})
-	cmd := &CommandRun{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "run",
 		args: []string{"whoami"},
-	}}
+	})
 
 	origCmd := []string{"/bin/program"}
 	b.state.Config.Cmd = origCmd
@@ -108,9 +111,10 @@ func TestCommandRun_Simple(t *testing.T) {
 
 func TestCommandRun_ArgNoEnv(t *testing.T) {
 	b, c := makeBuild(t, "", Config{})
-	cmd := &CommandRun{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "run",
 		args: []string{"export | grep proxy"},
-	}}
+	})
 
 	b.state.Config.Cmd = []string{"/bin/program"}
 	b.state.ImageID = "123"
@@ -135,9 +139,10 @@ func TestCommandRun_ArgNoEnv(t *testing.T) {
 
 func TestCommandRun_ArgWithEnv(t *testing.T) {
 	b, c := makeBuild(t, "", Config{})
-	cmd := &CommandRun{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "run",
 		args: []string{"export | grep proxy"},
-	}}
+	})
 
 	b.state.Config.Cmd = []string{"/bin/program"}
 	b.state.Config.Env = []string{"foo=bar", "lopata=some_value"}
@@ -233,9 +238,10 @@ func TestCommandCommit_NoCommitMsgs(t *testing.T) {
 
 func TestCommandEnv_Simple(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandEnv{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "env",
 		args: []string{"type", "web", "env", "prod"},
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -248,9 +254,10 @@ func TestCommandEnv_Simple(t *testing.T) {
 
 func TestCommandEnv_Advanced(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandEnv{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "env",
 		args: []string{"type", "web", "env", "prod"},
-	}}
+	})
 
 	b.state.Config.Env = []string{"env=dev", "version=1.2.3"}
 
@@ -267,9 +274,10 @@ func TestCommandEnv_Advanced(t *testing.T) {
 
 func TestCommandLabel_Simple(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandLabel{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "label",
 		args: []string{"type", "web", "env", "prod"},
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -289,9 +297,10 @@ func TestCommandLabel_Simple(t *testing.T) {
 
 func TestCommandLabel_Advanced(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandLabel{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "label",
 		args: []string{"type", "web", "env", "prod"},
-	}}
+	})
 
 	b.state.Config.Labels = map[string]string{
 		"env":     "dev",
@@ -319,9 +328,10 @@ func TestCommandLabel_Advanced(t *testing.T) {
 
 func TestCommandMaintainer_Simple(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandMaintainer{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "maintainer",
 		args: []string{"terminator"},
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -335,9 +345,10 @@ func TestCommandMaintainer_Simple(t *testing.T) {
 
 func TestCommandWorkdir_Simple(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandWorkdir{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "workdir",
 		args: []string{"/app"},
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -349,9 +360,10 @@ func TestCommandWorkdir_Simple(t *testing.T) {
 
 func TestCommandWorkdir_Relative_HasRoot(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandWorkdir{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "workdir",
 		args: []string{"www"},
-	}}
+	})
 
 	b.state.Config.WorkingDir = "/home"
 
@@ -365,9 +377,10 @@ func TestCommandWorkdir_Relative_HasRoot(t *testing.T) {
 
 func TestCommandWorkdir_Relative_NoRoot(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandWorkdir{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "workdir",
 		args: []string{"www"},
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -381,9 +394,10 @@ func TestCommandWorkdir_Relative_NoRoot(t *testing.T) {
 
 func TestCommandCmd_Simple(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandCmd{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "cmd",
 		args: []string{"apt-get", "install"},
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -395,10 +409,11 @@ func TestCommandCmd_Simple(t *testing.T) {
 
 func TestCommandCmd_Json(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandCmd{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name:  "cmd",
 		args:  []string{"apt-get", "install"},
 		attrs: map[string]bool{"json": true},
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -412,9 +427,10 @@ func TestCommandCmd_Json(t *testing.T) {
 
 func TestCommandEntrypoint_Simple(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandEntrypoint{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "entrypoint",
 		args: []string{"/bin/sh"},
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -426,10 +442,11 @@ func TestCommandEntrypoint_Simple(t *testing.T) {
 
 func TestCommandEntrypoint_Json(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandEntrypoint{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name:  "entrypoint",
 		args:  []string{"/bin/bash", "-c"},
 		attrs: map[string]bool{"json": true},
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -441,9 +458,10 @@ func TestCommandEntrypoint_Json(t *testing.T) {
 
 func TestCommandEntrypoint_Remove(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandEntrypoint{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "entrypoint",
 		args: []string{},
-	}}
+	})
 
 	b.state.Config.Entrypoint = []string{"/bin/sh", "-c"}
 
@@ -459,9 +477,10 @@ func TestCommandEntrypoint_Remove(t *testing.T) {
 
 func TestCommandExpose_Simple(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandExpose{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "expose",
 		args: []string{"80"},
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -477,9 +496,10 @@ func TestCommandExpose_Simple(t *testing.T) {
 
 func TestCommandExpose_Add(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandExpose{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "expose",
 		args: []string{"443"},
-	}}
+	})
 
 	b.state.Config.ExposedPorts = map[docker.Port]struct{}{
 		docker.Port("80/tcp"): struct{}{},
@@ -502,9 +522,10 @@ func TestCommandExpose_Add(t *testing.T) {
 
 func TestCommandVolume_Simple(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandVolume{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "volume",
 		args: []string{"/data"},
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -520,9 +541,10 @@ func TestCommandVolume_Simple(t *testing.T) {
 
 func TestCommandVolume_Add(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandVolume{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "volume",
 		args: []string{"/var/log"},
-	}}
+	})
 
 	b.state.Config.Volumes = map[string]struct{}{
 		"/data": struct{}{},
@@ -545,9 +567,10 @@ func TestCommandVolume_Add(t *testing.T) {
 
 func TestCommandUser_Simple(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandUser{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "user",
 		args: []string{"www"},
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -561,10 +584,11 @@ func TestCommandUser_Simple(t *testing.T) {
 
 func TestCommandOnBuild_Simple(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandOnbuild{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name:     "onbuild",
 		args:     []string{"RUN", "make", "install"},
 		original: "ONBUILD RUN make install",
-	}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -579,9 +603,10 @@ func TestCommandOnBuild_Simple(t *testing.T) {
 func TestCommandCopy_Simple(t *testing.T) {
 	// TODO: do we need to check the dest is always a directory?
 	b, c := makeBuild(t, "", Config{})
-	cmd := &CommandCopy{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "copy",
 		args: []string{"testdata/Rockerfile", "/Rockerfile"},
-	}}
+	})
 
 	c.On("CreateContainer", mock.AnythingOfType("State")).Return("456", nil).Run(func(args mock.Arguments) {
 		arg := args.Get(0).(State)
@@ -606,9 +631,10 @@ func TestCommandCopy_Simple(t *testing.T) {
 
 func TestCommandTag_Simple(t *testing.T) {
 	b, c := makeBuild(t, "", Config{})
-	cmd := &CommandTag{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "tag",
 		args: []string{"docker.io/grammarly/rocker:1.0"},
-	}}
+	})
 
 	b.state.ImageID = "123"
 
@@ -624,12 +650,14 @@ func TestCommandTag_Simple(t *testing.T) {
 
 func TestCommandTag_WrongArgsNumber(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandTag{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "tag",
 		args: []string{},
-	}}
-	cmd2 := &CommandTag{ConfigCommand{
+	})
+	cmd2 := NewCommand(ConfigCommand{
+		name: "tag",
 		args: []string{"1", "2"},
-	}}
+	})
 
 	b.state.ImageID = "123"
 
@@ -642,9 +670,10 @@ func TestCommandTag_WrongArgsNumber(t *testing.T) {
 
 func TestCommandTag_NoImage(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandTag{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "tag",
 		args: []string{"docker.io/grammarly/rocker:1.0"},
-	}}
+	})
 
 	_, err := cmd.Execute(b)
 	assert.EqualError(t, err, "Cannot TAG on empty image")
@@ -654,9 +683,10 @@ func TestCommandTag_NoImage(t *testing.T) {
 
 func TestCommandPush_Simple(t *testing.T) {
 	b, c := makeBuild(t, "", Config{})
-	cmd := &CommandPush{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "push",
 		args: []string{"docker.io/grammarly/rocker:1.0"},
-	}}
+	})
 
 	b.cfg.Push = true
 	b.state.ImageID = "123"
@@ -674,12 +704,14 @@ func TestCommandPush_Simple(t *testing.T) {
 
 func TestCommandPush_WrongArgsNumber(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandPush{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "push",
 		args: []string{},
-	}}
-	cmd2 := &CommandPush{ConfigCommand{
+	})
+	cmd2 := NewCommand(ConfigCommand{
+		name: "push",
 		args: []string{"1", "2"},
-	}}
+	})
 
 	b.state.ImageID = "123"
 
@@ -692,9 +724,10 @@ func TestCommandPush_WrongArgsNumber(t *testing.T) {
 
 func TestCommandPush_NoImage(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandPush{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "push",
 		args: []string{"docker.io/grammarly/rocker:1.0"},
-	}}
+	})
 
 	_, err := cmd.Execute(b)
 	assert.EqualError(t, err, "Cannot PUSH empty image")
@@ -704,9 +737,10 @@ func TestCommandPush_NoImage(t *testing.T) {
 
 func TestCommandMount_Simple(t *testing.T) {
 	b, c := makeBuild(t, "", Config{})
-	cmd := &CommandMount{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "mount",
 		args: []string{"/src:/dest"},
-	}}
+	})
 
 	c.On("ResolveHostPath", "/src").Return("/resolved/src", nil).Once()
 
@@ -722,9 +756,10 @@ func TestCommandMount_Simple(t *testing.T) {
 
 func TestCommandMount_VolumeContainer(t *testing.T) {
 	b, c := makeBuild(t, "", Config{})
-	cmd := &CommandMount{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "mount",
 		args: []string{"/cache"},
-	}}
+	})
 
 	containerName := b.mountsContainerName("/cache")
 
@@ -765,9 +800,10 @@ func TestCommandMount_VolumeContainer(t *testing.T) {
 
 func TestCommandArg_Simple(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandArg{CommandBase{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "arg",
 		args: []string{"foo=bar"},
-	}}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
@@ -781,9 +817,10 @@ func TestCommandArg_Simple(t *testing.T) {
 
 func TestCommandArg_Allow(t *testing.T) {
 	b, _ := makeBuild(t, "", Config{})
-	cmd := &CommandArg{CommandBase{ConfigCommand{
+	cmd := NewCommand(ConfigCommand{
+		name: "arg",
 		args: []string{"xxx"},
-	}}}
+	})
 
 	state, err := cmd.Execute(b)
 	if err != nil {
