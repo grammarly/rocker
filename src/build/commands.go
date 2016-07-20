@@ -72,60 +72,60 @@ type EnvReplacableCommand interface {
 }
 
 // NewCommand make a new command according to the configuration given
-func NewCommand(cfg ConfigCommand) (cmd Command, err error) {
+func NewCommand(cfg ConfigCommand) (cmd Command) {
 	// TODO: use reflection?
 	switch cfg.name {
 	case "from":
-		cmd = &CommandFrom{cfg}
+		cmd = &CommandFrom{CommandBase{cfg}}
 	case "maintainer":
-		cmd = &CommandMaintainer{cfg}
+		cmd = &CommandMaintainer{CommandBase{cfg}}
 	case "run":
-		cmd = &CommandRun{cfg}
+		cmd = &CommandRun{CommandBase{cfg}}
 	case "attach":
-		cmd = &CommandAttach{cfg}
+		cmd = &CommandAttach{CommandBase{cfg}}
 	case "env":
-		cmd = &CommandEnv{cfg}
+		cmd = &CommandEnv{CommandBase{cfg}}
 	case "label":
-		cmd = &CommandLabel{cfg}
+		cmd = &CommandLabel{CommandBase{cfg}}
 	case "workdir":
-		cmd = &CommandWorkdir{cfg}
+		cmd = &CommandWorkdir{CommandBase{cfg}}
 	case "tag":
-		cmd = &CommandTag{cfg}
+		cmd = &CommandTag{CommandBase{cfg}}
 	case "push":
-		cmd = &CommandPush{cfg}
+		cmd = &CommandPush{CommandBase{cfg}}
 	case "copy":
-		cmd = &CommandCopy{cfg}
+		cmd = &CommandCopy{CommandBase{cfg}}
 	case "add":
-		cmd = &CommandAdd{cfg}
+		cmd = &CommandAdd{CommandBase{cfg}}
 	case "cmd":
-		cmd = &CommandCmd{cfg}
+		cmd = &CommandCmd{CommandBase{cfg}}
 	case "entrypoint":
-		cmd = &CommandEntrypoint{cfg}
+		cmd = &CommandEntrypoint{CommandBase{cfg}}
 	case "expose":
-		cmd = &CommandExpose{cfg}
+		cmd = &CommandExpose{CommandBase{cfg}}
 	case "volume":
-		cmd = &CommandVolume{cfg}
+		cmd = &CommandVolume{CommandBase{cfg}}
 	case "user":
-		cmd = &CommandUser{cfg}
+		cmd = &CommandUser{CommandBase{cfg}}
 	case "onbuild":
-		cmd = &CommandOnbuild{cfg}
+		cmd = &CommandOnbuild{CommandBase{cfg}}
 	case "mount":
-		cmd = &CommandMount{cfg}
+		cmd = &CommandMount{CommandBase{cfg}}
 	case "export":
-		cmd = &CommandExport{cfg}
+		cmd = &CommandExport{CommandBase{cfg}}
 	case "import":
-		cmd = &CommandImport{cfg}
+		cmd = &CommandImport{CommandBase{cfg}}
 	case "arg":
 		cmd = &CommandArg{CommandBase{cfg}}
 	default:
-		return nil, fmt.Errorf("Unknown command: %s", cfg.name)
+		panic(fmt.Sprintf("Unknown command: %s", cfg.name))
 	}
 
 	if cfg.isOnbuild {
 		cmd = &CommandOnbuildWrap{cmd}
 	}
 
-	return cmd, nil
+	return
 }
 
 // CommandBase implements base command that includes ConfigCommand
@@ -146,17 +146,7 @@ func (c *CommandBase) ShouldRun(b *Build) (bool, error) {
 
 // CommandFrom implements FROM
 type CommandFrom struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandFrom) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandFrom) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -238,17 +228,7 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 
 // CommandMaintainer implements CMD
 type CommandMaintainer struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandMaintainer) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandMaintainer) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -391,17 +371,7 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 
 // CommandRun implements RUN
 type CommandRun struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandRun) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandRun) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -486,18 +456,7 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 
 // CommandAttach implements ATTACH
 type CommandAttach struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandAttach) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandAttach) ShouldRun(b *Build) (bool, error) {
-	// TODO: skip attach?
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -505,6 +464,7 @@ func (c *CommandAttach) Execute(b *Build) (s State, err error) {
 	s = b.state
 
 	// simply ignore this command if we don't wanna attach
+	// TODO: skip via ShouldRun() ?
 	if !b.cfg.Attach {
 		log.Infof("Skip ATTACH; use --attach option to get inside")
 		// s.SkipCommit()
@@ -556,17 +516,7 @@ func (c *CommandAttach) Execute(b *Build) (s State, err error) {
 
 // CommandEnv implements ENV
 type CommandEnv struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandEnv) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandEnv) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -618,17 +568,7 @@ func (c *CommandEnv) Execute(b *Build) (s State, err error) {
 
 // CommandLabel implements LABEL
 type CommandLabel struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandLabel) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandLabel) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -674,17 +614,7 @@ func (c *CommandLabel) Execute(b *Build) (s State, err error) {
 
 // CommandWorkdir implements WORKDIR
 type CommandWorkdir struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandWorkdir) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandWorkdir) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -717,17 +647,7 @@ func (c *CommandWorkdir) Execute(b *Build) (s State, err error) {
 
 // CommandCmd implements CMD
 type CommandCmd struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandCmd) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandCmd) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -753,17 +673,7 @@ func (c *CommandCmd) Execute(b *Build) (s State, err error) {
 
 // CommandEntrypoint implements ENTRYPOINT
 type CommandEntrypoint struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandEntrypoint) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandEntrypoint) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -798,17 +708,7 @@ func (c *CommandEntrypoint) Execute(b *Build) (s State, err error) {
 
 // CommandExpose implements EXPOSE
 type CommandExpose struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandExpose) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandExpose) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -857,17 +757,7 @@ func (c *CommandExpose) Execute(b *Build) (s State, err error) {
 
 // CommandVolume implements VOLUME
 type CommandVolume struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandVolume) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandVolume) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -902,17 +792,7 @@ func (c *CommandVolume) Execute(b *Build) (s State, err error) {
 
 // CommandUser implements USER
 type CommandUser struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandUser) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandUser) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -938,17 +818,7 @@ func (c *CommandUser) Execute(b *Build) (s State, err error) {
 
 // CommandOnbuild implements ONBUILD
 type CommandOnbuild struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandOnbuild) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandOnbuild) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -978,17 +848,7 @@ func (c *CommandOnbuild) Execute(b *Build) (s State, err error) {
 
 // CommandTag implements TAG
 type CommandTag struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandTag) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandTag) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -1010,17 +870,7 @@ func (c *CommandTag) Execute(b *Build) (State, error) {
 
 // CommandPush implements PUSH
 type CommandPush struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandPush) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandPush) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -1086,17 +936,7 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 
 // CommandCopy implements COPY
 type CommandCopy struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandCopy) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandCopy) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -1115,17 +955,7 @@ func (c *CommandCopy) Execute(b *Build) (State, error) {
 // CommandAdd implements ADD
 // For now it is an alias of COPY, but later will add urls and archives to it
 type CommandAdd struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandAdd) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandAdd) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -1143,17 +973,7 @@ func (c *CommandAdd) Execute(b *Build) (State, error) {
 
 // CommandMount implements MOUNT
 type CommandMount struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandMount) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandMount) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -1226,17 +1046,7 @@ func (c *CommandMount) Execute(b *Build) (s State, err error) {
 
 // CommandExport implements EXPORT
 type CommandExport struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandExport) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandExport) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -1334,17 +1144,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 
 // CommandImport implements IMPORT
 type CommandImport struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandImport) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandImport) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
