@@ -22,7 +22,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"path/filepath"
+	"path"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -69,8 +69,10 @@ TAG ` + tag
 	})
 	defer os.RemoveAll(buildDir)
 
-	err := runRockerBuildWdWithOptions(buildDir, "-cache-dir", cacheDir)
-	assert.Nil(t, err, "no difference in downloaded and added files")
+	err := runRockerBuildWd(buildDir, "-cache-dir", cacheDir)
+	if err != nil {
+		t.Fatal("should be no difference in downloaded and added files, got:", err)
+	}
 }
 
 func TestAddUrl_BuildCacheHit(t *testing.T) {
@@ -125,8 +127,10 @@ TAG ` + tag
 	defer os.RemoveAll(buildDir)
 
 	var err error
-	err = runRockerBuildWdWithOptions(buildDir, "-cache-dir", cacheDir)
-	assert.Nil(t, err, "no difference in downloaded and added files")
+	err = runRockerBuildWd(buildDir, "-cache-dir", cacheDir)
+	if err != nil {
+		t.Fatal("should be no difference in downloaded and added files, got:", err)
+	}
 	assert.Equal(t, 1, file1Hits, "file1 dowloaded at the time of first build")
 	assert.Equal(t, 1, file3Hits, "file1 dowloaded at the time of first build")
 
@@ -135,8 +139,10 @@ TAG ` + tag
 		t.Fatal(err)
 	}
 
-	err = runRockerBuildWdWithOptions(buildDir, "-cache-dir", cacheDir)
-	assert.Nil(t, err, "no difference in downloaded and added files")
+	err = runRockerBuildWd(buildDir, "-cache-dir", cacheDir)
+	if err != nil {
+		t.Fatal("should be no difference in downloaded and added files, got:", err)
+	}
 	assert.Equal(t, 2, file1Hits, "file1 dowloaded at the time of second build")
 	assert.Equal(t, 2, file3Hits, "file1 dowloaded at the time of second build")
 
@@ -200,8 +206,10 @@ TAG ` + tag
 	defer os.RemoveAll(buildDir)
 
 	var err error
-	err = runRockerBuildWdWithOptions(buildDir, "-cache-dir", cacheDir)
-	assert.Nil(t, err, "no difference in downloaded and added files")
+	err = runRockerBuildWd(buildDir, "-cache-dir", cacheDir)
+	if err != nil {
+		t.Fatal("should be no difference in downloaded and added files, got:", err)
+	}
 	assert.Equal(t, 1, file1Hits, "file1 dowloaded at the time of first build")
 	assert.Equal(t, 1, file3Hits, "file1 dowloaded at the time of first build")
 	sha1, err := getImageShaByName(tag)
@@ -209,8 +217,10 @@ TAG ` + tag
 		t.Fatal(err)
 	}
 
-	err = runRockerBuildWdWithOptions(buildDir, "-cache-dir", cacheDir)
-	assert.Nil(t, err, "no difference in downloaded and added files")
+	err = runRockerBuildWd(buildDir, "-cache-dir", cacheDir)
+	if err != nil {
+		t.Fatal("should be no difference in downloaded and added files, got:", err)
+	}
 	assert.Equal(t, 1, file1Hits, "file1 isn't dowloaded at the time of second build")
 	assert.Equal(t, 1, file3Hits, "file3 isn't dowloaded at the time of second build")
 	sha2, err := getImageShaByName(tag)
@@ -283,8 +293,10 @@ TAG ` + tag
 	defer os.RemoveAll(buildDir)
 
 	var err error
-	err = runRockerBuildWdWithOptions(buildDir, "-cache-dir", cacheDir)
-	assert.Nil(t, err, "no difference in downloaded and added files")
+	err = runRockerBuildWd(buildDir, "-cache-dir", cacheDir)
+	if err != nil {
+		t.Fatal("should be no difference in downloaded and added files, got:", err)
+	}
 	assert.Equal(t, 1, file1Hits, "file1 dowloaded at the time of first build")
 	assert.Equal(t, 1, file3Hits, "file1 dowloaded at the time of first build")
 
@@ -294,12 +306,16 @@ TAG ` + tag
 	}
 
 	for file, content := range map[string]string{"file1.txt": "content12", "file3.txt": "content32"} {
-		ioutil.WriteFile(filepath.Join(sampleDir, file), []byte(content), 0644)
+		if err := ioutil.WriteFile(path.Join(sampleDir, file), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	// build container again
-	err = runRockerBuildWdWithOptions(buildDir, "-cache-dir", cacheDir)
-	assert.Nil(t, err, "no difference in downloaded and added files")
+	err = runRockerBuildWd(buildDir, "-cache-dir", cacheDir)
+	if err != nil {
+		t.Fatal("should be no difference in downloaded and added files, got:", err)
+	}
 	assert.Equal(t, 2, file1Hits, "file1 dowloaded at the time of second build")
 	assert.Equal(t, 2, file3Hits, "file3 dowloaded at the time of second build")
 
@@ -363,8 +379,10 @@ TAG ` + tag
 	defer os.RemoveAll(buildDir)
 
 	var err error
-	err = runRockerBuildWdWithOptions(buildDir, "-cache-dir", cacheDir)
-	assert.Nil(t, err, "no difference in downloaded and added files")
+	err = runRockerBuildWd(buildDir, "-cache-dir", cacheDir)
+	if err != nil {
+		t.Fatal("should be no difference in downloaded and added files, got:", err)
+	}
 	assert.Equal(t, 1, file1Hits, "file1 dowloaded at the time of first build")
 	assert.Equal(t, 1, file3Hits, "file1 dowloaded at the time of first build")
 
@@ -374,8 +392,10 @@ TAG ` + tag
 	}
 
 	// build container again
-	err = runRockerBuildWdWithOptions(buildDir, "-cache-dir", cacheDir, "-no-cache")
-	assert.Nil(t, err, "no difference in downloaded and added files")
+	err = runRockerBuildWd(buildDir, "-cache-dir", cacheDir, "-no-cache")
+	if err != nil {
+		t.Fatal("should be no difference in downloaded and added files, got:", err)
+	}
 	assert.Equal(t, 2, file1Hits, "file1 dowloaded at the time of second build")
 	assert.Equal(t, 2, file3Hits, "file3 dowloaded at the time of second build")
 

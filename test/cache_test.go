@@ -1,15 +1,16 @@
 package tests
 
 import (
-	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestCacheWithEnvVariables(t *testing.T) {
+func TestCache_WithEnvVariables(t *testing.T) {
 	tag := "rocker-integratin-test:1.2.3"
 	defer removeImage(tag)
 
@@ -17,9 +18,8 @@ func TestCacheWithEnvVariables(t *testing.T) {
 FROM alpine
 RUN touch /tmp/foo
 TAG ` + tag)
-
 	if err != nil {
-		t.Fatalf("Test fail: %v\n", err)
+		t.Fatal(err)
 	}
 
 	sha1, err := getImageShaByName(tag)
@@ -32,7 +32,7 @@ FROM alpine
 RUN ENV_VAR=foo touch /tmp/foo
 TAG ` + tag)
 	if err != nil {
-		t.Fatalf("Test fail: %v\n", err)
+		t.Fatal(err)
 	}
 
 	sha2, err := getImageShaByName(tag)
@@ -40,11 +40,9 @@ TAG ` + tag)
 		t.Fatal(err)
 	}
 
-	if sha1 == sha2 {
-		t.Fatal("Env variable should invalidate cache")
-	}
+	assert.NotEqual(t, sha1, sha2, "Env variable should invalidate cache")
 }
-func TestCacheWorksByDefault(t *testing.T) {
+func TestCache_WorksByDefault(t *testing.T) {
 	tag := "rocker-integratin-test:1.2.3"
 	defer removeImage(tag)
 
@@ -52,9 +50,8 @@ func TestCacheWorksByDefault(t *testing.T) {
 FROM alpine
 RUN touch /tmp/foo
 TAG ` + tag)
-
 	if err != nil {
-		t.Fatalf("Test fail: %v\n", err)
+		t.Fatal(err)
 	}
 
 	sha1, err := getImageShaByName(tag)
@@ -67,7 +64,7 @@ FROM alpine
 RUN touch /tmp/foo
 TAG ` + tag)
 	if err != nil {
-		t.Fatalf("Test fail: %v\n", err)
+		t.Fatal(err)
 	}
 
 	sha2, err := getImageShaByName(tag)
@@ -75,12 +72,10 @@ TAG ` + tag)
 		t.Fatal(err)
 	}
 
-	if sha1 != sha2 {
-		t.Fail()
-	}
+	assert.Equal(t, sha1, sha2, "same builds should be equal")
 }
 
-func TestNoCache(t *testing.T) {
+func TestCache_NoCache(t *testing.T) {
 	tag := "rocker-integratin-test:1.2.3"
 	defer removeImage(tag)
 
@@ -89,7 +84,7 @@ FROM alpine
 RUN touch /tmp/foo
 TAG ` + tag)
 	if err != nil {
-		t.Fatalf("Test fail: %v\n", err)
+		t.Fatal(err)
 	}
 
 	sha1, err := getImageShaByName(tag)
@@ -97,12 +92,12 @@ TAG ` + tag)
 		t.Fatal(err)
 	}
 
-	err = runRockerBuildWithOptions(`
+	err = runRockerBuild(`
 FROM alpine
 RUN touch /tmp/foo
 TAG `+tag, "--no-cache")
 	if err != nil {
-		t.Fatalf("Test fail: %v\n", err)
+		t.Fatal(err)
 	}
 
 	sha2, err := getImageShaByName(tag)
@@ -110,12 +105,10 @@ TAG `+tag, "--no-cache")
 		t.Fatal(err)
 	}
 
-	if sha1 == sha2 {
-		t.Fatalf("Sha of images are equal but shouldn't. sha1: %s, sha2: %s", sha1, sha2)
-	}
+	assert.NotEqual(t, sha1, sha2, "--no-cache should not be idempotent")
 }
 
-func TestCacheFewSameCommands(t *testing.T) {
+func TestCache_FewSameCommands(t *testing.T) {
 	tag := "rocker-integratin-test:1.8.35"
 	defer removeImage(tag)
 	scenario := `FROM alpine
@@ -126,20 +119,30 @@ func TestCacheFewSameCommands(t *testing.T) {
 				 RUN true
 				 TAG ` + tag
 
-	err := runRockerBuildWithOptions(scenario, "--reload-cache")
-	assert.Nil(t, err)
+	err := runRockerBuild(scenario, "--reload-cache")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	sha1, err := getImageShaByName(tag)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err = runRockerBuildWithOptions(scenario)
-	assert.Nil(t, err)
+	err = runRockerBuild(scenario)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	sha2, err := getImageShaByName(tag)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	assert.Equal(t, sha1, sha2)
+	assert.Equal(t, sha1, sha2, "few same commands should lead to same iamge sha")
 }
 
-func TestCacheFewDifferentCommands(t *testing.T) {
+func TestCache_FewDifferentCommands(t *testing.T) {
 	tag := "rocker-integratin-test:1.8.36"
 	defer removeImage(tag)
 	scenario := `FROM alpine
@@ -149,20 +152,28 @@ func TestCacheFewDifferentCommands(t *testing.T) {
 				 RUN date
 				 TAG ` + tag
 
-	err := runRockerBuildWithOptions(scenario, "--reload-cache")
-	assert.Nil(t, err)
+	err := runRockerBuild(scenario, "--reload-cache")
+	if err != nil {
+		t.Fatal(err)
+	}
 	sha1, err := getImageShaByName(tag)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err = runRockerBuildWithOptions(scenario)
-	assert.Nil(t, err)
+	err = runRockerBuild(scenario)
+	if err != nil {
+		t.Fatal(err)
+	}
 	sha2, err := getImageShaByName(tag)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	assert.Equal(t, sha1, sha2)
+	assert.Equal(t, sha1, sha2, "few different commands should lead to same iamge sha")
 }
 
-func TestCacheMountNotCached(t *testing.T) {
+func TestCache_MountNotCached(t *testing.T) {
 	tag := "rocker-integratin-test:mount_not_cached"
 	defer removeImage(tag)
 	scenario1 := `FROM alpine
@@ -171,28 +182,38 @@ func TestCacheMountNotCached(t *testing.T) {
 				 MOUNT /tmp:/tmp
 				 TAG ` + tag
 
-	err := runRockerBuildWithOptions(scenario1, "--reload-cache")
-	assert.Nil(t, err)
+	err := runRockerBuild(scenario1, "--reload-cache")
+	if err != nil {
+		t.Fatal(err)
+	}
 	sha1, err := getImageShaByName(tag)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	err = runRockerBuildWithOptions(scenario2)
-	assert.Nil(t, err)
+	err = runRockerBuild(scenario2)
+	if err != nil {
+		t.Fatal(err)
+	}
 	sha2, err := getImageShaByName(tag)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	//Despite the `MOUNT` isn't "commited" command it still will invalidate the cache
-	assert.NotEqual(t, sha1, sha2)
+	assert.NotEqual(t, sha1, sha2, "MOUNT should invalidate cache")
 }
 
-func TestCacheAndExportImport(t *testing.T) {
+func TestCache_AndExportImport(t *testing.T) {
 	tagExport := "rocker-integratin-test:export"
 	tagImport := "rocker-integratin-test:import"
 	defer removeImage(tagExport)
 	defer removeImage(tagImport)
 
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_export_")
-	assert.Nil(t, err, "Can't create tmp dir")
+	if err != nil {
+		t.Fatal("Can't create tmp dir:", err)
+	}
 	defer os.RemoveAll(dir)
 
 	randomData := strconv.Itoa(int(time.Now().UnixNano() % int64(100000001)))
@@ -206,24 +227,39 @@ func TestCacheAndExportImport(t *testing.T) {
 				 IMPORT  /foobar /datadir/foobar
 				 TAG ` + tagImport
 
-	err = runRockerBuildWithOptions(scenario, "--reload-cache")
-	assert.Nil(t, err)
+	err = runRockerBuild(scenario, "--reload-cache")
+	if err != nil {
+		t.Fatal(err)
+	}
 	shaExport1, err := getImageShaByName(tagExport)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	shaImport1, err := getImageShaByName(tagImport)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	content, err := ioutil.ReadFile(dir + "/foobar")
 	assert.Equal(t, string(content), randomData)
 
-	err = runRockerBuildWithOptions(scenario)
-	assert.Nil(t, err)
+	err = runRockerBuild(scenario)
+	if err != nil {
+		t.Fatal(err)
+	}
 	shaExport2, err := getImageShaByName(tagExport)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	shaImport2, err := getImageShaByName(tagImport)
-	assert.Nil(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	content, err = ioutil.ReadFile(dir + "/foobar")
-	assert.Equal(t, string(content), randomData)
+	if err != nil {
+		t.Fatal(err)
+	}
 
+	assert.Equal(t, string(content), randomData)
 	assert.Equal(t, shaExport1, shaExport2, "Export doesn't match")
 	assert.Equal(t, shaImport1, shaImport2, "Import doesn't match")
 }

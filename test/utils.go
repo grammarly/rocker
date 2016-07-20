@@ -1,76 +1,105 @@
 package tests
 
 import (
-	"bufio"
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"log"
 	"os"
 	"os/exec"
+	"path"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/grammarly/rocker/src/test"
 	"github.com/kr/pretty"
+	"github.com/kr/text"
+	"github.com/mitchellh/go-homedir"
 )
 
-type rockerBuildOptions struct {
-	Rockerfile    string
-	GlobalOptions []string
-	BuildOptions  []string
-	Wd            string
-	Stdout        io.Writer
+var (
+	outputShaRe = regexp.MustCompile("Successfully built (sha256:[a-f0-9]+)")
+)
+
+func runCmd(command string, args ...string) (string, error) {
+	return runCmdWithOptions(cmdOptions{
+		command: command,
+		args:    args,
+	})
 }
 
-func runCmd(executable string, stdoutWriter io.Writer /* stderr io.Writer,*/, params ...string) error {
-	return runCmdWithWd(executable, "", stdoutWriter, params...)
+type cmdOptions struct {
+	command string
+	args    []string
+	workdir string
+	stdout  io.Writer
 }
 
-func runCmdWithWd(executable, wd string, stdoutWriter io.Writer /* stderr io.Writer,*/, params ...string) error {
-	cmd := exec.Command(executable, params...)
+func runCmdWithOptions(opts cmdOptions) (string, error) {
+	cmd := exec.Command(opts.command, opts.args...)
+
 	if *verbosityLevel >= 1 {
-		fmt.Printf("Running: %v\n", strings.Join(cmd.Args, " "))
+		fmt.Printf("Running: %+v\n", opts)
 	}
 
-	cmd.Dir = wd
+	if opts.workdir != "" {
+		cmd.Dir = opts.workdir
+	}
 
-	if stdoutWriter != nil {
-		cmd.Stdout = stdoutWriter
-	} else if *verbosityLevel >= 2 {
-		cmd.Stdout = os.Stdout
+	var (
+		buf bytes.Buffer
+		w   = []io.Writer{&buf}
+	)
+
+	if opts.stdout != nil {
+		w = append(w, opts.stdout)
+	}
+
+	if *verbosityLevel >= 2 {
+		if opts.stdout != os.Stdout {
+			w = append(w, os.Stdout)
+		}
 		cmd.Stderr = os.Stderr
 	}
+
+	cmd.Stdout = io.MultiWriter(w...)
+
 	if err := cmd.Run(); err != nil {
-		return err
+		return "", &errCmdRun{
+			args: cmd.Args,
+			err:  err,
+			out:  buf.String(),
+			wd:   cmd.Dir,
+		}
 	}
 
-	return nil
+	return buf.String(), nil
 }
 
 func removeImage(imageName string) error {
-	return runCmd("docker", nil, "rmi", imageName)
+	_, err := runCmd("docker", "rmi", imageName)
+	return err
 }
 
 func getImageShaByName(imageName string) (string, error) {
-	var b bytes.Buffer
-
-	if err := runCmd("docker", bufio.NewWriter(&b), "images", "-q", imageName); err != nil {
-		fmt.Println("Can't execute command:", err)
-		return "", err
+	out, err := runCmd("docker", "images", "-q", imageName)
+	if err != nil {
+		return "", fmt.Errorf("Failed to get image SHA by name %s, error: %s", imageName, err)
 	}
 
-	sha := strings.Trim(b.String(), "\n")
+	sha := strings.Trim(out, "\n")
 
 	if len(sha) < 12 {
-		return "", errors.New("Too short sha")
+		return "", fmt.Errorf("Too short sha (should be at least 12 chars) got: %q", sha)
 	}
-
-	//fmt.Printf("Image: %v, size: %d\n", sha, len(sha))
 
 	return sha, nil
 }
+
 func getRockerBinaryPath() string {
 	gopath := os.Getenv("GOPATH")
 	if gopath == "" {
@@ -80,18 +109,127 @@ func getRockerBinaryPath() string {
 }
 
 func runRockerPull(image string) error {
-	if err := runCmd(getRockerBinaryPath(), nil, "pull", image); err != nil {
-		return err
+	_, err := runCmd(getRockerBinaryPath(), "pull", image)
+	return err
+}
+
+func runRockerBuild(content string, params ...string) error {
+	return runRockerBuildWithOptions(rockerBuildOptions{
+		rockerfileContent: content,
+		buildParams:       params,
+	})
+}
+
+func runRockerBuildWithFile(filename string, params ...string) error {
+	return runRockerBuildWithOptions(rockerBuildOptions{
+		rockerfileName: filename,
+		buildParams:    params,
+	})
+}
+
+func runRockerBuildWd(wd string, params ...string) error {
+	return runRockerBuildWithOptions(rockerBuildOptions{
+		workdir:     wd,
+		buildParams: params,
+	})
+}
+
+type rockerBuildOptions struct {
+	rockerfileName    string
+	rockerfileContent string
+	globalParams      []string
+	buildParams       []string
+	testLines         []string
+	workdir           string
+	stdout            io.Writer
+	sha               *string
+}
+
+func runRockerBuildWithOptions(opts rockerBuildOptions) error {
+	if opts.rockerfileName != "" && opts.rockerfileContent != "" {
+		return fmt.Errorf("runRockerBuildWithOptions fail, cannot have both `rockerfile` and `rockerfileContent`, got %v", opts)
+	}
+
+	if opts.rockerfileContent != "" {
+		var err error
+		if opts.rockerfileName, err = createTempFile(opts.rockerfileContent); err != nil {
+			return err
+		}
+		defer os.RemoveAll(opts.rockerfileName)
+
+	} else if opts.rockerfileName == "" {
+		// if no `rockerfileContent` nor `rockerfile` specified, try to make default `rockerfile`
+		if opts.workdir == "" {
+			return fmt.Errorf("Workdir should be passed if none `rockerfile` and `rockerfileContent` specified, got %v", opts)
+		}
+		opts.rockerfileName = path.Join(opts.workdir, "Rockerfile")
+	}
+
+	if opts.rockerfileName != "" {
+		rockerfileContent, err := ioutil.ReadFile(opts.rockerfileName)
+		if err != nil {
+			return fmt.Errorf("Failed to read rockerfile, error: %s", err)
+		}
+		opts.rockerfileContent = string(rockerfileContent)
+	}
+
+	args := append(opts.globalParams, "build", "-f", opts.rockerfileName)
+	args = append(args, opts.buildParams...)
+
+	output, err := runCmdWithOptions(cmdOptions{
+		command: getRockerBinaryPath(),
+		args:    args,
+		workdir: opts.workdir,
+		stdout:  opts.stdout,
+	})
+
+	if err != nil {
+		if e, ok := err.(*errCmdRun); ok {
+			return &errRockerBuildRun{
+				cmdErr:            e,
+				rockerfileContent: string(opts.rockerfileContent),
+			}
+		}
+
+		return fmt.Errorf("Failed to run rocker build, error: %s", err)
+	}
+
+	if opts.sha != nil {
+		if match := outputShaRe.FindStringSubmatch(output); match != nil {
+			*opts.sha = match[1]
+		} else {
+			return fmt.Errorf("Expected rocker build to return image SHA, got nothing.\n\nRocker build output:\n%s", output)
+		}
+	}
+
+	if len(opts.testLines) > 0 {
+		linesMap := map[string]int{}
+		for _, l := range strings.Split(output, "\n") {
+			linesMap[l] = linesMap[l] + 1
+		}
+
+		for _, l := range opts.testLines {
+			if linesMap[l] == 0 {
+				return fmt.Errorf("Expected rocker build output to contain the following output line:\n%s\n\nRocker build output:\n%s", l, output)
+			}
+		}
 	}
 
 	return nil
 }
-func runRockerWithFile(filename string) error {
-	if err := runCmd(getRockerBinaryPath(), nil, "build", "--no-cache", "-f", filename); err != nil {
-		return err
-	}
 
-	return nil
+func runTimeout(name string, timeout time.Duration, f func() error) error {
+	errChan := make(chan error)
+	go func() {
+		errChan <- f()
+	}()
+
+	select {
+	case err := <-errChan:
+		return err
+	case <-time.After(timeout):
+		return fmt.Errorf("%s timeout %s", name, timeout)
+	}
 }
 
 func createTempFile(content string) (string, error) {
@@ -99,7 +237,6 @@ func createTempFile(content string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	if _, err := tmpfile.Write([]byte(content)); err != nil {
 		return "", err
 	}
@@ -109,63 +246,21 @@ func createTempFile(content string) (string, error) {
 	return tmpfile.Name(), nil
 }
 
-func runRockerBuildWithFile(filename string, opts ...string) error {
-	p := []string{"build", "-f", filename}
-	params := append(p, opts...)
-
-	if err := runCmd(getRockerBinaryPath(), nil, params...); err != nil {
-		return err
-	}
-
-	return nil
-}
-func runRockerBuildWithOptions(content string, opts ...string) error {
-	filename, err := createTempFile(content)
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(filename)
-
-	p := []string{"build", "-f", filename}
-	params := append(p, opts...)
-	if err := runCmd(getRockerBinaryPath(), nil, params...); err != nil {
-		return err
-	}
-
-	return nil
-}
-func runRockerBuildWdWithOptions(wd string, opts ...string) error {
-	if *verbosityLevel >= 2 {
-		fmt.Printf("CWD: %s\n", wd)
-	}
-
-	p := []string{"build"}
-	params := append(p, opts...)
-	if err := runCmdWithWd(getRockerBinaryPath(), wd, nil, params...); err != nil {
-		return err
-	}
-
-	return nil
-}
-func runRockerBuild(content string) error {
-	return runRockerBuildWithOptions(content)
-}
-
-func runRockerBuildWithOptions2(opts rockerBuildOptions) error {
-	filename, err := createTempFile(opts.Rockerfile)
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(filename)
-
-	opts1 := append(opts.GlobalOptions, "build", "-f", filename)
-	opts1 = append(opts1, opts.BuildOptions...)
-
-	return runCmdWithWd(getRockerBinaryPath(), opts.Wd, opts.Stdout, opts1...)
-}
-
 func makeTempDir(t *testing.T, prefix string, files map[string]string) string {
-	tmpDir, err := ioutil.TempDir("", prefix)
+	// We produce tmp dirs within home to make integration tests work within
+	// Mac OS and VirtualBox
+	home, err := homedir.Dir()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	baseTmpDir := path.Join(home, ".rocker-integ-tmp")
+
+	if err := os.MkdirAll(baseTmpDir, 0755); err != nil {
+		log.Fatal(err)
+	}
+
+	tmpDir, err := ioutil.TempDir(baseTmpDir, prefix)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,8 +275,38 @@ func makeTempDir(t *testing.T, prefix string, files map[string]string) string {
 	return tmpDir
 }
 
+func randomString() string {
+	return strconv.Itoa(int(time.Now().UnixNano() % int64(100000001)))
+}
+
 func debugf(format string, args ...interface{}) {
 	if *verbosityLevel >= 2 {
 		fmt.Printf(format, args...)
 	}
+}
+
+type errCmdRun struct {
+	args []string
+	err  error
+	out  string
+	wd   string
+}
+
+func (e *errCmdRun) Error() string {
+	return fmt.Sprintf(`Failed to run command: %s
+Error: %s
+Workdir: %s
+Output:
+%s`, strings.Join(e.args, " "), e.err, e.wd, e.out)
+}
+
+type errRockerBuildRun struct {
+	cmdErr            *errCmdRun
+	rockerfileContent string
+}
+
+func (e *errRockerBuildRun) Error() string {
+	sep := "\n---------------------------------\n"
+	return fmt.Sprintf("Failed to run rocker build:\n\nRockerfile:%s%s%sCmd Error:\n%s",
+		sep, e.rockerfileContent, sep, text.Indent(e.cmdErr.Error(), "           "))
 }

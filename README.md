@@ -320,7 +320,7 @@ PUSH grammarly/rocker:1
 
 # Templating
 
-`rocker` uses Go's [text/template](http://golang.org/pkg/text/template/) to pre-process Rockerfiles prior to execution. We extend it with additional helpers from [rocker/template](/src/rocker/template) package that is shared with [rocker-compose](https://github.com/grammarly/rocker-compose) as well.
+`rocker` uses Go's [text/template](http://golang.org/pkg/text/template/) to pre-process Rockerfiles prior to execution. We extend it with additional helpers from [rocker/template](/src/template) package that is shared with [rocker-compose](https://github.com/grammarly/rocker-compose) as well.
 
 Example:
 
@@ -445,25 +445,39 @@ PUSH 12345.dkr.ecr.us-east-1.amazonaws.com/my-web-app
 
 ### Dependencies
 
-Use [gb](http://getgb.io/) to test and build. We vendor all dependencies, you can find them under `/vendor` directory.
+Rocker uses GO15VENDOREXPERIMENT, so all dependencies are vendored and I'm afraid you will need at least Golang v1.5 to be able to compile.
 
 Please, use [gofmt](https://golang.org/cmd/gofmt/) in order to automatically re-format Go code into vendor standardized convention. Ideally, you have to set it on post-save action in your IDE. For SublimeText3, the [GoSublime](https://github.com/DisposaBoy/GoSublime) package does the right thing. Also, [solution for Intellij IDEA](http://marcesher.com/2014/03/30/intellij-idea-run-goimports-on-file-save/).
 
 ### Build
 
-(will produce the binary into the `bin/` directory)
+You can build Rocker as any other Golang package. Rocker is also go-gettable.
 ```bash
-gb build
+go build
 ```
-
+or
+```bash
+go install
+```
+or
+```bash
+go get -u github.com/grammarly/rocker
+```
 or build for all platforms:
 ```bash
-make all
+make cross
 ```
 
-If you have a github access token, you can also do a github release:
+### Test 
+
+To run unit tests you should run:
 ```bash
-make release
+make test
+```
+
+And for integration tests:
+```bash
+make test_integration
 ```
 
 Also a useful thing to have:
@@ -471,22 +485,7 @@ Also a useful thing to have:
 echo "make test" > .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 ```
 
-### Test 
-
-```bash
-make test
-```
-
-or
-```bash
-gb test rocker/...
-```
-
-### Test something particular
-
-```bash
-gb test rocker/... -run TestMyFunction
-```
+Don't be afraid of looking under the hood of Makefile to figure out how to run particular test cases.
 
 # TODO
 

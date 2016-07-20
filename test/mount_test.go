@@ -4,30 +4,28 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestMountLocal(t *testing.T) {
-	//t.Skip("skipping till bug will be fixed")
+func TestMount_Local(t *testing.T) {
 	dir, err := ioutil.TempDir("/tmp", "rocker_integration_test_mount_dir")
 	if err != nil {
 		t.Fatalf("Can't create temp dir, err : %v", err)
 	}
 	defer os.RemoveAll(dir)
 
-	err = runRockerBuildWithOptions("FROM alpine:latest\n"+
+	err = runRockerBuild("FROM alpine:latest\n"+
 		"MOUNT "+dir+":/datadir\n"+
 		"RUN echo -n foobar > /datadir/foo", "--no-cache")
-
 	if err != nil {
-		t.Fatalf("Test fail: %v\n", err)
+		t.Fatal(err)
 	}
 
 	content, err := ioutil.ReadFile(dir + "/foo")
 	if err != nil {
-		t.Fatalf("Can't read temp file. Error: %v", err)
+		t.Fatal("Can't read temp file:", err)
 	}
 
-	if "foobar" != string(content) {
-		t.Fatalf("Content doesn't match, expected: 'foobar', got: '%s'", string(content))
-	}
+	assert.Equal(t, "foobar", string(content), "Content doesn't match, expected: 'foobar'")
 }

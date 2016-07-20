@@ -22,9 +22,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/fsouza/go-dockerclient/external/github.com/docker/docker/pkg/stdcopy"
-	"github.com/fsouza/go-dockerclient/external/github.com/gorilla/mux"
+	"github.com/gorilla/mux"
 )
 
 var nameRegexp = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]+$`)
@@ -145,6 +145,7 @@ func (s *DockerServer) buildMuxer() {
 	s.mux.Path("/volumes/{name:.*}").Methods("GET").HandlerFunc(s.handlerWrapper(s.inspectVolume))
 	s.mux.Path("/volumes/{name:.*}").Methods("DELETE").HandlerFunc(s.handlerWrapper(s.removeVolume))
 	s.mux.Path("/info").Methods("GET").HandlerFunc(s.handlerWrapper(s.infoDocker))
+	s.mux.Path("/version").Methods("GET").HandlerFunc(s.handlerWrapper(s.versionDocker))
 }
 
 // SetHook changes the hook function used by the server.
@@ -718,7 +719,9 @@ func (s *DockerServer) waitContainer(w http.ResponseWriter, r *http.Request) {
 func (s *DockerServer) removeContainer(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	force := r.URL.Query().Get("force")
-	container, index, err := s.findContainer(id)
+	s.cMut.Lock()
+	defer s.cMut.Unlock()
+	container, index, err := s.findContainerWithLock(id, false)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -729,12 +732,8 @@ func (s *DockerServer) removeContainer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
-	s.cMut.Lock()
-	defer s.cMut.Unlock()
-	if s.containers[index].ID == id || s.containers[index].Name == id {
-		s.containers[index] = s.containers[len(s.containers)-1]
-		s.containers = s.containers[:len(s.containers)-1]
-	}
+	s.containers[index] = s.containers[len(s.containers)-1]
+	s.containers = s.containers[:len(s.containers)-1]
 }
 
 func (s *DockerServer) commitContainer(w http.ResponseWriter, r *http.Request) {
@@ -777,8 +776,14 @@ func (s *DockerServer) commitContainer(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *DockerServer) findContainer(idOrName string) (*docker.Container, int, error) {
-	s.cMut.RLock()
-	defer s.cMut.RUnlock()
+	return s.findContainerWithLock(idOrName, true)
+}
+
+func (s *DockerServer) findContainerWithLock(idOrName string, shouldLock bool) (*docker.Container, int, error) {
+	if shouldLock {
+		s.cMut.RLock()
+		defer s.cMut.RUnlock()
+	}
 	for i, container := range s.containers {
 		if container.ID == idOrName || container.Name == idOrName {
 			return container, i, nil
@@ -1324,6 +1329,22 @@ func (s *DockerServer) infoDocker(w http.ResponseWriter, r *http.Request) {
 		"ServerVersion":     "1.10.1",
 		"ClusterStore":      "",
 		"ClusterAdvertise":  "",
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(envs)
+}
+
+func (s *DockerServer) versionDocker(w http.ResponseWriter, r *http.Request) {
+	envs := map[string]interface{}{
+		"Version":       "1.10.1",
+		"Os":            "linux",
+		"KernelVersion": "3.13.0-77-generic",
+		"GoVersion":     "go1.4.2",
+		"GitCommit":     "9e83765",
+		"Arch":          "amd64",
+		"ApiVersion":    "1.22",
+		"BuildTime":     "2015-12-01T07:09:13.444803460+00:00",
+		"Experimental":  false,
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(envs)

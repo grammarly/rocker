@@ -36,6 +36,7 @@ import (
 	"github.com/fsouza/go-dockerclient"
 
 	log "github.com/Sirupsen/logrus"
+	runconfigopts "github.com/docker/docker/runconfig/opts"
 )
 
 var (
@@ -91,8 +92,9 @@ func main() {
 			Usage: "Make output colored",
 		},
 		cli.BoolFlag{
-			Name:  "cmd, C",
-			Usage: "Print command-line that was used to exec",
+			Name:   "cmd, C",
+			EnvVar: "ROCKER_PRINT_COMMAND",
+			Usage:  "Print command-line that was used to exec",
 		},
 	}, dockerclient.GlobalCliParams()...)
 
@@ -106,6 +108,11 @@ func main() {
 			Name:  "auth, a",
 			Value: "",
 			Usage: "Username and password in user:password format",
+		},
+		cli.StringSliceFlag{
+			Name:  "build-arg",
+			Value: &cli.StringSlice{},
+			Usage: "Set build-time variables, can pass multiple of those, format is key=value (default [])",
 		},
 		cli.StringSliceFlag{
 			Name:  "var",
@@ -182,7 +189,6 @@ func main() {
 			Usage:  "launches a build for the specified Rockerfile",
 			Action: buildCommand,
 			Flags:  buildFlags,
-			Before: globalBefore,
 		},
 		{
 			Name:   "pull",
@@ -205,9 +211,18 @@ func main() {
 					Usage: "Set the directory where the cache will be stored",
 				},
 			},
-			Before: globalBefore,
 		},
 		dockerclient.InfoCommandSpec(),
+	}
+
+	app.Before = func(c *cli.Context) error {
+		initLogs(c)
+
+		if c.GlobalBool("cmd") {
+			log.Infof("rocker %s | Cmd: %s\n", HumanVersion, strings.Join(os.Args, " "))
+		}
+
+		return nil
 	}
 
 	app.CommandNotFound = func(ctx *cli.Context, command string) {
@@ -221,21 +236,12 @@ func main() {
 	}
 }
 
-func globalBefore(c *cli.Context) error {
-	if c.GlobalBool("cmd") {
-		log.Infof("Rocker %s | Cmd: %s", HumanVersion, strings.Join(os.Args, " "))
-	}
-	return nil
-}
-
 func buildCommand(c *cli.Context) {
 
 	var (
 		rockerfile *build.Rockerfile
 		err        error
 	)
-
-	initLogs(c)
 
 	// We don't want info level for 'print' mode
 	// So log only errors unless 'debug' is on
@@ -296,6 +302,8 @@ func buildCommand(c *cli.Context) {
 		if !filepath.IsAbs(contextDir) {
 			contextDir = filepath.Join(wd, args[0])
 		}
+	} else if contextDir != wd {
+		log.Warningf("Implicit context directory used: %s. You can override context directory using the last argument.", contextDir)
 	}
 
 	dir, err := os.Stat(contextDir)
@@ -380,6 +388,7 @@ func buildCommand(c *cli.Context) {
 		Push:          c.Bool("push"),
 		CacheDir:      cacheDir,
 		LogJSON:       c.GlobalBool("json"),
+		BuildArgs:     runconfigopts.ConvertKVStringsToMap(c.StringSlice("build-arg")),
 	})
 
 	plan, err := build.NewPlan(rockerfile.Commands(), true)
@@ -411,8 +420,6 @@ func buildCommand(c *cli.Context) {
 }
 
 func pullCommand(c *cli.Context) {
-	initLogs(c)
-
 	args := c.Args()
 	if len(args) < 1 {
 		log.Fatal("rocker pull <image>")

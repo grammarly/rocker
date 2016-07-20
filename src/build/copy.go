@@ -290,7 +290,7 @@ func makeTarStream(srcPath, dest, cmdName string, includes, excludes []string, u
 
 func listFiles(srcPath string, includes, excludes []string, cmdName string, urlFetcher URLFetcher) ([]*uploadFile, error) {
 
-	log.Infof("searching patterns, %# v\n", pretty.Formatter(includes))
+	log.Debugf("searching patterns, %# v\n", pretty.Formatter(includes))
 
 	result := []*uploadFile{}
 	seen := map[string]struct{}{}
@@ -345,6 +345,10 @@ func listFiles(srcPath string, includes, excludes []string, cmdName string, urlF
 
 			// Walk through each match since it may be a directory
 			err = filepath.Walk(match, func(path string, info os.FileInfo, err error) error {
+
+				if err != nil {
+					return err
+				}
 
 				relFilePath, err := filepath.Rel(srcPath, path)
 				if err != nil {

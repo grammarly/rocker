@@ -19,9 +19,10 @@ package dockerclient
 import (
 	"encoding/base64"
 	"fmt"
-	"github.com/grammarly/rocker/src/imagename"
 	"strings"
 	"sync"
+
+	"github.com/grammarly/rocker/src/imagename"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/aws/aws-sdk-go/aws"
@@ -54,7 +55,7 @@ func GetAuthForRegistry(auth *docker.AuthConfigurations, image *imagename.ImageN
 	}
 	// Optionally override auth took via aws-sdk (through ENV vars)
 	if image.IsECR() {
-		if awsRegAuth, err := GetECRAuth(registry); err != nil && err != credentials.ErrNoValidProvidersFoundInChain {
+		if awsRegAuth, err := GetECRAuth(registry, image.GetECRRegion()); err != nil && err != credentials.ErrNoValidProvidersFoundInChain {
 			return result, err
 		} else if awsRegAuth.Username != "" {
 			return awsRegAuth, nil
@@ -85,7 +86,7 @@ func GetAuthForRegistry(auth *docker.AuthConfigurations, image *imagename.ImageN
 }
 
 // GetECRAuth requests AWS ECR API to get docker.AuthConfiguration token
-func GetECRAuth(registry string) (result docker.AuthConfiguration, err error) {
+func GetECRAuth(registry, region string) (result docker.AuthConfiguration, err error) {
 	_ecrAuthCache.mu.Lock()
 	defer _ecrAuthCache.mu.Unlock()
 
@@ -97,9 +98,8 @@ func GetECRAuth(registry string) (result docker.AuthConfiguration, err error) {
 		_ecrAuthCache.tokens[registry] = result
 	}()
 
-	// TODO: take region from the registry hostname?
 	cfg := &aws.Config{
-		Region: aws.String("us-east-1"),
+		Region: aws.String(region),
 	}
 
 	if log.StandardLogger().Level >= log.DebugLevel {
