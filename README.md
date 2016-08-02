@@ -3,16 +3,16 @@
 Rocker breaks the limits of Dockerfile. It adds some crucial features that are missing while keeping Docker’s original design and idea. Read the [blog post](http://tech.grammarly.com/blog/posts/Making-Docker-Rock-at-Grammarly.html) about how and why it was invented.
 
 # *v1 NOTE*
-Rocker has been rewritten from scratch and now it became much more robust! While [dockramp](https://github.com/jlhawn/dockramp) as a proof of concept of a client-driven Docker builder, Rocker is a full-featured implementation.
+Rocker has been rewritten from scratch and now it is much more robust! While [dockramp](https://github.com/jlhawn/dockramp) was a proof-of-concept for a client-driven Docker builder, Rocker is a full-featured implementation.
 
-1. There are no context uploads and fallbacks to `docker build`. It makes your builds faster especially if you have a big project.
-2. Cache lookup works much faster than Docker's implementation when you have thousands of layers.
-3. Better output: rocker reports size for each produced layer, so you see which steps take space.
+1. There are no context uploads and fallbacks to `docker build`. This makes builds faster especially for large projects.
+2. Cache lookups are much faster than Docker's implementation when you have thousands of layers.
+3. Better output: rocker reports the size of each produced layer, so you see which layers consume the most space.
 4. Works with Docker >= 1.8
 
 What is not supported yet:
 
-1. Adding tar archives that supposed to automatically extract
+1. Adding tar archives that are automatically extracted (as they are in Dockerfiles)
 
 ---
 
