@@ -33,7 +33,8 @@ import (
 )
 
 const (
-	initFile = "/.dockerinit"
+	initFile1 = "/.dockerinit"
+	initFile2 = "/.dockerenv"
 )
 
 // ErrDriverNotSupported is an error type that is returned if it's impossible to
@@ -123,11 +124,24 @@ func ResolveHostPath(mountPath string, client *docker.Client, isUnixSocket bool,
 
 // IsInMatrix returns true if current process is running inside of a docker container
 func IsInMatrix() (bool, error) {
-	_, err := os.Stat(initFile)
-	if err != nil && os.IsNotExist(err) {
-		return false, nil
+	fileExists := func(f string) (exists bool, err error) {
+		_, err = os.Stat(f)
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return err == nil, err
 	}
-	return true, err
+
+	f1, err := fileExists(initFile1)
+	if err != nil {
+		return false, err
+	}
+	f2, err := fileExists(initFile2)
+	if err != nil {
+		return false, err
+	}
+
+	return f1 || f2, nil
 }
 
 // getMyDockerID returns id of the current container the process is running within, if any
