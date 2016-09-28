@@ -2,12 +2,18 @@ package tests
 
 import (
 	"encoding/json"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
 	"github.com/fsouza/go-dockerclient"
 
 	"testing"
+)
+
+var (
+	// ZeroDuration is needed because different versions of Golang prints empty duration differently
+	ZeroDuration = time.Duration(0).String()
 )
 
 func TestHealthcheck_Simple(t *testing.T) {
@@ -41,8 +47,8 @@ HEALTHCHECK NONE
 `)
 
 	assert.Equal(t, []string{"NONE"}, container.Config.Healthcheck.Test)
-	assert.Equal(t, "0s", container.Config.Healthcheck.Interval.String())
-	assert.Equal(t, "0s", container.Config.Healthcheck.Timeout.String())
+	assert.Equal(t, ZeroDuration, container.Config.Healthcheck.Interval.String())
+	assert.Equal(t, ZeroDuration, container.Config.Healthcheck.Timeout.String())
 }
 
 func TestHealthcheck_Override1(t *testing.T) {
@@ -54,8 +60,8 @@ HEALTHCHECK NONE
 `)
 
 	assert.Equal(t, []string{"NONE"}, container.Config.Healthcheck.Test)
-	assert.Equal(t, "0s", container.Config.Healthcheck.Interval.String())
-	assert.Equal(t, "0s", container.Config.Healthcheck.Timeout.String())
+	assert.Equal(t, ZeroDuration, container.Config.Healthcheck.Interval.String())
+	assert.Equal(t, ZeroDuration, container.Config.Healthcheck.Timeout.String())
 }
 
 func TestHealthcheck_Override2(t *testing.T) {
