@@ -17,6 +17,8 @@ var (
 )
 
 func TestHealthcheck_Simple(t *testing.T) {
+	skipOlderDocker(t, "1.12")
+
 	container := healthcheckBuildInspect(t, `
 FROM alpine
 HEALTHCHECK --interval=5m --timeout=3s \
@@ -29,6 +31,8 @@ HEALTHCHECK --interval=5m --timeout=3s \
 }
 
 func TestHealthcheck_Cmd(t *testing.T) {
+	skipOlderDocker(t, "1.12")
+
 	container := healthcheckBuildInspect(t, `
 FROM alpine
 HEALTHCHECK --interval=5m --timeout=3s \
@@ -41,6 +45,8 @@ HEALTHCHECK --interval=5m --timeout=3s \
 }
 
 func TestHealthcheck_None(t *testing.T) {
+	skipOlderDocker(t, "1.12")
+
 	container := healthcheckBuildInspect(t, `
 FROM alpine
 HEALTHCHECK NONE
@@ -52,6 +58,8 @@ HEALTHCHECK NONE
 }
 
 func TestHealthcheck_Override1(t *testing.T) {
+	skipOlderDocker(t, "1.12")
+
 	container := healthcheckBuildInspect(t, `
 FROM alpine
 HEALTHCHECK --interval=5m --timeout=3s \
@@ -65,6 +73,8 @@ HEALTHCHECK NONE
 }
 
 func TestHealthcheck_Override2(t *testing.T) {
+	skipOlderDocker(t, "1.12")
+
 	container := healthcheckBuildInspect(t, `
 FROM alpine
 HEALTHCHECK NONE

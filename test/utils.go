@@ -22,6 +22,8 @@ import (
 )
 
 var (
+	dockerVersionCached *string
+
 	outputShaRe = regexp.MustCompile("Successfully built (sha256:[a-f0-9]+)")
 )
 
@@ -283,6 +285,32 @@ func debugf(format string, args ...interface{}) {
 	if *verbosityLevel >= 2 {
 		fmt.Printf(format, args...)
 	}
+}
+
+func skipOlderDocker(t *testing.T, minimumVersion string) {
+	if currentVersion := dockerVersion(t); currentVersion < minimumVersion {
+		t.Skipf("Skipping because Docker version %s < %s", currentVersion, minimumVersion)
+	}
+}
+
+func dockerVersion(t *testing.T) string {
+	if dockerVersionCached != nil {
+		return *dockerVersionCached
+	}
+
+	out, err := runCmd("docker", "--version")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	matches := regexp.MustCompile("^Docker version (\\d+\\.\\d+\\.\\d+)").FindStringSubmatch(out)
+
+	if matches == nil {
+		t.Fatal("Cannot detect Docker version, output: %s", out)
+	}
+
+	dockerVersionCached = &matches[1]
+	return *dockerVersionCached
 }
 
 type errCmdRun struct {
