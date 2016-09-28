@@ -6,21 +6,25 @@ go:
   - 1.6.2
 env:
   matrix:
-    - DOCKER_VERSION=1.11.2-0        DOCKER_FS=overlay
-    - DOCKER_VERSION=1.11.2-0        DOCKER_FS=aufs
-    - DOCKER_VERSION=1.12.0~rc3-0    DOCKER_FS=overlay
-    - DOCKER_VERSION=1.12.0~rc3-0    DOCKER_FS=aufs
+    - DOCKER_VERSION=1.11.2-0~trusty    DOCKER_FS=overlay
+    - DOCKER_VERSION=1.11.2-0~trusty    DOCKER_FS=aufs
+    - DOCKER_VERSION=1.12.1-0~trusty    DOCKER_FS=overlay
+    - DOCKER_VERSION=1.12.1-0~trusty    DOCKER_FS=aufs
   global:
     secure: MPs87X+op4xhB/TSwbCUAfYlx1XuqznyaJsWuT5ob1m0oBYKpFRG1317DaEaGEJxYqvIlpDPFg030ua6X0JER7h6qoyC71Mv4Xt7x3JVxca3vTpHd98RuGNjKrk4mBlUnegb2HJU/6nopVyP451YeDJX2wgDsQmVAmJUlfYU3kf/QNp/PPEky9WyhQy6Muy4goE8+K/vrdbuRuYu+8SKwDWsXcKLCvXqK6/0Xu+N5vjlmiWaMHk3zN3nS/DrK+odUr/j0qOvHqHgHOILtT7UY2KT4dzLJA/qHEsmvzkM+QNRfqI4LNHrNqpROzjIbLRZKJ8pDAlcQlhthmvAT2WTwEu+scEy+BJExSVcwt7zWnKjkFFXsiR5VwmLC/o6fUJGQ17VczEiPRC7hBcPvt966Up9pa0XSIR6SRo5iVfoen+5DqOyDTku5uL9CM8sGQseBL86R5fjVfisYXj5X8RstxLlO61sU/0cpPTUQ8zR2gb4fPjvhiDQ4uvzGMUPna1S4hdc0v7MrFVNALCRM73usbzIh0FguhiHLJ2MUnQIanqfhjImiteLN/6zVjsIrCh0j5oEYFU6dwF33IpGqjcOsl6QvA47L0Qa0yGVhgTi4w6OcAf10FDAvtSh2Sz3m2zH6R8olQMqIJCJusy0LYurppsB1JLpLYIt4poFtBQBGRU=
 before_install:
-  - sudo sh -c 'echo "deb https://apt.dockerproject.org/repo ubuntu-precise main"          > /etc/apt/sources.list.d/docker.list'
-  - sudo sh -c 'echo "deb https://apt.dockerproject.org/repo ubuntu-precise experimental" >> /etc/apt/sources.list.d/docker.list'
-  - sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
-  - sudo apt-get update
-  - sudo apt-get -qqy -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install docker-engine=${DOCKER_VERSION}~precise
+  # list docker-engine versions
+  - apt-cache madison docker-engine
+
+  # upgrade docker-engine to specific version
+  - sudo apt-get -o Dpkg::Options::="--force-confnew" install -y --force-yes docker-engine=${DOCKER_VERSION}
+  
+  # specify fs driver in docker config and restart docker
   - echo 'DOCKER_OPTS="-H tcp://127.0.0.1:2375 -H unix:///var/run/docker.sock -s '${DOCKER_FS}'"' | sudo tee /etc/default/docker > /dev/null
   - sudo service docker restart
   - while ! nc -q 1 127.0.0.1 2375 </dev/null; do sleep 1; done
+
+  # print docker daemon info
   - docker info
 script:
   - set -e
