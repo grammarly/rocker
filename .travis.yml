@@ -18,16 +18,13 @@ before_install:
 
   # upgrade docker-engine to specific version
   - sudo apt-get -o Dpkg::Options::="--force-confnew" install -y docker-engine=${DOCKER_VERSION}
-
-  # - sudo sh -c 'echo "deb https://apt.dockerproject.org/repo ubuntu-precise main"          > /etc/apt/sources.list.d/docker.list'
-  # - sudo sh -c 'echo "deb https://apt.dockerproject.org/repo ubuntu-precise experimental" >> /etc/apt/sources.list.d/docker.list'
-  # - sudo apt-key adv --keyserver hkp://p80.pool.sks-keyservers.net:80 --recv-keys 58118E89F3A912897C070ADBF76221572C52609D
-  # - sudo apt-get update
-  # - sudo apt-get -qqy -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold" install docker-engine=${DOCKER_VERSION}~precise
-
+  
+  # specify fs driver in docker config and restart docker
   - echo 'DOCKER_OPTS="-H tcp://127.0.0.1:2375 -H unix:///var/run/docker.sock -s '${DOCKER_FS}'"' | sudo tee /etc/default/docker > /dev/null
   - sudo service docker restart
   - while ! nc -q 1 127.0.0.1 2375 </dev/null; do sleep 1; done
+
+  # print docker daemon info
   - docker info
 script:
   - set -e
