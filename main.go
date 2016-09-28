@@ -36,7 +36,6 @@ import (
 	"github.com/fsouza/go-dockerclient"
 
 	log "github.com/Sirupsen/logrus"
-	runconfigopts "github.com/docker/docker/runconfig/opts"
 )
 
 var (
@@ -388,7 +387,7 @@ func buildCommand(c *cli.Context) {
 		Push:          c.Bool("push"),
 		CacheDir:      cacheDir,
 		LogJSON:       c.GlobalBool("json"),
-		BuildArgs:     runconfigopts.ConvertKVStringsToMap(c.StringSlice("build-arg")),
+		BuildArgs:     BuilargKVStringsToMap(c.StringSlice("build-arg")),
 	})
 
 	plan, err := build.NewPlan(rockerfile.Commands(), true)
@@ -511,4 +510,21 @@ func stringOr(args ...string) string {
 		}
 	}
 	return ""
+}
+
+// BuilargKVStringsToMap converts ["key=value"] to {"key":"value"}
+// Also, if the value is omitted (e.g. --build-arg NPM_TOKEN), then the ENV variable value will be taken
+// You can still force the value to be empty by specifying --build-arg NPM_TOKEN=""
+func BuilargKVStringsToMap(values []string) map[string]string {
+	result := make(map[string]string, len(values))
+	for _, value := range values {
+		kv := strings.SplitN(value, "=", 2)
+		if len(kv) == 1 {
+			result[kv[0]] = os.Getenv(kv[0])
+		} else {
+			result[kv[0]] = kv[1]
+		}
+	}
+
+	return result
 }
