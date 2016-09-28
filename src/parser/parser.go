@@ -64,6 +64,7 @@ func init() {
 		"expose":      parseStringsWhitespaceDelimited,
 		"volume":      parseMaybeJSONToList,
 		"insert":      parseIgnore,
+		"arg":         parseString,
 		"healthcheck": parseHealthConfig,
 
 		// Rockerfile extras

@@ -18,9 +18,10 @@ package build
 
 import (
 	"fmt"
-	"github.com/grammarly/rocker/src/imagename"
 	"io"
 	"strings"
+
+	"github.com/grammarly/rocker/src/imagename"
 
 	"github.com/docker/docker/pkg/units"
 	"github.com/fatih/color"
@@ -66,6 +67,7 @@ type Config struct {
 	Push          bool
 	CacheDir      string
 	LogJSON       bool
+	BuildArgs     map[string]string
 }
 
 // Build is the main object that processes build
@@ -87,6 +89,8 @@ type Build struct {
 	prevExportContainerID      string
 
 	urlFetcher URLFetcher
+
+	allowedBuildArgs map[string]bool
 }
 
 // New creates the new build object
@@ -97,11 +101,29 @@ func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build 
 		cfg:        cfg,
 		client:     client,
 		exports:    []string{},
+
+		// Build args allowed by Docker by default:
+		// https://docs.docker.com/engine/reference/builder/#/arg
+		allowedBuildArgs: map[string]bool{
+			"HTTP_PROXY":  true,
+			"http_proxy":  true,
+			"HTTPS_PROXY": true,
+			"https_proxy": true,
+			"FTP_PROXY":   true,
+			"ftp_proxy":   true,
+			"NO_PROXY":    true,
+			"no_proxy":    true,
+		},
 	}
 
 	b.urlFetcher = NewURLFetcherFS(cfg.CacheDir, cfg.NoCache, nil)
 
 	b.state = NewState(b)
+
+	if cfg.BuildArgs != nil {
+		b.state.NoCache.BuildArgs = cfg.BuildArgs
+	}
+
 	return b
 }
 
@@ -152,6 +174,18 @@ func (b *Build) Run(plan Plan) (err error) {
 
 			b.state.InjectCommands = []string{}
 		}
+	}
+
+	// check if there are any leftover build-args that were passed but not
+	// consumed during build. Return an error, if there are any.
+	leftoverArgs := []string{}
+	for arg := range b.cfg.BuildArgs {
+		if !b.allowedBuildArgs[arg] {
+			leftoverArgs = append(leftoverArgs, arg)
+		}
+	}
+	if len(leftoverArgs) > 0 {
+		return fmt.Errorf("One or more build-args %v were not consumed, failing build.", leftoverArgs)
 	}
 
 	return nil

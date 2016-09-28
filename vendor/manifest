@@ -76,6 +76,13 @@
 			"path": "/pkg/jsonmessage"
 		},
 		{
+			"importpath": "github.com/docker/docker/pkg/mount",
+			"repository": "https://github.com/docker/docker",
+			"revision": "9df2a825bad0d5d6d23742f58dfefc962953b91c",
+			"branch": "master",
+			"path": "/pkg/mount"
+		},
+		{
 			"importpath": "github.com/docker/docker/pkg/nat",
 			"repository": "https://github.com/docker/docker",
 			"revision": "b0dc11127ef4fc20261ccc0db03a16b17f7f91c4",
@@ -106,7 +113,7 @@
 		{
 			"importpath": "github.com/docker/docker/pkg/signal",
 			"repository": "https://github.com/docker/docker",
-			"revision": "f5ebcfe1dcc1974425155ae9d85a750573af9625",
+			"revision": "9df2a825bad0d5d6d23742f58dfefc962953b91c",
 			"branch": "master",
 			"path": "/pkg/signal"
 		},
@@ -160,6 +167,20 @@
 			"path": "/pkg/urlutil"
 		},
 		{
+			"importpath": "github.com/docker/docker/runconfig/opts",
+			"repository": "https://github.com/docker/docker",
+			"revision": "9df2a825bad0d5d6d23742f58dfefc962953b91c",
+			"branch": "master",
+			"path": "/runconfig/opts"
+		},
+		{
+			"importpath": "github.com/docker/engine-api/types",
+			"repository": "https://github.com/docker/engine-api",
+			"revision": "98348ad6f9c89bb10f31ac32cd1b12cbadd292b6",
+			"branch": "master",
+			"path": "/types"
+		},
+		{
 			"importpath": "github.com/docker/engine-api/types/filters",
 			"repository": "https://github.com/docker/engine-api",
 			"revision": "98348ad6f9c89bb10f31ac32cd1b12cbadd292b6",
@@ -172,6 +193,13 @@
 			"revision": "98348ad6f9c89bb10f31ac32cd1b12cbadd292b6",
 			"branch": "master",
 			"path": "/types/versions"
+		},
+		{
+			"importpath": "github.com/docker/go-connections/nat",
+			"repository": "https://github.com/docker/go-connections",
+			"revision": "990a1a1a70b0da4c4cb70e117971a4f0babfbf1a",
+			"branch": "master",
+			"path": "/nat"
 		},
 		{
 			"importpath": "github.com/docker/go-units",
@@ -259,6 +287,12 @@
 			"branch": "master"
 		},
 		{
+			"importpath": "github.com/spf13/pflag",
+			"repository": "https://github.com/spf13/pflag",
+			"revision": "367864438f1b1a3c7db4da06a2f55b144e6784e0",
+			"branch": "master"
+		},
+		{
 			"importpath": "github.com/stretchr/objx",
 			"repository": "https://github.com/stretchr/objx",
 			"revision": "cbeaeb16a013161a98496fad62933b1d21786672",
@@ -267,7 +301,7 @@
 		{
 			"importpath": "github.com/stretchr/testify",
 			"repository": "https://github.com/stretchr/testify",
-			"revision": "089c7181b8c728499929ff09b62d3fdd8df8adff",
+			"revision": "d77da356e56a7428ad25149ca77381849a6a5232",
 			"branch": "master"
 		},
 		{

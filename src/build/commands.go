@@ -18,9 +18,6 @@ package build
 
 import (
 	"fmt"
-	"github.com/grammarly/rocker/src/imagename"
-	"github.com/grammarly/rocker/src/shellparser"
-	"github.com/grammarly/rocker/src/util"
 	"io/ioutil"
 	"os"
 	"path"
@@ -30,11 +27,16 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-yaml/yaml"
+	"github.com/grammarly/rocker/src/imagename"
+	"github.com/grammarly/rocker/src/shellparser"
+	"github.com/grammarly/rocker/src/util"
+
 	log "github.com/Sirupsen/logrus"
 	"github.com/docker/docker/pkg/nat"
 	"github.com/docker/docker/pkg/units"
+	runconfigopts "github.com/docker/docker/runconfig/opts"
 	"github.com/fsouza/go-dockerclient"
-	"github.com/go-yaml/yaml"
 	"github.com/kr/pretty"
 )
 
@@ -70,73 +72,81 @@ type EnvReplacableCommand interface {
 }
 
 // NewCommand make a new command according to the configuration given
-func NewCommand(cfg ConfigCommand) (cmd Command, err error) {
+func NewCommand(cfg ConfigCommand) (cmd Command) {
 	// TODO: use reflection?
 	switch cfg.name {
 	case "from":
-		cmd = &CommandFrom{cfg}
+		cmd = &CommandFrom{CommandBase{cfg}}
 	case "maintainer":
-		cmd = &CommandMaintainer{cfg}
+		cmd = &CommandMaintainer{CommandBase{cfg}}
 	case "run":
-		cmd = &CommandRun{cfg}
+		cmd = &CommandRun{CommandBase{cfg}}
 	case "attach":
-		cmd = &CommandAttach{cfg}
+		cmd = &CommandAttach{CommandBase{cfg}}
 	case "env":
-		cmd = &CommandEnv{cfg}
+		cmd = &CommandEnv{CommandBase{cfg}}
 	case "label":
-		cmd = &CommandLabel{cfg}
+		cmd = &CommandLabel{CommandBase{cfg}}
 	case "workdir":
-		cmd = &CommandWorkdir{cfg}
+		cmd = &CommandWorkdir{CommandBase{cfg}}
 	case "tag":
-		cmd = &CommandTag{cfg}
+		cmd = &CommandTag{CommandBase{cfg}}
 	case "push":
-		cmd = &CommandPush{cfg}
+		cmd = &CommandPush{CommandBase{cfg}}
 	case "copy":
-		cmd = &CommandCopy{cfg}
+		cmd = &CommandCopy{CommandBase{cfg}}
 	case "add":
-		cmd = &CommandAdd{cfg}
+		cmd = &CommandAdd{CommandBase{cfg}}
 	case "cmd":
-		cmd = &CommandCmd{cfg}
+		cmd = &CommandCmd{CommandBase{cfg}}
 	case "entrypoint":
-		cmd = &CommandEntrypoint{cfg}
+		cmd = &CommandEntrypoint{CommandBase{cfg}}
 	case "expose":
-		cmd = &CommandExpose{cfg}
+		cmd = &CommandExpose{CommandBase{cfg}}
 	case "volume":
-		cmd = &CommandVolume{cfg}
+		cmd = &CommandVolume{CommandBase{cfg}}
 	case "user":
-		cmd = &CommandUser{cfg}
+		cmd = &CommandUser{CommandBase{cfg}}
 	case "onbuild":
-		cmd = &CommandOnbuild{cfg}
+		cmd = &CommandOnbuild{CommandBase{cfg}}
 	case "mount":
-		cmd = &CommandMount{cfg}
+		cmd = &CommandMount{CommandBase{cfg}}
 	case "export":
-		cmd = &CommandExport{cfg}
+		cmd = &CommandExport{CommandBase{cfg}}
 	case "import":
-		cmd = &CommandImport{cfg}
+		cmd = &CommandImport{CommandBase{cfg}}
+	case "arg":
+		cmd = &CommandArg{CommandBase{cfg}}
 	default:
-		return nil, fmt.Errorf("Unknown command: %s", cfg.name)
+		panic(fmt.Sprintf("Unknown command: %s", cfg.name))
 	}
 
 	if cfg.isOnbuild {
 		cmd = &CommandOnbuildWrap{cmd}
 	}
 
-	return cmd, nil
+	return
 }
 
-// CommandFrom implements FROM
-type CommandFrom struct {
+// CommandBase implements base command that includes ConfigCommand
+// and always run without a precondition
+type CommandBase struct {
 	cfg ConfigCommand
 }
 
 // String returns the human readable string representation of the command
-func (c *CommandFrom) String() string {
+func (c *CommandBase) String() string {
 	return c.cfg.original
 }
 
 // ShouldRun returns true if the command should be executed
-func (c *CommandFrom) ShouldRun(b *Build) (bool, error) {
+func (c *CommandBase) ShouldRun(b *Build) (bool, error) {
 	return true, nil
+}
+
+// CommandFrom implements FROM
+type CommandFrom struct {
+	CommandBase
 }
 
 // Execute runs the command
@@ -218,17 +228,7 @@ func (c *CommandFrom) Execute(b *Build) (s State, err error) {
 
 // CommandMaintainer implements CMD
 type CommandMaintainer struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandMaintainer) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandMaintainer) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -371,17 +371,7 @@ func (c *CommandCommit) Execute(b *Build) (s State, err error) {
 
 // CommandRun implements RUN
 type CommandRun struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandRun) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandRun) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -398,7 +388,37 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 		cmd = append([]string{"/bin/sh", "-c"}, cmd...)
 	}
 
-	s.Commit("RUN %q", cmd)
+	buildEnv := []string{}
+	configEnv := runconfigopts.ConvertKVStringsToMap(s.Config.Env)
+	for key, val := range s.NoCache.BuildArgs {
+		if !b.allowedBuildArgs[key] {
+			// skip build-args that are not in allowed list, meaning they have
+			// not been defined by an "ARG" Dockerfile command yet.
+			// This is an error condition but only if there is no "ARG" in the entire
+			// Dockerfile, so we'll generate any necessary errors after we parsed
+			// the entire file (see 'leftoverArgs' processing in evaluator.go )
+			continue
+		}
+		if _, ok := configEnv[key]; !ok {
+			buildEnv = append(buildEnv, fmt.Sprintf("%s=%s", key, val))
+		}
+	}
+
+	// derive the command to use for probeCache() and to commit in this container.
+	// Note that we only do this if there are any build-time env vars.  Also, we
+	// use the special argument "|#" at the start of the args array. This will
+	// avoid conflicts with any RUN command since commands can not
+	// start with | (vertical bar). The "#" (number of build envs) is there to
+	// help ensure proper cache matches. We don't want a RUN command
+	// that starts with "foo=abc" to be considered part of a build-time env var.
+	saveCmd := cmd
+	if len(buildEnv) > 0 {
+		sort.Strings(buildEnv)
+		tmpEnv := append([]string{fmt.Sprintf("|%d", len(buildEnv))}, buildEnv...)
+		saveCmd = append(tmpEnv, saveCmd...)
+	}
+
+	s.Commit("RUN %q", saveCmd)
 
 	// Check cache
 	s, hit, err := b.probeCache(s)
@@ -409,13 +429,13 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 		return s, nil
 	}
 
-	// TODO: test with ENTRYPOINT
-
 	// We run this command in the container using CMD
 	origCmd := s.Config.Cmd
 	origEntrypoint := s.Config.Entrypoint
+	origEnv := s.Config.Env
 	s.Config.Cmd = cmd
 	s.Config.Entrypoint = []string{}
+	s.Config.Env = append(s.Config.Env, buildEnv...)
 
 	if s.NoCache.ContainerID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
@@ -429,24 +449,14 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	// Restore command after commit
 	s.Config.Cmd = origCmd
 	s.Config.Entrypoint = origEntrypoint
+	s.Config.Env = origEnv
 
 	return s, nil
 }
 
 // CommandAttach implements ATTACH
 type CommandAttach struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandAttach) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandAttach) ShouldRun(b *Build) (bool, error) {
-	// TODO: skip attach?
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -454,6 +464,7 @@ func (c *CommandAttach) Execute(b *Build) (s State, err error) {
 	s = b.state
 
 	// simply ignore this command if we don't wanna attach
+	// TODO: skip via ShouldRun() ?
 	if !b.cfg.Attach {
 		log.Infof("Skip ATTACH; use --attach option to get inside")
 		// s.SkipCommit()
@@ -505,17 +516,7 @@ func (c *CommandAttach) Execute(b *Build) (s State, err error) {
 
 // CommandEnv implements ENV
 type CommandEnv struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandEnv) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandEnv) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -567,17 +568,7 @@ func (c *CommandEnv) Execute(b *Build) (s State, err error) {
 
 // CommandLabel implements LABEL
 type CommandLabel struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandLabel) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandLabel) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -623,17 +614,7 @@ func (c *CommandLabel) Execute(b *Build) (s State, err error) {
 
 // CommandWorkdir implements WORKDIR
 type CommandWorkdir struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandWorkdir) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandWorkdir) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -666,17 +647,7 @@ func (c *CommandWorkdir) Execute(b *Build) (s State, err error) {
 
 // CommandCmd implements CMD
 type CommandCmd struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandCmd) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandCmd) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -702,17 +673,7 @@ func (c *CommandCmd) Execute(b *Build) (s State, err error) {
 
 // CommandEntrypoint implements ENTRYPOINT
 type CommandEntrypoint struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandEntrypoint) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandEntrypoint) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -747,17 +708,7 @@ func (c *CommandEntrypoint) Execute(b *Build) (s State, err error) {
 
 // CommandExpose implements EXPOSE
 type CommandExpose struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandExpose) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandExpose) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -806,17 +757,7 @@ func (c *CommandExpose) Execute(b *Build) (s State, err error) {
 
 // CommandVolume implements VOLUME
 type CommandVolume struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandVolume) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandVolume) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -851,17 +792,7 @@ func (c *CommandVolume) Execute(b *Build) (s State, err error) {
 
 // CommandUser implements USER
 type CommandUser struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandUser) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandUser) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -887,17 +818,7 @@ func (c *CommandUser) Execute(b *Build) (s State, err error) {
 
 // CommandOnbuild implements ONBUILD
 type CommandOnbuild struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandOnbuild) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandOnbuild) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -927,17 +848,7 @@ func (c *CommandOnbuild) Execute(b *Build) (s State, err error) {
 
 // CommandTag implements TAG
 type CommandTag struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandTag) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandTag) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -959,17 +870,7 @@ func (c *CommandTag) Execute(b *Build) (State, error) {
 
 // CommandPush implements PUSH
 type CommandPush struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandPush) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandPush) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -1035,17 +936,7 @@ func (c *CommandPush) Execute(b *Build) (State, error) {
 
 // CommandCopy implements COPY
 type CommandCopy struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandCopy) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandCopy) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -1064,17 +955,7 @@ func (c *CommandCopy) Execute(b *Build) (State, error) {
 // CommandAdd implements ADD
 // For now it is an alias of COPY, but later will add urls and archives to it
 type CommandAdd struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandAdd) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandAdd) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // ReplaceEnv implements EnvReplacableCommand interface
@@ -1092,17 +973,7 @@ func (c *CommandAdd) Execute(b *Build) (State, error) {
 
 // CommandMount implements MOUNT
 type CommandMount struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandMount) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandMount) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -1175,17 +1046,7 @@ func (c *CommandMount) Execute(b *Build) (s State, err error) {
 
 // CommandExport implements EXPORT
 type CommandExport struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandExport) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandExport) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -1283,17 +1144,7 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 
 // CommandImport implements IMPORT
 type CommandImport struct {
-	cfg ConfigCommand
-}
-
-// String returns the human readable string representation of the command
-func (c *CommandImport) String() string {
-	return c.cfg.original
-}
-
-// ShouldRun returns true if the command should be executed
-func (c *CommandImport) ShouldRun(b *Build) (bool, error) {
-	return true, nil
+	CommandBase
 }
 
 // Execute runs the command
@@ -1389,6 +1240,58 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 
 	// TODO: if b.exportsCacheBusted and IMPORT cache was invalidated,
 	// 			 CommitCommand then caches it anyway.
+
+	return s, nil
+}
+
+// CommandArg implements ARG
+type CommandArg struct {
+	CommandBase
+}
+
+// Execute runs the command
+func (c *CommandArg) Execute(b *Build) (s State, err error) {
+	s = b.state
+	args := c.cfg.args
+
+	if len(args) != 1 {
+		return s, fmt.Errorf("ARG requires exactly one argument definition")
+	}
+
+	var (
+		name       string
+		value      string
+		hasDefault bool
+
+		arg = args[0]
+	)
+
+	// Borrowed from Docker source:
+	// 'arg' can just be a name or name-value pair. Note that this is different
+	// from 'env' that handles the split of name and value at the parser level.
+	// The reason for doing it differently for 'arg' is that we support just
+	// defining an arg and not assign it a value (while 'env' always expects a
+	// name-value pair). If possible, it will be good to harmonize the two.
+	if strings.Contains(arg, "=") {
+		parts := strings.SplitN(arg, "=", 2)
+		name = parts[0]
+		value = parts[1]
+		hasDefault = true
+	} else {
+		name = arg
+		hasDefault = false
+	}
+	// add the arg to allowed list of build-time args from this step on.
+	b.allowedBuildArgs[name] = true
+
+	// If there is a default value associated with this arg then add it to the
+	// b.buildArgs if one is not already passed to the builder. The args passed
+	// to builder override the default value of 'arg'.
+	if _, ok := s.NoCache.BuildArgs[name]; !ok && hasDefault {
+		s.NoCache.BuildArgs[name] = value
+	}
+
+	s.Commit("ARG %s", arg)
 
 	return s, nil
 }

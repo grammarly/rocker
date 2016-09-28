@@ -49,12 +49,14 @@ type StateNoCache struct {
 	CmdSet       bool
 	ContainerID  string
 	HostConfig   docker.HostConfig
+	BuildArgs    map[string]string
 }
 
 // NewState makes a fresh state
 func NewState(b *Build) State {
 	s := State{}
 	s.NoCache.Dockerignore = b.cfg.Dockerignore
+	s.NoCache.BuildArgs = map[string]string{}
 	return s
 }
 

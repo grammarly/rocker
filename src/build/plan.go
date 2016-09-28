@@ -46,10 +46,7 @@ func NewPlan(commands []ConfigCommand, finalCleanup bool) (plan Plan, err error)
 	for i := 0; i < len(commands); i++ {
 		cfg := commands[i]
 
-		cmd, err := NewCommand(cfg)
-		if err != nil {
-			return nil, err
-		}
+		cmd := NewCommand(cfg)
 
 		// We want to reset the collected state between FROM instructions
 		// But do it only if it's not the first FROM
