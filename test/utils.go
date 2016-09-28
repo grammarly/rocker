@@ -306,7 +306,7 @@ func dockerVersion(t *testing.T) string {
 	matches := regexp.MustCompile("^Docker version (\\d+\\.\\d+\\.\\d+)").FindStringSubmatch(out)
 
 	if matches == nil {
-		t.Fatal("Cannot detect Docker version, output: %s", out)
+		t.Fatalf("Cannot detect Docker version, output: %s", out)
 	}
 
 	dockerVersionCached = &matches[1]
