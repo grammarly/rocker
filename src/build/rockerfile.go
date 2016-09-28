@@ -19,12 +19,13 @@ package build
 import (
 	"bytes"
 	"fmt"
-	"github.com/grammarly/rocker/src/parser"
-	"github.com/grammarly/rocker/src/template"
 	"io"
 	"io/ioutil"
 	"os"
 	"strings"
+
+	"github.com/grammarly/rocker/src/parser"
+	"github.com/grammarly/rocker/src/template"
 )
 
 // Rockerfile represents the data structure of a Rockerfile
@@ -108,6 +109,7 @@ func handleJSONArgs(args []string, attributes map[string]bool) []string {
 }
 
 func parseCommand(node *parser.Node, isOnbuild bool) ConfigCommand {
+
 	cfg := ConfigCommand{
 		name:      node.Value,
 		attrs:     node.Attributes,
