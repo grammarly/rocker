@@ -24,6 +24,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -117,6 +118,8 @@ func NewCommand(cfg ConfigCommand) (cmd Command) {
 		cmd = &CommandImport{CommandBase{cfg}}
 	case "arg":
 		cmd = &CommandArg{CommandBase{cfg}}
+	case "healthcheck":
+		cmd = &CommandHealthcheck{CommandBase{cfg}}
 	default:
 		panic(fmt.Sprintf("Unknown command: %s", cfg.name))
 	}
@@ -1296,6 +1299,90 @@ func (c *CommandArg) Execute(b *Build) (s State, err error) {
 	return s, nil
 }
 
+// CommandHealthcheck implements HEALTHCHECK
+type CommandHealthcheck struct {
+	CommandBase
+}
+
+// Execute runs the command
+func (c *CommandHealthcheck) Execute(b *Build) (s State, err error) {
+
+	s = b.state
+	args := c.cfg.args
+
+	if len(args) == 0 {
+		return s, fmt.Errorf("HEALTHCHECK requires at least one argument")
+	}
+
+	typ := strings.ToUpper(args[0])
+	args = args[1:]
+
+	if typ == "NONE" {
+		if len(args) != 0 {
+			return s, fmt.Errorf("HEALTHCHECK NONE takes no arguments")
+		}
+		s.Config.Healthcheck = &docker.HealthConfig{
+			Test: []string{typ},
+		}
+	} else {
+		if s.Config.Healthcheck != nil {
+			oldCmd := s.Config.Healthcheck.Test
+			if len(oldCmd) > 0 && oldCmd[0] != "NONE" {
+				log.Warnf("| Note: overriding previous HEALTHCHECK: %v", oldCmd)
+			}
+		}
+
+		healthcheck := docker.HealthConfig{}
+
+		switch typ {
+		case "CMD":
+			cmdSlice := handleJSONArgs(args, c.cfg.attrs)
+			if len(cmdSlice) == 0 {
+				return s, fmt.Errorf("Missing command after HEALTHCHECK CMD")
+			}
+
+			if !c.cfg.attrs["json"] {
+				typ = "CMD-SHELL"
+			}
+
+			healthcheck.Test = append([]string{typ}, cmdSlice...)
+		default:
+			return s, fmt.Errorf("Unknown type %#v in HEALTHCHECK (try CMD)", typ)
+		}
+
+		interval, err := parseOptInterval("interval", c.cfg.flags["interval"])
+		if err != nil {
+			return s, err
+		}
+		healthcheck.Interval = interval
+
+		timeout, err := parseOptInterval("timeout", c.cfg.flags["timeout"])
+		if err != nil {
+			return s, err
+		}
+		healthcheck.Timeout = timeout
+
+		if c.cfg.flags["retries"] != "" {
+			retries, err := strconv.ParseInt(c.cfg.flags["retries"], 10, 32)
+			if err != nil {
+				return s, err
+			}
+			if retries < 1 {
+				return s, fmt.Errorf("--retries must be at least 1 (not %d)", retries)
+			}
+			healthcheck.Retries = int(retries)
+		} else {
+			healthcheck.Retries = 0
+		}
+
+		s.Config.Healthcheck = &healthcheck
+	}
+
+	s.Commit(fmt.Sprintf("HEALTHCHECK %q", s.Config.Healthcheck))
+
+	return s, nil
+}
+
 // CommandOnbuildWrap wraps ONBUILD command
 type CommandOnbuildWrap struct {
 	cmd Command
@@ -1338,4 +1425,17 @@ func replaceEnv(args []string, env []string) (err error) {
 		}
 	}
 	return nil
+}
+
+// parseOptInterval(name, value) is the duration of flag, or 0 if
+// empty. An error is reported if the value is given and is not positive.
+func parseOptInterval(name, value string) (time.Duration, error) {
+	d, err := time.ParseDuration(value)
+	if err != nil {
+		return 0, err
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("Interval %#v must be positive", name)
+	}
+	return d, nil
 }

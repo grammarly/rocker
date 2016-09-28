@@ -1,4 +1,4 @@
-// Copyright 2015 go-dockerclient authors. All rights reserved.
+// Copyright 2013 go-dockerclient authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -9,9 +9,12 @@ package testing
 import (
 	"archive/tar"
 	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	mathrand "math/rand"
 	"net"
@@ -23,6 +26,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/docker/engine-api/types/swarm"
 	"github.com/fsouza/go-dockerclient"
 	"github.com/gorilla/mux"
 )
@@ -59,11 +63,35 @@ type DockerServer struct {
 	cChan          chan<- *docker.Container
 	volStore       map[string]*volumeCounter
 	volMut         sync.RWMutex
+	swarmMut       sync.RWMutex
+	swarm          *swarm.Swarm
+	swarmServer    *swarmServer
+	nodes          []swarm.Node
+	nodeID         string
+	tasks          []*swarm.Task
+	services       []*swarm.Service
+	nodeRR         int
 }
 
 type volumeCounter struct {
 	volume docker.Volume
 	count  int
+}
+
+func buildDockerServer(listener net.Listener, containerChan chan<- *docker.Container, hook func(*http.Request)) *DockerServer {
+	server := DockerServer{
+		listener:       listener,
+		imgIDs:         make(map[string]string),
+		hook:           hook,
+		failures:       make(map[string]string),
+		execCallbacks:  make(map[string]func()),
+		statsCallbacks: make(map[string]func(string) docker.Stats),
+		customHandlers: make(map[string]http.Handler),
+		uploadedFiles:  make(map[string]string),
+		cChan:          containerChan,
+	}
+	server.buildMuxer()
+	return &server
 }
 
 // NewServer returns a new instance of the fake server, in standalone mode. Use
@@ -82,20 +110,43 @@ func NewServer(bind string, containerChan chan<- *docker.Container, hook func(*h
 	if err != nil {
 		return nil, err
 	}
-	server := DockerServer{
-		listener:       listener,
-		imgIDs:         make(map[string]string),
-		hook:           hook,
-		failures:       make(map[string]string),
-		execCallbacks:  make(map[string]func()),
-		statsCallbacks: make(map[string]func(string) docker.Stats),
-		customHandlers: make(map[string]http.Handler),
-		uploadedFiles:  make(map[string]string),
-		cChan:          containerChan,
+	server := buildDockerServer(listener, containerChan, hook)
+	go http.Serve(listener, server)
+	return server, nil
+}
+
+// TLSConfig is the set of options to start the TLS-enabled testing server.
+type TLSConfig struct {
+	CertPath    string
+	CertKeyPath string
+	RootCAPath  string
+}
+
+// NewTLSServer creates and starts a TLS-enabled testing server.
+func NewTLSServer(bind string, containerChan chan<- *docker.Container, hook func(*http.Request), tlsConfig TLSConfig) (*DockerServer, error) {
+	listener, err := net.Listen("tcp", bind)
+	if err != nil {
+		return nil, err
 	}
-	server.buildMuxer()
-	go http.Serve(listener, &server)
-	return &server, nil
+	defaultCertificate, err := tls.LoadX509KeyPair(tlsConfig.CertPath, tlsConfig.CertKeyPath)
+	if err != nil {
+		return nil, err
+	}
+	tlsServerConfig := new(tls.Config)
+	tlsServerConfig.Certificates = []tls.Certificate{defaultCertificate}
+	if tlsConfig.RootCAPath != "" {
+		rootCertPEM, err := ioutil.ReadFile(tlsConfig.RootCAPath)
+		if err != nil {
+			return nil, err
+		}
+		certsPool := x509.NewCertPool()
+		certsPool.AppendCertsFromPEM(rootCertPEM)
+		tlsServerConfig.RootCAs = certsPool
+	}
+	tlsListener := tls.NewListener(listener, tlsServerConfig)
+	server := buildDockerServer(tlsListener, containerChan, hook)
+	go http.Serve(tlsListener, server)
+	return server, nil
 }
 
 func (s *DockerServer) notify(container *docker.Container) {
@@ -146,6 +197,22 @@ func (s *DockerServer) buildMuxer() {
 	s.mux.Path("/volumes/{name:.*}").Methods("DELETE").HandlerFunc(s.handlerWrapper(s.removeVolume))
 	s.mux.Path("/info").Methods("GET").HandlerFunc(s.handlerWrapper(s.infoDocker))
 	s.mux.Path("/version").Methods("GET").HandlerFunc(s.handlerWrapper(s.versionDocker))
+	s.mux.Path("/networks/create").Methods("POST").HandlerFunc(s.handlerWrapper(s.networkCreate))
+	s.mux.Path("/swarm/init").Methods("POST").HandlerFunc(s.handlerWrapper(s.swarmInit))
+	s.mux.Path("/swarm").Methods("GET").HandlerFunc(s.handlerWrapper(s.swarmInspect))
+	s.mux.Path("/swarm/join").Methods("POST").HandlerFunc(s.handlerWrapper(s.swarmJoin))
+	s.mux.Path("/swarm/leave").Methods("POST").HandlerFunc(s.handlerWrapper(s.swarmLeave))
+	s.mux.Path("/nodes/{id:.+}/update").Methods("POST").HandlerFunc(s.handlerWrapper(s.nodeUpdate))
+	s.mux.Path("/nodes/{id:.+}").Methods("GET").HandlerFunc(s.handlerWrapper(s.nodeInspect))
+	s.mux.Path("/nodes/{id:.+}").Methods("DELETE").HandlerFunc(s.handlerWrapper(s.nodeDelete))
+	s.mux.Path("/nodes").Methods("GET").HandlerFunc(s.handlerWrapper(s.nodeList))
+	s.mux.Path("/services/create").Methods("POST").HandlerFunc(s.handlerWrapper(s.serviceCreate))
+	s.mux.Path("/services/{id:.+}").Methods("GET").HandlerFunc(s.handlerWrapper(s.serviceInspect))
+	s.mux.Path("/services").Methods("GET").HandlerFunc(s.handlerWrapper(s.serviceList))
+	s.mux.Path("/services/{id:.+}").Methods("DELETE").HandlerFunc(s.handlerWrapper(s.serviceDelete))
+	s.mux.Path("/services/{id:.+}/update").Methods("POST").HandlerFunc(s.handlerWrapper(s.serviceUpdate))
+	s.mux.Path("/tasks").Methods("GET").HandlerFunc(s.handlerWrapper(s.taskList))
+	s.mux.Path("/tasks/{id:.+}").Methods("GET").HandlerFunc(s.handlerWrapper(s.taskInspect))
 }
 
 // SetHook changes the hook function used by the server.
@@ -239,6 +306,9 @@ func (s *DockerServer) MutateContainer(id string, state docker.State) error {
 func (s *DockerServer) Stop() {
 	if s.listener != nil {
 		s.listener.Close()
+	}
+	if s.swarmServer != nil {
+		s.swarmServer.listener.Close()
 	}
 }
 
@@ -417,10 +487,9 @@ func (s *DockerServer) createContainer(w http.ResponseWriter, r *http.Request) {
 		Config:     config.Config,
 		HostConfig: config.HostConfig,
 		State: docker.State{
-			Running:   false,
-			Pid:       mathrand.Int() % 50000,
-			ExitCode:  0,
-			StartedAt: time.Now(),
+			Running:  false,
+			Pid:      mathrand.Int() % 50000,
+			ExitCode: 0,
 		},
 		Image: config.Image,
 		NetworkSettings: &docker.NetworkSettings{
@@ -558,14 +627,22 @@ func (s *DockerServer) startContainer(w http.ResponseWriter, r *http.Request) {
 	s.cMut.Lock()
 	defer s.cMut.Unlock()
 	defer r.Body.Close()
-	var hostConfig docker.HostConfig
+	if container.State.Running {
+		http.Error(w, "", http.StatusNotModified)
+		return
+	}
+	var hostConfig *docker.HostConfig
 	err = json.NewDecoder(r.Body).Decode(&hostConfig)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	container.HostConfig = &hostConfig
-	if len(hostConfig.PortBindings) > 0 {
+	if hostConfig == nil {
+		hostConfig = container.HostConfig
+	} else {
+		container.HostConfig = hostConfig
+	}
+	if hostConfig != nil && len(hostConfig.PortBindings) > 0 {
 		ports := map[docker.Port][]docker.PortBinding{}
 		for key, items := range hostConfig.PortBindings {
 			bindings := make([]docker.PortBinding, len(items))
@@ -586,11 +663,8 @@ func (s *DockerServer) startContainer(w http.ResponseWriter, r *http.Request) {
 		}
 		container.NetworkSettings.Ports = ports
 	}
-	if container.State.Running {
-		http.Error(w, "", http.StatusNotModified)
-		return
-	}
 	container.State.Running = true
+	container.State.StartedAt = time.Now()
 	s.notify(container)
 }
 
@@ -686,7 +760,7 @@ func (s *DockerServer) attachContainer(w http.ResponseWriter, r *http.Request) {
 		for {
 			time.Sleep(1e6)
 			s.cMut.RLock()
-			if !container.State.Running {
+			if !container.State.StartedAt.IsZero() && !container.State.Running {
 				s.cMut.RUnlock()
 				break
 			}
@@ -1164,7 +1238,7 @@ func (s *DockerServer) listVolumes(w http.ResponseWriter, r *http.Request) {
 	s.volMut.RUnlock()
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(result)
+	json.NewEncoder(w).Encode(map[string][]docker.Volume{"Volumes": result})
 }
 
 func (s *DockerServer) createVolume(w http.ResponseWriter, r *http.Request) {
@@ -1267,6 +1341,18 @@ func (s *DockerServer) infoDocker(w http.ResponseWriter, r *http.Request) {
 			paused++
 		}
 	}
+	var swarmInfo *swarm.Info
+	if s.swarm != nil {
+		swarmInfo = &swarm.Info{
+			NodeID: s.nodeID,
+		}
+		for _, n := range s.nodes {
+			swarmInfo.RemoteManagers = append(swarmInfo.RemoteManagers, swarm.Peer{
+				NodeID: n.ID,
+				Addr:   n.ManagerStatus.Addr,
+			})
+		}
+	}
 	envs := map[string]interface{}{
 		"ID":                "AAAA:XXXX:0000:BBBB:AAAA:XXXX:0000:BBBB:AAAA:XXXX:0000:BBBB",
 		"Containers":        len(s.containers),
@@ -1329,6 +1415,7 @@ func (s *DockerServer) infoDocker(w http.ResponseWriter, r *http.Request) {
 		"ServerVersion":     "1.10.1",
 		"ClusterStore":      "",
 		"ClusterAdvertise":  "",
+		"Swarm":             swarmInfo,
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(envs)
@@ -1348,4 +1435,54 @@ func (s *DockerServer) versionDocker(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(envs)
+}
+
+// SwarmAddress returns the address if there's a fake swarm server enabled.
+func (s *DockerServer) SwarmAddress() string {
+	if s.swarmServer == nil {
+		return ""
+	}
+	return s.swarmServer.listener.Addr().String()
+}
+
+func (s *DockerServer) initSwarmNode(listenAddr, advertiseAddr string) (swarm.Node, error) {
+	if listenAddr == "" {
+		listenAddr = "127.0.0.1:0"
+	}
+	var err error
+	s.swarmServer, err = newSwarmServer(s, listenAddr)
+	if err != nil {
+		return swarm.Node{}, err
+	}
+	if advertiseAddr == "" {
+		advertiseAddr = s.SwarmAddress()
+	}
+	hostPart, portPart, err := net.SplitHostPort(advertiseAddr)
+	if err != nil {
+		hostPart = advertiseAddr
+	}
+	if portPart == "" || portPart == "0" {
+		_, portPart, _ = net.SplitHostPort(s.SwarmAddress())
+	}
+	s.nodeID = s.generateID()
+	return swarm.Node{
+		ID: s.nodeID,
+		Status: swarm.NodeStatus{
+			State: swarm.NodeStateReady,
+		},
+		ManagerStatus: &swarm.ManagerStatus{
+			Addr: fmt.Sprintf("%s:%s", hostPart, portPart),
+		},
+	}, nil
+}
+
+func (s *DockerServer) networkCreate(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	type createNetworkResponse struct {
+		ID string
+	}
+	cnr := createNetworkResponse{
+		ID: s.generateID(),
+	}
+	json.NewEncoder(w).Encode(cnr)
 }

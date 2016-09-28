@@ -320,5 +320,5 @@ func parseHealthConfig(rest string) (*Node, map[string]bool, error) {
 		return nil, nil, err
 	}
 
-	return &Node{Value: typ, Next: cmd, Attributes: attrs}, nil, err
+	return &Node{Value: typ, Next: cmd}, attrs, err
 }
