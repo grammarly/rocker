@@ -145,7 +145,19 @@ func (b *Build) Run(plan Plan) (err error) {
 
 		// Replace env for the command if appropriate
 		if command, ok := command.(EnvReplacableCommand); ok {
-			command.ReplaceEnv(b.state.Config.Env)
+			env := b.state.Config.Env
+			for key, val := range b.state.NoCache.BuildArgs {
+				if !b.allowedBuildArgs[key] {
+					// skip build-args that are not in allowed list, meaning they have
+					// not been defined by an "ARG" Dockerfile command yet.
+					// This is an error condition but only if there is no "ARG" in the entire
+					// Dockerfile, so we'll generate any necessary errors after we parsed
+					// the entire file (see 'leftoverArgs' processing in evaluator.go )
+					continue
+				}
+				env = append(env, fmt.Sprintf("%s=%s", key, val))
+			}
+			command.ReplaceEnv(env)
 		}
 
 		log.Infof("%s", color.New(color.FgWhite, color.Bold).SprintFunc()(command))

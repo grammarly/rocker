@@ -82,3 +82,37 @@ RUN export | grep proxy`
 
 	assert.NotEqual(t, sha1, sha2, "different build-arg values should invalidate cache")
 }
+
+func TestBuildArg_EnvSubstitute1(t *testing.T) {
+	rockerfileContent := `
+FROM alpine
+ARG deployenv=development
+ENV DEPLOY_ENVIRONMENT=$deployenv
+RUN env`
+
+	err := runRockerBuildWithOptions(rockerBuildOptions{
+		rockerfileContent: rockerfileContent,
+		buildParams:       []string{"--no-cache", "--no-garbage"},
+		testLines:         []string{"DEPLOY_ENVIRONMENT=development"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestBuildArg_EnvSubstitute2(t *testing.T) {
+	rockerfileContent := `
+FROM alpine
+ARG deployenv=development
+ENV DEPLOY_ENVIRONMENT=$deployenv
+RUN env`
+
+	err := runRockerBuildWithOptions(rockerBuildOptions{
+		rockerfileContent: rockerfileContent,
+		buildParams:       []string{"--build-arg", "deployenv=uat", "--no-cache", "--no-garbage"},
+		testLines:         []string{"DEPLOY_ENVIRONMENT=uat"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
