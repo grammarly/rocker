@@ -37,10 +37,15 @@ type cmdOptions struct {
 	args    []string
 	workdir string
 	stdout  io.Writer
+	env     []string
 }
 
 func runCmdWithOptions(opts cmdOptions) (string, error) {
 	cmd := exec.Command(opts.command, opts.args...)
+
+	if opts.env != nil {
+		cmd.Env = opts.env
+	}
 
 	if *verbosityLevel >= 1 {
 		fmt.Printf("Running: %+v\n", opts)
@@ -140,6 +145,7 @@ type rockerBuildOptions struct {
 	globalParams      []string
 	buildParams       []string
 	testLines         []string
+	env               []string
 	workdir           string
 	stdout            io.Writer
 	sha               *string
@@ -179,6 +185,7 @@ func runRockerBuildWithOptions(opts rockerBuildOptions) error {
 	output, err := runCmdWithOptions(cmdOptions{
 		command: getRockerBinaryPath(),
 		args:    args,
+		env:     opts.env,
 		workdir: opts.workdir,
 		stdout:  opts.stdout,
 	})
@@ -283,6 +290,13 @@ func debugf(format string, args ...interface{}) {
 	if *verbosityLevel >= 2 {
 		fmt.Printf(format, args...)
 	}
+}
+
+func rockerBuildEnv(envs ...string) []string {
+	baseEnv := []string{
+		fmt.Sprintf("HOME=%s", os.Getenv("HOME")),
+	}
+	return append(baseEnv, envs...)
 }
 
 type errCmdRun struct {
