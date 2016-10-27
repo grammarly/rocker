@@ -149,8 +149,9 @@ func getMyDockerID() (string, error) {
 	if _, err := os.Stat("/proc/self/cgroup"); os.IsNotExist(err) {
 		return "", nil
 	}
+	// TODO: don't use sh, read file from Golang
 	output, exitStatus, err := util.ExecPipe(&util.Cmd{
-		Args: []string{"/bin/bash", "-c", `cat /proc/self/cgroup | grep "docker" | sed s/\\//\\n/g | tail -1`},
+		Args: []string{"/bin/sh", "-c", `cat /proc/self/cgroup | grep "cpu:/" | sed 's/\([0-9]\):cpu:\/docker\///g'`},
 	})
 	if err != nil {
 		return "", err
