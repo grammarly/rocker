@@ -24,12 +24,13 @@ import (
 	"os/signal"
 	"time"
 
+	"net/url"
+	"regexp"
+
 	"github.com/grammarly/rocker/src/dockerclient"
 	"github.com/grammarly/rocker/src/imagename"
 	"github.com/grammarly/rocker/src/storage/s3"
 	"github.com/grammarly/rocker/src/textformatter"
-	"net/url"
-	"regexp"
 
 	"github.com/docker/docker/pkg/units"
 
@@ -289,10 +290,6 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 	// Used by ATTACH
 	if attachStdin {
 		c.log.Infof("| Attach stdin to the container %.12s", containerID)
-
-		if !isTerminalIn {
-			return fmt.Errorf("Cannot attach to a container on non tty input")
-		}
 
 		attachOpts.InputStream = readerVoidCloser{in}
 		attachOpts.OutputStream = os.Stdout
