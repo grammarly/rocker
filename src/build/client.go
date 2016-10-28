@@ -301,7 +301,7 @@ func (c *DockerClient) RunContainer(containerID string, attachStdin bool) error 
 	// We want do debug the final attach options before setting raw term
 	c.log.Debugf("Attach to container with options: %# v", attachOpts)
 
-	if attachStdin {
+	if attachStdin && isTerminalIn {
 		oldState, err := term.SetRawTerminal(fdIn)
 		if err != nil {
 			return err
