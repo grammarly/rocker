@@ -28,10 +28,10 @@ RUN ./configure --prefix=/usr --without-included-zlib && \
 
 #=============== RUN IMAGE ===============
 
-FROM scratch
+FROM busybox
 
-VOLUME ["/opt/rsync/bin"]
 ADD rsync /opt/rsync/bin/
+VOLUME ["/opt/rsync/bin"]
 
 CMD ["/opt/rsync/bin/rsync"]
 

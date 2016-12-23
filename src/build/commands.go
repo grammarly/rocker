@@ -1116,14 +1116,18 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 	// Append exports container as a volume
 	s.NoCache.HostConfig.Binds = append(s.NoCache.HostConfig.Binds,
 		mountsToBinds(exportsContainer.Mounts, "")...)
-	cmd := []string{"/opt/rsync/bin/rsync", "-a", "--delete-during"}
+	cmd := []string{"sh", "-c"}
+	cmdArg := []string{}
+	cmdArg = append(cmdArg, "mkdir", "-p", fmt.Sprintf("`dirname %s`", cmdDestPath), "&&")
+	cmdArg = append(cmdArg, "/opt/rsync/bin/rsync", "-a", "--delete-during")
 
 	if b.cfg.Verbose {
-		cmd = append(cmd, "--verbose")
+		cmdArg = append(cmdArg, "--verbose")
 	}
 
-	cmd = append(cmd, src...)
-	cmd = append(cmd, cmdDestPath)
+	cmdArg = append(cmdArg, src...)
+	cmdArg = append(cmdArg, cmdDestPath)
+	cmd = append(cmd, strings.Join(cmdArg, " "))
 
 	s.Config.Cmd = cmd
 	s.Config.Entrypoint = []string{}
