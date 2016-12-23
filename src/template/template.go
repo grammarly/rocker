@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/grammarly/rocker/src/imagename"
 	"io"
 	"io/ioutil"
 	"os"
@@ -29,6 +28,8 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/grammarly/rocker/src/imagename"
 
 	"github.com/go-yaml/yaml"
 	"github.com/kr/pretty"
@@ -62,6 +63,7 @@ func Process(name string, reader io.Reader, vars Vars, funs Funs) (*bytes.Buffer
 		"seq":    seq,
 		"dump":   dump,
 		"assert": assertFn,
+		"error":  errorFn,
 		"json":   jsonFn,
 		"shell":  EscapeShellarg,
 		"yaml":   yamlFn,
@@ -193,6 +195,10 @@ func assertFn(v interface{}) (string, error) {
 		return "", nil
 	}
 	return "", fmt.Errorf("Assertion failed")
+}
+
+func errorFn(args interface{}) (string, error) {
+	return "", fmt.Errorf("%s", args)
 }
 
 func jsonFn(v interface{}) (string, error) {

@@ -18,10 +18,11 @@ package template
 
 import (
 	"fmt"
-	"github.com/grammarly/rocker/src/imagename"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/grammarly/rocker/src/imagename"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -130,6 +131,11 @@ func TestProcess_Json(t *testing.T) {
 
 func TestProcess_Shellarg(t *testing.T) {
 	assert.Equal(t, "echo 'hello world'", processTemplate(t, "echo {{ \"hello world\" | shell }}"))
+}
+
+func TestProcess_Error(t *testing.T) {
+	err := processTemplateReturnError(t, `{{ error "message" }}`)
+	assert.Error(t, err, "error func should return only error")
 }
 
 func TestProcess_Yaml(t *testing.T) {
