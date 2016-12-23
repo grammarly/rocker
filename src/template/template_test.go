@@ -18,10 +18,12 @@ package template
 
 import (
 	"fmt"
-	"github.com/grammarly/rocker/src/imagename"
+	"io/ioutil"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/grammarly/rocker/src/imagename"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -122,6 +124,26 @@ func TestProcess_AssertFail(t *testing.T) {
 	_, err := Process("test", strings.NewReader(tpl), configTemplateVars, map[string]interface{}{})
 	errStr := "Error executing template test, error: template: test:1:3: executing \"test\" at <assert .Version>: error calling assert: Assertion failed"
 	assert.Equal(t, errStr, err.Error())
+}
+
+func TestTemplateFileSuccess(t *testing.T) {
+	file, _ := ioutil.TempFile(os.TempDir(), "")
+	defer os.Remove(file.Name())
+	file.WriteString("test")
+	assert.Equal(t, "file: test", processTemplate(t, fmt.Sprintf(`file: {{ tfile "%s" }}`, file.Name())))
+	file2, _ := ioutil.TempFile(os.TempDir(), "")
+	defer os.Remove(file2.Name())
+	file2.WriteString("{{ assert true }}test")
+	assert.Equal(t, "file: test", processTemplate(t, fmt.Sprintf(`file: {{ tfile "%s" }}`, file2.Name())))
+}
+
+func TestTemplateFileError(t *testing.T) {
+	file, _ := ioutil.TempFile(os.TempDir(), "")
+	defer os.Remove(file.Name())
+	file.WriteString(`some: {{ some_didnt_exist_func "ololo"}}`)
+	assert.Error(t, processTemplateReturnError(t, fmt.Sprintf(`file: {{ tfile "%s"}}`, file.Name())), "Should return error when file not valid template")
+	assert.Error(t, processTemplateReturnError(t, fmt.Sprintf(`file: {{ tfile "%s"}}`, "not_exist_file")), "Should return error when file not valid template")
+
 }
 
 func TestProcess_Json(t *testing.T) {

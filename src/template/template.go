@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"github.com/grammarly/rocker/src/imagename"
 	"io"
 	"io/ioutil"
 	"os"
@@ -29,6 +28,8 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/grammarly/rocker/src/imagename"
 
 	"github.com/go-yaml/yaml"
 	"github.com/kr/pretty"
@@ -57,6 +58,18 @@ func Process(name string, reader io.Reader, vars Vars, funs Funs) (*bytes.Buffer
 	// todo: maybe, we need to make it configurable
 	vars["Env"] = ParseKvPairs(os.Environ())
 
+	templateFile := func(v interface{}) (string, error) {
+		file, e := os.Open(fmt.Sprintf("%s", v))
+		if e != nil {
+			return "", e
+		}
+		b, e := Process("", file, vars, funs)
+		if e != nil {
+			return "", e
+		}
+		return b.String(), nil
+	}
+
 	// Populate functions
 	funcMap := map[string]interface{}{
 		"seq":    seq,
@@ -65,6 +78,7 @@ func Process(name string, reader io.Reader, vars Vars, funs Funs) (*bytes.Buffer
 		"json":   jsonFn,
 		"shell":  EscapeShellarg,
 		"yaml":   yamlFn,
+		"tfile":  templateFile,
 		"image":  makeImageHelper(vars), // `image` helper needs to make a closure on Vars
 
 		// strings functions
