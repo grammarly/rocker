@@ -17,6 +17,7 @@
 package build
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -37,6 +38,7 @@ import (
 	"github.com/docker/docker/pkg/units"
 	runconfigopts "github.com/docker/docker/runconfig/opts"
 	"github.com/fsouza/go-dockerclient"
+	"github.com/imdario/mergo"
 	"github.com/kr/pretty"
 )
 
@@ -404,6 +406,19 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 		}
 	}
 
+	origHostConfig := s.NoCache.HostConfig
+	hostConfig := s.NoCache.HostConfig
+
+	hostConfigFile, err := ioutil.ReadFile(os.Getenv("RUN_CONFIG"))
+	if err == nil {
+		tmpHostConfig := docker.HostConfig{}
+		err := json.Unmarshal(hostConfigFile, &tmpHostConfig)
+		if err != nil {
+			fmt.Printf("ERR PARSING hostConfig file %s: %s \n", os.Getenv("RUN_CONFIG"), err)
+		}
+		mergo.Merge(&hostConfig, tmpHostConfig)
+	}
+
 	// derive the command to use for probeCache() and to commit in this container.
 	// Note that we only do this if there are any build-time env vars.  Also, we
 	// use the special argument "|#" at the start of the args array. This will
@@ -436,6 +451,7 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	s.Config.Cmd = cmd
 	s.Config.Entrypoint = []string{}
 	s.Config.Env = append(s.Config.Env, buildEnv...)
+	s.NoCache.HostConfig = hostConfig
 
 	if s.NoCache.ContainerID, err = b.client.CreateContainer(s); err != nil {
 		return s, err
@@ -450,6 +466,7 @@ func (c *CommandRun) Execute(b *Build) (s State, err error) {
 	s.Config.Cmd = origCmd
 	s.Config.Entrypoint = origEntrypoint
 	s.Config.Env = origEnv
+	s.NoCache.HostConfig = origHostConfig
 
 	return s, nil
 }
