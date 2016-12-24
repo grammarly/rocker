@@ -148,7 +148,7 @@ func (b *Build) Run(plan Plan) (err error) {
 			command.ReplaceEnv(b.state.Config.Env)
 		}
 
-		log.Infof("%s", color.New(color.FgWhite, color.Bold).SprintFunc()(command))
+		log.Infof("\033[1m%s\033[0m", command)
 
 		if b.state, err = command.Execute(b); err != nil {
 			return err
