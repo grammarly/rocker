@@ -123,7 +123,14 @@ func registryGet(uri string, auth docker.AuthConfiguration, obj interface{}) (er
 		}
 		defer res.Body.Close()
 
-		b = parseBearer(res.Header.Get("Www-Authenticate"))
+		wwwAuthHdr := res.Header.Get("Www-Authenticate")
+
+		if strings.HasPrefix(wwwAuthHdr, "Basic ") {
+			req.SetBasicAuth(auth.Username, auth.Password)
+			continue
+		}
+
+		b = parseBearer(wwwAuthHdr)
 		log.Debugf("Got HTTP %d for %s; tried auth: %t; has Bearer: %t, auth username: %q", res.StatusCode, uri, authTry, b != nil, auth.Username)
 
 		if res.StatusCode == 401 && !authTry && b != nil {
