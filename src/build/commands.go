@@ -1021,7 +1021,7 @@ func (c *CommandMount) Execute(b *Build) (s State, err error) {
 		// MOUNT dir
 		case false:
 			if !path.IsAbs(arg) {
-				return s, fmt.Errorf("Invalid volume destination path: '%s', mount path must be absolute..", arg)
+				return s, fmt.Errorf("Invalid volume destination path: '%s', mount path must be absolute", arg)
 			}
 			c, err := b.getVolumeContainer(arg)
 			if err != nil {

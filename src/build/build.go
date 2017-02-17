@@ -185,7 +185,7 @@ func (b *Build) Run(plan Plan) (err error) {
 		}
 	}
 	if len(leftoverArgs) > 0 {
-		return fmt.Errorf("One or more build-args %v were not consumed, failing build.", leftoverArgs)
+		return fmt.Errorf("One or more build-args %v were not consumed, failing build", leftoverArgs)
 	}
 
 	return nil
