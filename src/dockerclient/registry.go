@@ -119,7 +119,7 @@ func registryGet(uri string, auth docker.AuthConfiguration, obj interface{}) (er
 
 	for {
 		if res, err = client.Do(req); err != nil {
-			return fmt.Errorf("Request to %s failed with %s\n", uri, err)
+			return fmt.Errorf("Request to %s failed with %s", uri, err)
 		}
 		defer res.Body.Close()
 
@@ -154,11 +154,11 @@ func registryGet(uri string, auth docker.AuthConfiguration, obj interface{}) (er
 	}
 
 	if body, err = ioutil.ReadAll(res.Body); err != nil {
-		return fmt.Errorf("Response from %s cannot be read due to error %s\n", uri, err)
+		return fmt.Errorf("Response from %s cannot be read due to error %s", uri, err)
 	}
 
 	if err = json.Unmarshal(body, obj); err != nil {
-		return fmt.Errorf("Response from %s cannot be unmarshalled due to error %s, response: %s\n",
+		return fmt.Errorf("Response from %s cannot be unmarshalled due to error %s, response: %s",
 			uri, err, string(body))
 	}
 
@@ -211,11 +211,11 @@ func getAuthToken(b *bearer, auth docker.AuthConfiguration) (token string, err e
 	}
 
 	if body, err = ioutil.ReadAll(res.Body); err != nil {
-		return "", fmt.Errorf("Response from %s cannot be read due to error %s\n", uri, err)
+		return "", fmt.Errorf("Response from %s cannot be read due to error %s", uri, err)
 	}
 
 	if err := json.Unmarshal(body, authResp); err != nil {
-		return "", fmt.Errorf("Response from %s cannot be unmarshalled due to error %s, response: %s\n",
+		return "", fmt.Errorf("Response from %s cannot be unmarshalled due to error %s, response: %s",
 			uri, err, body)
 	}
 

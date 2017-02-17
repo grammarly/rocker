@@ -73,9 +73,9 @@ func main() {
 	app.Author = ""
 	app.Email = ""
 	app.Authors = []cli.Author{
-		{"Yura Bogdanov", "yuriy.bogdanov@grammarly.com"},
-		{"Stas Levental", "stas.levental@grammarly.com"},
-		{"Roman Khlystik", "roman.khlystik@grammarly.com"},
+		{Name: "Yura Bogdanov", Email: "yuriy.bogdanov@grammarly.com"},
+		{Name: "Stas Levental", Email: "stas.levental@grammarly.com"},
+		{Name: "Roman Khlystik", Email: "roman.khlystik@grammarly.com"},
 	}
 
 	app.Flags = append([]cli.Flag{
