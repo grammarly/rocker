@@ -102,7 +102,7 @@ func main() {
 		cli.StringFlag{
 			Name:  "file, f",
 			Value: "Rockerfile",
-			Usage: "rocker build file to execute",
+			Usage: "Rocker build file to execute",
 		},
 		cli.StringFlag{
 			Name:  "auth, a",
@@ -112,25 +112,25 @@ func main() {
 		cli.StringSliceFlag{
 			Name:  "build-arg",
 			Value: &cli.StringSlice{},
-			Usage: "Set build-time variables, can pass multiple of those, format is key=value (default [])",
+			Usage: "Set build-time variables. Can pass multiple of these. Format is key=value (default [])",
 		},
 		cli.StringSliceFlag{
 			Name:  "var",
 			Value: &cli.StringSlice{},
-			Usage: "set variables to pass to build tasks, value is like \"key=value\"",
+			Usage: "Set variables to pass to build tasks, value is like \"key=value\"",
 		},
 		cli.StringSliceFlag{
 			Name:  "vars",
 			Value: &cli.StringSlice{},
-			Usage: "Load variables form a file, either JSON or YAML. Can pass multiple of this.",
+			Usage: "Load variables from a file, either JSON or YAML. Can pass multiple of these",
 		},
 		cli.BoolFlag{
 			Name:  "no-cache",
-			Usage: "supresses cache for docker builds",
+			Usage: "Suppresses cache for docker builds",
 		},
 		cli.BoolFlag{
 			Name:  "reload-cache",
-			Usage: "removes any cache that hit and save the new one",
+			Usage: "Removes any cache that hit and save the new one",
 		},
 		cli.StringFlag{
 			Name:  "cache-dir",
@@ -139,47 +139,47 @@ func main() {
 		},
 		cli.BoolFlag{
 			Name:  "no-reuse",
-			Usage: "suppresses reuse for all the volumes in the build",
+			Usage: "Suppresses reuse for all the volumes in the build",
 		},
 		cli.BoolFlag{
 			Name:  "push",
-			Usage: "pushes all the images marked with push to docker hub",
+			Usage: "Pushes all the images marked with push to docker hub",
 		},
 		cli.BoolFlag{
 			Name:  "pull",
-			Usage: "always attempt to pull a newer version of the FROM images",
+			Usage: "Always attempt to pull a newer version of the FROM images",
 		},
 		cli.BoolFlag{
 			Name:  "attach",
-			Usage: "attach to a container in place of ATTACH command",
+			Usage: "Attach to a container in place of ATTACH command",
 		},
 		cli.BoolFlag{
 			Name:  "meta",
-			Usage: "add metadata to the tagged images, such as user, Rockerfile source, variables and git branch/sha",
+			Usage: "Add metadata to the tagged images, such as user, Rockerfile source, variables and git branch/sha",
 		},
 		cli.BoolFlag{
 			Name:  "print",
-			Usage: "just print the Rockerfile after template processing and stop",
+			Usage: "Just print the Rockerfile after template processing and stop",
 		},
 		cli.BoolFlag{
 			Name:  "demand-artifacts",
-			Usage: "fail if artifacts not found for {{ image }} helpers",
+			Usage: "Fail if artifacts not found for {{ image }} helpers",
 		},
 		cli.StringFlag{
 			Name:  "id",
-			Usage: "override the default id generation strategy for current build",
+			Usage: "Override the default id generation strategy for current build",
 		},
 		cli.StringFlag{
 			Name:  "artifacts-path",
-			Usage: "put artifacts (files with pushed images description) to the directory",
+			Usage: "Put artifacts (files with pushed images description) in this directory",
 		},
 		cli.BoolFlag{
 			Name:  "no-garbage",
-			Usage: "remove the images from the tail if not tagged",
+			Usage: "Remove the images from the tail if not tagged",
 		},
 		cli.IntFlag{
 			Name:  "push-retry",
-			Usage: "number of retries for failed image pushes",
+			Usage: "Number of retries for failed image pushes",
 		},
 	}
 
