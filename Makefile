@@ -5,7 +5,7 @@ GITBRANCH = $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 BUILDTIME := $(shell TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
 
 SRCS = $(shell find . -name '*.go' | grep -v '^./vendor/')
-PKGS := $(foreach pkg, $(sort $(dir $(SRCS))), $(pkg))
+PKGS := $(foreach pkg,$(subst ./ , , $(sort $(dir $(SRCS)))), $(pkg))
 DOCKER_IMG := dockerhub.grammarly.io/golang-1.8.3-cross:v1
 
 TESTARGS ?=
@@ -52,7 +52,7 @@ fmtcheck:
 
 lint:
 	@ go get -u github.com/golang/lint/golint
-	$(foreach file,$(SRCS),fgt golint $(file) || exit;)
+	$(foreach file,$(SRCS),fgt golint -min_confidence 0.9 $(file) || exit;)
 
 vet:
 	$(foreach pkg,$(PKGS),fgt go vet $(pkg) || exit;)
