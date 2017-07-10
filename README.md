@@ -48,7 +48,7 @@ Go to the [releases](https://github.com/grammarly/rocker/releases) section and d
 
 Something like this:
 ```bash
-curl -SL https://github.com/grammarly/rocker/releases/download/1.3.0/rocker_darwin_amd64.tar.gz | tar -xzC /usr/local/bin && chmod +x /usr/local/bin/rocker
+curl -SL https://github.com/grammarly/rocker/releases/download/1.3.1/rocker_darwin_amd64.tar.gz | tar -xzC /usr/local/bin && chmod +x /usr/local/bin/rocker
 ```
 
 ### Building locally
