@@ -278,6 +278,13 @@ func (c *CommandCleanup) Execute(b *Build) (State, error) {
 	// For final cleanup we want to keep imageID
 	if c.final {
 		s.ImageID = dirtyState.ImageID
+		if b.cfg.CleanExports {
+			// remove old export containers we accumulated during the build
+			for i := range b.oldExportContainerIDs {
+				c := b.oldExportContainerIDs[len(b.oldExportContainerIDs)-i-1]
+				b.client.RemoveContainer(c)
+			}
+		}
 	} else {
 		log.Infof("====================================")
 	}
@@ -1082,17 +1089,19 @@ func (c *CommandExport) Execute(b *Build) (s State, err error) {
 		return s, fmt.Errorf("Invalid EXPORT destination: %s", dest)
 	}
 
-	s, hit, err := b.probeCacheAndPreserveCommits(s)
-	if err != nil {
-		return s, err
-	}
-	if hit {
-		b.prevExportContainerID = s.ExportsID
-		b.currentExportContainerName = exportsContainerName(s.ParentID, s.GetCommits())
-		log.Infof("| Export container: %s", b.currentExportContainerName)
-		log.Debugf("===EXPORT CONTAINER NAME: %s ('%s', '%s')", b.currentExportContainerName, s.ParentID, s.GetCommits())
-		s.CleanCommits()
-		return s, nil
+	if !b.cfg.CleanExports {
+		s, hit, err := b.probeCacheAndPreserveCommits(s)
+		if err != nil {
+			return s, err
+		}
+		if hit {
+			b.prevExportContainerID = s.ExportsID
+			b.currentExportContainerName = exportsContainerName(s.ParentID, s.GetCommits())
+			log.Infof("| Export container: %s", b.currentExportContainerName)
+			log.Debugf("===EXPORT CONTAINER NAME: %s ('%s', '%s')", b.currentExportContainerName, s.ParentID, s.GetCommits())
+			s.CleanCommits()
+			return s, nil
+		}
 	}
 
 	prevExportContainerName := b.currentExportContainerName
@@ -1193,13 +1202,15 @@ func (c *CommandImport) Execute(b *Build) (s State, err error) {
 
 	s.Commit("IMPORT %q : %q %s", b.prevExportContainerID, src, dest)
 
-	// Check cache
-	s, hit, err := b.probeCache(s)
-	if err != nil {
-		return s, err
-	}
-	if hit {
-		return s, nil
+	if !b.cfg.CleanExports {
+		// Check cache
+		s, hit, err := b.probeCache(s)
+		if err != nil {
+			return s, err
+		}
+		if hit {
+			return s, nil
+		}
 	}
 
 	// Remember original stuff so we can restore it when we finished

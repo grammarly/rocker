@@ -132,6 +132,10 @@ func main() {
 			Name:  "reload-cache",
 			Usage: "removes any cache that hit and save the new one",
 		},
+		cli.BoolFlag{
+			Name:  "clean-exports",
+			Usage: "removes all containers and volumes used during build (prevents export cache but removes volumes leak)",
+		},
 		cli.StringFlag{
 			Name:  "cache-dir",
 			Value: "~/.rocker_cache",
@@ -385,6 +389,7 @@ func buildCommand(c *cli.Context) {
 		ID:            c.String("id"),
 		NoCache:       c.Bool("no-cache"),
 		ReloadCache:   c.Bool("reload-cache"),
+		CleanExports:  c.Bool("clean-exports"),
 		Push:          c.Bool("push"),
 		CacheDir:      cacheDir,
 		LogJSON:       c.GlobalBool("json"),
