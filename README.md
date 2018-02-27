@@ -96,7 +96,7 @@ MOUNT /root/.gradle
 ```
 or
 ```bash
-MOUNT /app/mode_modules /app/bower_components
+MOUNT /app/node_modules /app/bower_components
 ```
 or
 ```bash
