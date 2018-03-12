@@ -397,3 +397,23 @@ func TestExport_DoubleExport(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestExport_NoExportContainerLeak(t *testing.T) {
+	rockerContent := `FROM alpine
+					  EXPORT /etc/issue issue
+
+					  FROM alpine
+					  IMPORT issue`
+
+	err := runRockerBuild(rockerContent)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := runCmd("docker", "ps", "-a")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assert.NotContains(t, "rocker_exports_", out)
+}

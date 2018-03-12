@@ -64,6 +64,7 @@ type Config struct {
 	Verbose       bool
 	NoCache       bool
 	ReloadCache   bool
+	CleanExports  bool
 	Push          bool
 	CacheDir      string
 	LogJSON       bool
@@ -91,16 +92,19 @@ type Build struct {
 	urlFetcher URLFetcher
 
 	allowedBuildArgs map[string]bool
+
+	oldExportContainerIDs []string
 }
 
 // New creates the new build object
 func New(client Client, rockerfile *Rockerfile, cache Cache, cfg Config) *Build {
 	b := &Build{
-		rockerfile: rockerfile,
-		cache:      cache,
-		cfg:        cfg,
-		client:     client,
-		exports:    []string{},
+		rockerfile:            rockerfile,
+		cache:                 cache,
+		cfg:                   cfg,
+		client:                client,
+		exports:               []string{},
+		oldExportContainerIDs: []string{},
 
 		// Build args allowed by Docker by default:
 		// https://docs.docker.com/engine/reference/builder/#/arg
@@ -325,7 +329,7 @@ func (b *Build) getExportsContainerWithBinds(name string, binds []string) (c *do
 		return nil, err
 	}
 
-	log.Infof("| Using exports container %s", name)
+	log.Infof("| Using exports container %s (%.12s)", name, containerID)
 
 	return b.client.InspectContainer(containerID)
 }
@@ -334,7 +338,11 @@ func (b *Build) getExportsContainerAndSync(currentName, previousName string) (c 
 	//If it the first `EXPORT` in the file
 	//we don't need to sync data from previous container
 	if previousName == "" {
-		return b.getExportsContainer(currentName)
+		current, err := b.getExportsContainer(currentName)
+		if err == nil {
+			b.oldExportContainerIDs = append(b.oldExportContainerIDs, current.ID)
+		}
+		return current, err
 	}
 
 	prevContainer, err := b.getExportsContainer(previousName)
@@ -349,7 +357,9 @@ func (b *Build) getExportsContainerAndSync(currentName, previousName string) (c 
 		return nil, err
 	}
 
-	log.Infof("| Running in %s: %s", currentName, strings.Join(currContainer.Config.Cmd, " "))
+	b.oldExportContainerIDs = append(b.oldExportContainerIDs, currContainer.ID)
+
+	log.Infof("| Running in %s (%.12s): %s", currentName, currContainer.ID, strings.Join(currContainer.Config.Cmd, " "))
 	if err = b.client.RunContainer(currContainer.ID, false); err != nil {
 		return nil, err
 	}
