@@ -5,7 +5,8 @@ GITBRANCH = $(shell git rev-parse --abbrev-ref HEAD 2>/dev/null)
 BUILDTIME := $(shell TZ=GMT date "+%Y-%m-%d_%H:%M_GMT")
 
 SRCS = $(shell find . -name '*.go' | grep -v '^./vendor/')
-PKGS := $(foreach pkg, $(sort $(dir $(SRCS))), $(pkg))
+PKGS := $(foreach pkg,$(subst ./ , , $(sort $(dir $(SRCS)))), $(pkg))
+DOCKER_IMG := dockerhub.grammarly.io/golang-1.8.3-cross:v1
 
 TESTARGS ?=
 
@@ -25,14 +26,14 @@ cross: dist_dir
 	docker run --rm -ti -v $(shell pwd):/go/src/github.com/grammarly/rocker \
 		-e GOOS=linux -e GOARCH=amd64 \
 		-w /go/src/github.com/grammarly/rocker \
-		dockerhub.grammarly.io/golang-1.6.2-cross:v1 go build \
+		$(DOCKER_IMG) go build \
 		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
 		-v -o ./dist/linux_amd64/rocker
 
 	docker run --rm -ti -v $(shell pwd):/go/src/github.com/grammarly/rocker \
 		-e GOOS=darwin -e GOARCH=amd64 \
 		-w /go/src/github.com/grammarly/rocker \
-		dockerhub.grammarly.io/golang-1.6.2-cross:v1 go build \
+		$(DOCKER_IMG) go build \
 		-ldflags "-X main.Version=$(VERSION) -X main.GitCommit=$(GITCOMMIT) -X main.GitBranch=$(GITBRANCH) -X main.BuildTime=$(BUILDTIME)" \
 		-v -o ./dist/darwin_amd64/rocker
 
@@ -51,7 +52,7 @@ fmtcheck:
 
 lint:
 	@ go get -u github.com/golang/lint/golint
-	$(foreach file,$(SRCS),fgt golint $(file) || exit;)
+	$(foreach file,$(SRCS),fgt golint -min_confidence 0.9 $(file) || exit;)
 
 vet:
 	$(foreach pkg,$(PKGS),fgt go vet $(pkg) || exit;)
