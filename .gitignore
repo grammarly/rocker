@@ -9,3 +9,4 @@ dev
 *.sublime-workspace
 rocker
 *.swp
+.cache

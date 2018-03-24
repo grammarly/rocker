@@ -6,3 +6,4 @@ vendor/pkg
 example
 rsync
 Rockerfile
+Dockerfile
