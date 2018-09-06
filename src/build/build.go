@@ -406,50 +406,57 @@ func (b *Build) lookupImage(name string) (img *docker.Image, err error) {
 		pull = true
 	}
 
-	if !isSha && !hub {
-		// List local images
-		var localImages = []*imagename.ImageName{}
-		if localImages, err = b.client.ListImages(); err != nil {
-			return nil, err
+	wildcardInTagExists := strings.Contains(imgName.Tag, "*")
+
+	if wildcardInTagExists {
+		if !isSha && !hub {
+			// List local images
+			var localImages = []*imagename.ImageName{}
+			if localImages, err = b.client.ListImages(); err != nil {
+				return nil, err
+			}
+			// Resolve local candidate
+			candidate = imgName.ResolveVersion(localImages, true)
 		}
-		// Resolve local candidate
-		candidate = imgName.ResolveVersion(localImages, true)
-	}
 
-	// In case we want to include external images as well, pulling list of available
-	// images from the remote registry
-	if hub || candidate == nil {
-		log.Debugf("Getting list of tags for %s from the registry", imgName)
+		// In case we want to include external images as well, pulling list of available
+		// images from the remote registry
+		if hub || candidate == nil {
+			log.Debugf("Getting list of tags for %s from the registry", imgName)
 
-		var remoteImages []*imagename.ImageName
+			var remoteImages []*imagename.ImageName
 
-		if remoteImages, err = b.client.ListImageTags(imgName.String()); err != nil {
-			err = fmt.Errorf("Failed to list tags of image %s from the remote registry, error: %s", imgName, err)
+			if remoteImages, err = b.client.ListImageTags(imgName.String()); err != nil {
+				err = fmt.Errorf("Failed to list tags of image %s from the remote registry, error: %s", imgName, err)
+				return
+			}
+
+			// Since we found the remote image, we want to pull it
+			if remoteCandidate = imgName.ResolveVersion(remoteImages, false); remoteCandidate != nil {
+				pull = true
+				candidate = remoteCandidate
+
+				// If we've found needed image on s3 it should be pulled in the same name style as lookuped image
+				candidate.IsOldS3Name = imgName.IsOldS3Name
+			}
+		}
+
+		// If not candidate found, it's an error
+		if candidate == nil {
+			err = fmt.Errorf("Image not found: %s (also checked in the remote registry)", imgName)
 			return
 		}
 
-		// Since we found the remote image, we want to pull it
-		if remoteCandidate = imgName.ResolveVersion(remoteImages, false); remoteCandidate != nil {
-			pull = true
-			candidate = remoteCandidate
-
-			// If we've found needed image on s3 it should be pulled in the same name style as lookuped image
-			candidate.IsOldS3Name = imgName.IsOldS3Name
+		if !isSha && imgName.GetTag() != candidate.GetTag() {
+			if remoteCandidate != nil {
+				log.Infof("Resolve %s --> %s (found remotely)", imgName, candidate.GetTag())
+			} else {
+				log.Infof("Resolve %s --> %s", imgName, candidate.GetTag())
+			}
 		}
-	}
-
-	// If not candidate found, it's an error
-	if candidate == nil {
-		err = fmt.Errorf("Image not found: %s (also checked in the remote registry)", imgName)
-		return
-	}
-
-	if !isSha && imgName.GetTag() != candidate.GetTag() {
-		if remoteCandidate != nil {
-			log.Infof("Resolve %s --> %s (found remotely)", imgName, candidate.GetTag())
-		} else {
-			log.Infof("Resolve %s --> %s", imgName, candidate.GetTag())
-		}
+	} else {
+		pull = true
+		candidate = imgName
 	}
 
 	if pull {

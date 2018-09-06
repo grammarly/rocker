@@ -33,11 +33,23 @@ RUN go install \
 EXPORT /go/bin/rocker
 
 #========
-FROM alpine:3.2
+FROM alpine:3.8
 
 RUN apk --update add git bash
 
+RUN set -ex; \
+	apk add --update --no-cache --virtual .fetch-deps curl tar ; \
+	if ! curl -fL -o /docker.tgz "https://get.docker.com/builds/Linux/x86_64/docker-1.9.1.tgz"; then \
+		echo >&2 "error: failed to download 'docker-18.06.0-ce' from 'stable' for 'x86_64'"; \
+		exit 1; \
+	fi; \
+	\
+	tar --extract --file /docker.tgz; \
+	rm /docker.tgz; \
+	apk del .fetch-deps;
+
 RUN mkdir -p /opt/rocker/bin
+
 IMPORT rocker /opt/rocker/bin
 
 VOLUME ["/opt/rocker/bin"]
