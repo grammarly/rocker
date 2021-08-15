@@ -26,6 +26,7 @@ before_install:
 
   # print docker daemon info
   - docker info
+  - echo 1
 script:
   - set -e
   - docker login -u testrocker -p ${DOCKER_KEY}
@@ -33,3 +34,4 @@ script:
   - make install
   - make test_integration
   - set +e
+  
